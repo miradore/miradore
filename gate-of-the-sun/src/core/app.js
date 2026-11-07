@@ -34,7 +34,7 @@ export async function createApp({ canvas, departments, scale = 1 }) {
   sun.layers.enableAll(); scene.add(sun); scene.add(sun.target);
 
   // render targets
-  const dataRT = new THREE.WebGLRenderTarget(W, H, { depthTexture: new THREE.DepthTexture(W, H, THREE.UnsignedIntType), depthBuffer: true, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
+  const dataRT = new THREE.WebGLRenderTarget(W, H, { count: 2, depthTexture: new THREE.DepthTexture(W, H, THREE.UnsignedIntType), depthBuffer: true, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
   const fgRT = new THREE.WebGLRenderTarget(W, H, { type: THREE.HalfFloatType, depthTexture: new THREE.DepthTexture(W, H, THREE.UnsignedIntType), depthBuffer: true, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
   const bw = Math.round(W / 2), bh = Math.round(H / 2);
   const bgRT = new THREE.WebGLRenderTarget(bw, bh, { type: THREE.HalfFloatType, depthTexture: new THREE.DepthTexture(bw, bh, THREE.UnsignedIntType), depthBuffer: true, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
@@ -45,7 +45,7 @@ export async function createApp({ canvas, departments, scale = 1 }) {
   const comp = makeComposite(W, H);
   comp.mat.uniforms.tBg.value = bgPaintRT.texture; comp.mat.uniforms.tBgDepth.value = bgRT.depthTexture;
   comp.mat.uniforms.tFg.value = fgRT.texture; comp.mat.uniforms.tFgDepth.value = fgRT.depthTexture;
-  comp.mat.uniforms.tData.value = dataRT.texture; comp.mat.uniforms.tDataDepth.value = dataRT.depthTexture;
+  comp.mat.uniforms.tData.value = dataRT.textures[0]; comp.mat.uniforms.tAux.value = dataRT.textures[1]; comp.mat.uniforms.tDataDepth.value = dataRT.depthTexture;
   comp.mat.uniforms.uNear.value = camera.near; comp.mat.uniforms.uFar.value = camera.far;
   comp.mat.uniforms.uLineScale.value = scale;
   const quadCam = new THREE.Camera();

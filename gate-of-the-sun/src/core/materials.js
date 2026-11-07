@@ -37,16 +37,17 @@ float celBayer(vec2 p){
 }
 `;
 const ditherTest = /* glsl */`
-  if (uOpacity < 0.999) { if (celBayer(floor(gl_FragCoord.xy / 2.0)) > uOpacity) discard; }
+  if (uOpacity < 0.999) { if (celBayer(floor(gl_FragCoord.xy)) > uOpacity) discard; }
 `;
 
 // Shared data material (one instance; per-mesh uniforms are set in onBeforeRender).
 export function makeDataMaterial() {
   const m = new THREE.ShaderMaterial({
+    glslVersion: THREE.GLSL3,
     uniforms: { uId: { value: 0 }, uOpacity: { value: 1 }, map: { value: null }, uUseMap: { value: 0 }, uAlphaTest: { value: 0.5 } },
     vertexShader: /* glsl */`
       #include <common>
-      varying vec3 vN; varying vec2 vUvD;
+      out vec3 vN; out vec2 vUvD;
       void main(){
         #include <beginnormal_vertex>
         #include <defaultnormal_vertex>
@@ -56,15 +57,19 @@ export function makeDataMaterial() {
         #include <project_vertex>
       }`,
     fragmentShader: /* glsl */`
-      uniform float uId; uniform sampler2D map; uniform float uUseMap; uniform float uAlphaTest;
-      ${ditherChunk}
-      varying vec3 vN; varying vec2 vUvD;
+      precision highp float;
+      uniform float uId; uniform sampler2D map; uniform float uUseMap; uniform float uAlphaTest; uniform float uOpacity;
+      in vec3 vN; in vec2 vUvD;
+      layout(location = 0) out vec4 gData;
+      layout(location = 1) out vec4 gAux;
       void main(){
-        ${ditherTest}
-        if (uUseMap > 0.5) { if (texture2D(map, vUvD).a < uAlphaTest) discard; }
+        // fully faded objects leave the data pass so ink lines behind them survive
+        if (uOpacity < 0.04) discard;
+        if (uUseMap > 0.5) { if (texture(map, vUvD).a < uAlphaTest) discard; }
         vec3 n = normalize(vN);
         if (!gl_FrontFacing) n = -n;
-        gl_FragColor = vec4(n * 0.5 + 0.5, uId / 255.0);
+        gData = vec4(n * 0.5 + 0.5, uId / 255.0);
+        gAux = vec4(uOpacity, 0.0, 0.0, 1.0);
       }`,
     side: THREE.DoubleSide,
   });

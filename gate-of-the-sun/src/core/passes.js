@@ -36,7 +36,7 @@ export function makeComposite(width, height) {
   const mat = new THREE.ShaderMaterial({
     uniforms: {
       tBg: { value: null }, tBgDepth: { value: null }, tFg: { value: null }, tFgDepth: { value: null },
-      tData: { value: null }, tDataDepth: { value: null },
+      tData: { value: null }, tAux: { value: null }, tDataDepth: { value: null },
       uRes: { value: new THREE.Vector2(width, height) }, uNear: { value: 0.2 }, uFar: { value: 2500 },
       uHaze: { value: 0 }, uHazeColor: { value: c(0xD9B26A) }, uAerial: { value: c(0xA9D4F2) },
       uFlash: { value: 0 }, uFlashColor: { value: c(0xDFFCFF) }, uFade: { value: 0 },
@@ -45,7 +45,7 @@ export function makeComposite(width, height) {
     },
     vertexShader: VS,
     fragmentShader: /* glsl */`
-      uniform sampler2D tBg, tBgDepth, tFg, tFgDepth, tData, tDataDepth;
+      uniform sampler2D tBg, tBgDepth, tFg, tFgDepth, tData, tAux, tDataDepth;
       uniform vec2 uRes; uniform float uNear, uFar, uHaze, uFlash, uFade, uSeed, uLineScale;
       uniform vec3 uHazeColor, uAerial, uFlashColor, uInkChar, uInkGiant, uInkBg, uInkSteam, uInkDust;
       varying vec2 vUv;
@@ -66,7 +66,7 @@ export function makeComposite(width, height) {
         // line weight: thicker close up, thinner far away, with hand-pressure variation
         float wBase = clamp(2.3 - zC * 0.012, 1.0, 2.3) * (0.85 + 0.3 * vnoise(vUv*uRes*0.03 + uSeed)) * uLineScale;
         float w = wBase;
-        float idEdge = 0.0, dEdge = 0.0, nEdge = 0.0; float zMin = zC; float idMin = dC.a; vec3 nC = dC.xyz*2.0-1.0;
+        float idEdge = 0.0, dEdge = 0.0, nEdge = 0.0; float zMin = zC; float idMin = dC.a; vec3 nC = dC.xyz*2.0-1.0; vec2 uvMin = uv;
         float grazing = 1.0 - abs(nC.z);
         for (int i=0;i<8;i++){
           float a = float(i) * 0.785398;
@@ -77,10 +77,11 @@ export function makeComposite(width, height) {
           float thr = 0.006 + 0.07 * grazing * grazing;
           dEdge = max(dEdge, smoothstep(thr, thr*2.5, rel));
           vec3 nS = dS.xyz*2.0-1.0; nEdge = max(nEdge, smoothstep(0.5, 0.8, 1.0 - dot(nS, nC)));
-          if (zS < zMin) { zMin = zS; idMin = dS.a; }
+          if (zS < zMin) { zMin = zS; idMin = dS.a; uvMin = uv+o; }
         }
         int cls = classOf(idMin);
         float ink = max(idEdge, max(dEdge, nEdge*0.85));
+        ink *= texture2D(tAux, uvMin).r;   // ink fades with the object's opacity
         if (cls == 0) ink = 0.0;
         // thinner, lighter lines for far things and for the background class
         float distFade = 1.0 - smoothstep(60.0, 400.0, zMin);
