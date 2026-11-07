@@ -1,13 +1,48 @@
 // Pose generators. A pose is a plain object of joint rotations (added to the rig's base rotations)
 // plus hipsPos in the root frame. Everything here is a pure function of its inputs.
+import * as THREE from 'three';
 import * as MAP from '../../../shared/map.js';
 import { lerpPose } from './rig.js';
 export { lerpPose };
 
-const { clamp } = MAP;
+const { clamp, lerp } = MAP;
 const PI = Math.PI;
 
 export function basePose(fig) { return { hipsPos: [0, fig.dims.hipsY, 0] }; }
+
+/** Blend two poses and re-solve the legs so blended feet keep their (blended) targets; then make sure
+ *  no part of either leg dips below the root plane (plus 1.2 cm). */
+export function blendPose(fig, a, b, t) {
+  const out = lerpPose(a, b, t);
+  if (a._feet && b._feet) for (const s of ['L', 'R']) if (a._feet[s] && b._feet[s]) {
+    const A = a._feet[s], B = b._feet[s];
+    legIK(fig, out, s, lerp(A[0], B[0], t), lerp(A[1], B[1], t), lerp(A[2], B[2], t));
+  }
+  groundClamp(fig, out);
+  return out;
+}
+
+const _m = new THREE.Matrix4(), _e = new THREE.Euler(), _p = new THREE.Vector3();
+function rotOf(fig, pose, name) { const b = fig.base[name] || [0, 0, 0]; const r = pose[name] || [0, 0, 0]; _e.set(b[0] + r[0], b[1] + r[1], b[2] + r[2], 'XYZ'); return new THREE.Matrix4().makeRotationFromEuler(_e); }
+/** Lowest point of the legs in the root frame; raises hipsPos so it stays 1.2 cm above the root plane. */
+export function groundClamp(fig, pose) {
+  const d = fig.dims; const hp = pose.hipsPos || [0, d.hipsY, 0];
+  let minY = Infinity;
+  const hips = new THREE.Matrix4().makeTranslation(hp[0], hp[1], hp[2]).multiply(rotOf(fig, pose, 'hips'));
+  for (const s of ['L', 'R']) {
+    const sx = s === 'L' ? 1 : -1;
+    const th = hips.clone().multiply(new THREE.Matrix4().makeTranslation(sx * d.hipW, -d.hipDrop, 0)).multiply(rotOf(fig, pose, 'thigh' + s));
+    const sh = th.clone().multiply(new THREE.Matrix4().makeTranslation(0, -d.thigh, 0)).multiply(rotOf(fig, pose, 'shin' + s));
+    const ft = sh.clone().multiply(new THREE.Matrix4().makeTranslation(0, -d.shin, 0)).multiply(rotOf(fig, pose, 'foot' + s));
+    const pts = [[th, 0, 0, 0, d.limbR], [th, 0, -d.thigh, 0, d.limbR], [sh, 0, -d.shin, 0, d.limbR * 0.82]];
+    for (const [m, x, y, z, r] of pts) { _p.set(x, y, z).applyMatrix4(m); minY = Math.min(minY, _p.y - r); }
+    for (const cx of [-1, 1]) for (const cy of [-1, 1]) for (const cz of [-1, 1]) {
+      _p.set(cx * d.footW / 2, -d.footH / 2 + cy * d.footH / 2, d.footL * 0.22 + cz * d.footL / 2).applyMatrix4(ft); minY = Math.min(minY, _p.y);
+    }
+  }
+  if (minY < 0.012) pose.hipsPos = [hp[0], hp[1] + (0.012 - minY), hp[2]];
+  return pose;
+}
 
 /** Two bone leg IK in the root frame. Target is the ankle position. Hips rotation is assumed small. */
 export function legIK(fig, pose, side, tx, ty, tz) {
@@ -24,6 +59,7 @@ export function legIK(fig, pose, side, tx, ty, tz) {
   const lat = Math.atan2(vx, Math.hypot(vy, vz));
   const alpha = Math.acos(clamp((a * a + dist * dist - b * b) / (2 * a * dist), -1, 1));
   const knee = Math.acos(clamp((a * a + b * b - dist * dist) / (2 * a * b), -1, 1));
+  pose._feet = pose._feet || {}; pose._feet[side] = [tx, ty, tz];
   pose['thigh' + side] = [-(phi + alpha), 0, lat];
   pose['shin' + side] = [PI - knee, 0, 0];
   pose['foot' + side] = [(phi + alpha) - (PI - knee), 0, -lat];
@@ -34,8 +70,9 @@ export function standPose(fig, o = {}) {
   const d = fig.dims; const pose = basePose(fig);
   const L = d.thigh + d.shin;
   const spread = o.spread ?? 0.02;
+  const sl = o.slope ?? 0;                       // ground rise per metre along local +z
   pose.hipsPos = [0, d.footH + L * 0.985 - (o.crouch || 0), 0];
-  legIK(fig, pose, 'L', d.hipW + spread, d.footH, (o.footLz ?? 0)); legIK(fig, pose, 'R', -d.hipW - spread, d.footH, (o.footRz ?? 0));
+  legIK(fig, pose, 'L', d.hipW + spread, d.footH + sl * (o.footLz ?? 0), (o.footLz ?? 0)); legIK(fig, pose, 'R', -d.hipW - spread, d.footH + sl * (o.footRz ?? 0), (o.footRz ?? 0));
   pose.uaL = [o.armX ?? 0.08, 0, 0.16 + (o.armOut ?? 0)]; pose.uaR = [o.armX ?? 0.08, 0, -0.16 - (o.armOut ?? 0)];
   pose.faL = [-(o.elbow ?? 0.2), 0, 0]; pose.faR = [-(o.elbow ?? 0.2), 0, 0];
   pose.spine = [o.lean ?? 0.02, o.twist ?? 0, 0];
@@ -60,9 +97,10 @@ export function gaitPose(fig, phase, o) {
   const reach = Math.sqrt(Math.max(0.01, L * L - (stride * 0.5) * (stride * 0.5)));
   const bobAmp = o.bob ?? (run ? d.H * 0.035 : d.H * 0.012);
   const bob = run ? bobAmp * (0.5 - 0.5 * Math.cos(4 * PI * phase + PI)) : bobAmp * (0.5 - 0.5 * Math.cos(4 * PI * phase));
-  const hipY = d.footH + reach * 0.99 + bob - (o.crouch || 0) + (run ? d.H * 0.01 : 0);
+  const sl = o.slope ?? 0;                       // ground rise per metre along local +z
+  const hipY = d.footH + reach * 0.99 + bob - (o.crouch || 0) + (run ? d.H * 0.01 : 0) + Math.abs(sl) * stride * 0.5;
   pose.hipsPos = [0, hipY, 0];
-  legIK(fig, pose, 'L', d.hipW, d.footH + fl.y, fl.z); legIK(fig, pose, 'R', -d.hipW, d.footH + fr.y, fr.z);
+  legIK(fig, pose, 'L', d.hipW, d.footH + fl.y + sl * fl.z, fl.z); legIK(fig, pose, 'R', -d.hipW, d.footH + fr.y + sl * fr.z, fr.z);
   const sw = o.armSwing ?? (run ? 0.9 : 0.35);
   const c = Math.cos(2 * PI * phase);
   pose.uaL = [sw * c + (run ? -0.3 : 0.05), 0, run ? 0.3 : 0.14]; pose.uaR = [-sw * c + (run ? -0.3 : 0.05), 0, run ? -0.3 : -0.14];
@@ -86,17 +124,29 @@ export function sitPose(fig, o = {}) {
   const pivotY = hipY - d.hipDrop;
   const kneeY = pivotY + d.thigh * Math.sin(k * 0.95);
   const drop = kneeY - d.footH - 0.015;
-  const dir = k > 0.4 ? -1 : 1;                      // shins forward (legs out) or tucked back (knees hugged)
+  const dir = o.shinDir ?? (k > 0.4 ? -1 : 1);       // shins forward (legs out) or tucked back (knees hugged)
   let shinAng = drop >= d.shin ? 0 : Math.acos(clamp(drop / d.shin, -1, 1));
   if (dir < 0) shinAng = Math.min(shinAng, thetaT - 0.35); // keep the foot in front of the pelvis
   const spread = o.legSpread ?? 0.08;
   for (const s of ['L', 'R']) {
     const sx = s === 'L' ? 1 : -1;
     const tOff = (o['thighOff' + s] ?? 0);
+    if (o.straight) {
+      // legs stretched out along the seat surface: thigh level, shin angled slightly down so the heel rests
+      const kneeY2 = pivotY; const drop2 = kneeY2 - d.footH - 0.02;
+      const sa = Math.asin(clamp(drop2 / d.shin, -1, 1));
+      pose['thigh' + s] = [-PI / 2, 0, sx * spread];
+      pose['shin' + s] = [sa, 0, 0];
+      pose['foot' + s] = [PI / 2 - sa, 0, -sx * spread];
+      continue;
+    }
     pose['thigh' + s] = [-(thetaT + tOff), 0, sx * spread];
     pose['shin' + s] = [thetaT + tOff - dir * shinAng, 0, 0];
     pose['foot' + s] = [dir * shinAng - (o.toes ?? 0), 0, -sx * spread];
   }
+  // tail lies back along the seat, slightly rising, instead of hanging through it
+  pose.tail = [PI / 2 + 0.12 - (fig.base.tail ? fig.base.tail[0] : 0), 0, 0];
+  if (fig.j.tail2) pose.tail2 = [0.2, 0, 0];
   switch (o.arms) {
     case 'hug': pose.uaL = [-0.6, 0, 0.15]; pose.uaR = [-0.6, 0, -0.15]; pose.faL = [-0.5, 0, -0.85]; pose.faR = [-0.5, 0, 0.85]; break;
     case 'knees': pose.uaL = [-0.75, 0, 0.12]; pose.uaR = [-0.75, 0, -0.12]; pose.faL = [-0.25, 0, 0]; pose.faR = [-0.25, 0, 0]; break;
@@ -111,9 +161,9 @@ export function sitPose(fig, o = {}) {
 export function kneelPose(fig, o = {}) {
   const d = fig.dims; const pose = {};
   const kneeY = d.limbR + 0.012;
-  pose.hipsPos = [0, kneeY + d.thigh + d.hipDrop - (o.sit ?? 0) * d.thigh * 0.5, 0];
-  pose.spine = [o.lean ?? 0.3, o.twist ?? 0, 0];
   const t = (o.sit ?? 0) * 0.55; // sitting back on the heels tilts the thighs back
+  pose.hipsPos = [0, kneeY + d.thigh * Math.cos(t) + d.hipDrop, -d.thigh * Math.sin(t)];
+  pose.spine = [o.lean ?? 0.3, o.twist ?? 0, 0];
   for (const s of ['L', 'R']) { const sx = s === 'L' ? 1 : -1; pose['thigh' + s] = [t, 0, sx * 0.1]; pose['shin' + s] = [PI / 2 - t, 0, 0]; pose['foot' + s] = [PI / 2, 0, -sx * 0.1]; }
   pose.uaL = [-0.6, 0, 0.2]; pose.uaR = [-0.6, 0, -0.2]; pose.faL = [-0.5, 0, 0]; pose.faR = [-0.5, 0, 0];
   return pose;
@@ -127,6 +177,7 @@ export function crouchPose(fig, o = {}) {
   legIK(fig, pose, 'L', d.hipW, d.footH + (o.footLy ?? 0), o.footLz ?? 0.05); legIK(fig, pose, 'R', -d.hipW, d.footH + (o.footRy ?? 0), o.footRz ?? -0.05);
   pose.spine = [o.lean ?? 0.5, o.twist ?? 0, 0];
   pose.uaL = [-0.8, 0, 0.2]; pose.uaR = [-0.8, 0, -0.2]; pose.faL = [-0.4, 0, 0]; pose.faR = [-0.4, 0, 0];
+  pose.tail = [0.5, 0, 0]; pose.tail2 = [0.3, 0, 0];
   return pose;
 }
 

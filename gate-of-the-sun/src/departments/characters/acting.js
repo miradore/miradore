@@ -18,6 +18,8 @@ export function surfY(x, z) {
   if (x >= -30.6 && x <= 30.6 && z >= 58.9 && z <= 95.6) return groundY(x, z) + 0.08;
   return groundY(x, z);
 }
+/** ground rise per metre along the facing direction (for foot placement over a stride) */
+function slopeAt(x, z, yaw) { const dx = Math.sin(yaw) * 0.5, dz = Math.cos(yaw) * 0.5; return surfY(x + dx, z + dz) - surfY(x - dx, z - dz); }
 function place(fig, x, y, z, yaw) { fig.root.position.set(x, y, z); fig.root.rotation.set(0, yaw, 0); }
 function show(fig, v) { fig.root.visible = !!v; }
 function breath(pose, frame, seed, amp = 0.02) { const s = pose.spine || [0, 0, 0]; pose.spine = [s[0] + amp * Math.sin(frame * 0.26 + seed * 3.1), s[1], s[2]]; return pose; }
@@ -42,9 +44,9 @@ function kidSeat(name) {
   const dx = name === 'lynx' ? 0.38 : 0.1;      // pelvis forward of the seat point so heads meet ANCHORS
   return { x: k.seat[0] + dx, y: k.seat[1], z: k.seat[2] };
 }
-function foxSit(fig, o = {}) { return P.sitPose(fig, { lean: 0.26, arms: 'knees', legSpread: 0.1, ...o }); }
+function foxSit(fig, o = {}) { return P.sitPose(fig, { lean: 0.26, arms: 'knees', legSpread: 0.1, kneesUp: 0.7, shinDir: 1, ...o }); }
 function hareSit(fig, o = {}) { return P.sitPose(fig, { lean: 0.32, kneesUp: 0.8, arms: 'hug', legSpread: 0.06, ...o }); }
-function lynxSit(fig, o = {}) { return P.sitPose(fig, { lean: -0.05, arms: 'back', legSpread: 0.14, ...o }); }
+function lynxSit(fig, o = {}) { return P.sitPose(fig, { lean: -0.05, arms: 'back', legSpread: 0.14, straight: true, ...o }); }
 
 /** frozen awe toward the wall: the kids face +x, the wall is behind-left (yaw ~ +1.6) and high (pitch -0.55) */
 function aweLook(pose, fig, frame, o = {}) {
@@ -80,12 +82,19 @@ export function makeCast(ctx, figs, crowd, props) {
     }
     square.push({ x: p[0], z: p[1], idleYaw: rng() * PI * 2, runV: 3.2 + rng() * 0.8, armMode: Math.floor(rng() * 3), earTremble: rng() < 0.3 });
   }
+  // flee lanes: x = +-5.4 (clear of the fountain rim and of the houses beyond the square), slots 1.8 m apart by start z
+  for (const side of [-1, 1]) {
+    const members = square.map((q, k) => ({ q, k })).filter(({ q }) => Math.sign(q.x || 1) === side).sort((a, b) => b.q.z - a.q.z);
+    members.forEach(({ q, k }, rank) => { q.laneX = side * 5.4 + (hash1(k + 300) - 0.5) * 0.3; q.slotZ = 91 - rank * 1.8; });
+  }
   const street10 = [[-4.2, 37], [-2.5, 42], [-0.5, 39.5], [1.5, 43], [3.2, 38], [4.6, 41]];
   const run24 = [];
   for (let i = 0; i < 20; i++) {
     const col = i % 4, row = Math.floor(i / 4);
-    const lane = [-6.9, -5.6, 5.6, 6.9][col];
-    run24.push({ x: lane + (hash2(i, 3) - 0.5) * 0.5, z0: 64.5 + row * 3.4 + (hash2(i, 5) - 0.5) * 1.6, v: 4.3 + (hash2(i, 7) - 0.5) * 0.8, phase: hash2(i, 9) });
+    // lanes either side of the fountain (rim at r 4.7) inside the street; outer lanes staggered half a row
+    const lane = [-6.15, -5.25, 5.25, 6.15][col];
+    const outer = col === 0 || col === 3;
+    run24.push({ x: lane + (hash2(i, 3) - 0.5) * 0.1, z0: 64.5 + row * 3.4 + (outer ? 1.7 : 0) + (hash2(i, 5) - 0.5) * 0.4 - (i === 1 ? 2.0 : 0), v: i === 1 ? 3.9 : 4.3 + (hash2(i, 7) - 0.5) * 0.8, phase: hash2(i, 9) });
   }
   const run25 = [];
   for (let i = 0; i < 6; i++) run25.push({ x: -7.6 - i * 0.7, z0: 61 + hash2(i, 11) * 3, v: 3.3 + hash2(i, 13) * 0.6, phase: hash2(i, 15) });
@@ -161,7 +170,7 @@ function directKids(cast, frame, f2, lf, lt, shot, info, ctx) {
     const t = smooth(clamp(lf / 6, 0, 1));
     const kneel = P.kneelPose(fox, { lean: 0.6 });
     kneel.uaL = [-1.45, 0, 0.45]; kneel.uaR = [-1.45, 0, -0.45]; kneel.faL = [-0.35, 0, 0]; kneel.faR = [-0.35, 0, 0];
-    kneel.head = [0.35, 0, 0]; kneel.eyes = 'closed'; kneel.mouth = 'gasp'; kneel.earL = [0.7, 0, 0.1]; kneel.earR = [0.7, 0, -0.1]; kneel.tail = [-0.9, 0.5, 0];
+    kneel.head = [0.35, 0, 0]; kneel.eyes = 'closed'; kneel.mouth = 'gasp'; kneel.earL = [0.7, 0, 0.1]; kneel.earR = [0.7, 0, -0.1]; kneel.tail = [0.3, 0.9, 0]; kneel.tail2 = [0.3, 0, 0];
     brows(kneel, 0, 0.3);
     if (t < 1) {
       const sit = foxSit(fox, { lean: 0.1 }); sit.eyes = 'closed'; sit.mouth = 'gasp';
@@ -204,31 +213,31 @@ function directKids(cast, frame, f2, lf, lt, shot, info, ctx) {
     const zF = 46.3, zH = 46.7;
     
     const standBack = (fig, yaw) => { const p = P.standPose(fig, { lean: 0.1 }); P.look(p, yaw, -0.15, { spineShare: 0.4 }); return p; };
-    const crouch = (fig) => P.crouchPose(fig, { height: 0.62, lean: 0.6 });
+    const crouch = (fig) => P.crouchPose(fig, { height: 0.62, lean: 0.3 });
     const crouchUp = (fig) => { const p = P.crouchPose(fig, { height: 0.55, lean: 0.75, footLy: 0.02, footRy: 0.02, footLz: 0.02, footRz: -0.02 }); p.uaL = [-1.6, 0, 0.3]; p.uaR = [-1.6, 0, -0.3]; p.faL = [-0.2, 0, 0]; p.faR = [-0.2, 0, 0]; return p; };
     // fox: pulls (left arm back toward the hare), scrambles up the bank riser, stands at the top facing the hare
-    const pull = (fig) => { const p = P.standPose(fig, { lean: 0.35 }); p.uaL = [1.2, 0, 0.35]; p.faL = [-0.3, 0, 0]; p.uaR = [-0.6, 0, -0.2]; P.look(p, 1.1, 0.0, { spineShare: 0.5 }); return p; };
+    const pull = (fig) => { const p = P.standPose(fig, { lean: 0.35 }); p.tail = [0.4, 0, 0]; p.uaL = [1.2, 0, 0.35]; p.faL = [-0.3, 0, 0]; p.uaR = [-0.6, 0, -0.2]; P.look(p, 1.1, 0.0, { spineShare: 0.5 }); return p; };
     // once on the bank the fox turns to face the hare and hauls with both arms, leaning back
-    const haul = (fig) => { const p = P.standPose(fig, { lean: -0.12, footLz: 0.08, footRz: -0.1 }); p.uaL = [-0.75, 0, 0.3]; p.uaR = [-0.75, 0, -0.3]; p.faL = [-0.35, 0, 0]; p.faR = [-0.35, 0, 0]; P.look(p, 0, 0.35); return p; };
+    const haul = (fig) => { const p = P.standPose(fig, { lean: -0.12, footLz: 0.06, footRz: -0.08 }); p.tail = [0.3, 0, 0]; p.uaL = [-0.75, 0, 0.3]; p.uaR = [-0.75, 0, -0.3]; p.faL = [-0.35, 0, 0]; p.faR = [-0.35, 0, 0]; P.look(p, 0, 0.35); return p; };
     const foxKeys = [
       { f: 0, x: 27.35, lvl: 0, pose: pull(fox), yaw: WEST },
-      { f: 10, x: 26.45, lvl: 0, pose: crouch(fox), yaw: WEST },
+      { f: 10, x: 26.6, lvl: 0, pose: crouch(fox), yaw: WEST },
       { f: 14, x: 26.3, lvl: 1, pose: crouchUp(fox), yaw: WEST },
       { f: 22, x: 25.6, lvl: 1, pose: standBack(fox, 0), yaw: WEST },
-      { f: 30, x: 25.15, lvl: 1, pose: haul(fox), yaw: EAST },
-      { f: 59, x: 25.1, lvl: 1, pose: haul(fox), yaw: EAST },
+      { f: 30, x: 25.05, lvl: 1, pose: haul(fox), yaw: EAST },
+      { f: 59, x: 25.0, lvl: 1, pose: haul(fox), yaw: EAST },
     ];
     const stumble = (fig) => { const p = P.standPose(fig, { lean: 0.5, crouch: 0.03 }); p.uaR = [-1.45, 0, -0.3]; p.faR = [-0.2, 0, 0]; p.uaL = [-0.9, 0, 0.5]; p.head = [0.2, 0, 0.15]; return p; };
     const hareKeys = [
       { f: 0, x: 28.9, lvl: 0, pose: stumble(hare), yaw: WEST },
-      { f: 8, x: 28.4, lvl: 0, pose: crouch(hare), yaw: WEST },
+      { f: 8, x: 28.6, lvl: 0, pose: crouch(hare), yaw: WEST },
       { f: 12, x: 28.3, lvl: 1, pose: crouchUp(hare), yaw: WEST },
       { f: 20, x: 27.6, lvl: 1, pose: stumble(hare), yaw: WEST },
-      { f: 30, x: 26.45, lvl: 1, pose: crouch(hare), yaw: WEST },
+      { f: 30, x: 26.6, lvl: 1, pose: crouch(hare), yaw: WEST },
       { f: 34, x: 26.3, lvl: 2, pose: crouchUp(hare), yaw: WEST },
-      { f: 42, x: 25.85, lvl: 2, pose: stumble(hare), yaw: WEST },
-      { f: 50, x: 25.85, lvl: 2, pose: standBack(hare, 1.2), yaw: WEST },
-      { f: 59, x: 25.85, lvl: 2, pose: standBack(hare, 1.2), yaw: WEST },
+      { f: 42, x: 25.9, lvl: 2, pose: stumble(hare), yaw: WEST },
+      { f: 50, x: 25.9, lvl: 2, pose: standBack(hare, 1.2), yaw: WEST },
+      { f: 59, x: 25.9, lvl: 2, pose: standBack(hare, 1.2), yaw: WEST },
     ];
     const levelsF = [stepTopY(0, zF), surfY(25.5, zF)];
     const levelsH = [stepTopY(1, zH), stepTopY(0, zH), surfY(25.5, zH)];
@@ -240,7 +249,7 @@ function directKids(cast, frame, f2, lf, lt, shot, info, ctx) {
       const y = lerp(levels[a.lvl], levels[b.lvl], t) + 0.012 + (a.lvl !== b.lvl ? 0.05 * Math.sin(PI * t) : 0);
       const yaw = lerp(a.yaw, b.yaw, t);
       place(fig, x, y, z, yaw);
-      const pose = P.lerpPose(a.pose, b.pose, t);
+      const pose = P.blendPose(fig, a.pose, b.pose, t);
       pose.eyes = blinkOr(f2, fig.spec.inkId, fig === hare ? wetEyes(f2) : 'wide'); pose.mouth = 'gasp'; brows(pose, 0.3);
       fig.setPose(pose);
     };
@@ -287,13 +296,11 @@ function directKids(cast, frame, f2, lf, lt, shot, info, ctx) {
   }
   // anchors: the camera follows the real head in shots 30-31, otherwise the map anchors apply
   if (shot >= 30) ctx.anchors.hareHead = hare.headWorld(); else delete ctx.anchors.hareHead;
-  if (cast.debugCam) ctx.anchors.hareHead = cast.debugCam;   // debug only: point the shot 4 camera anywhere
 }
 
 // ------------------------------------------------------------------ mothers
 function directMothers(cast, frame, f2, lf, lt, shot) {
   const { badger, piglet, goat, goatkid } = cast.figs;
-  if (cast.debugCam && shot === 4) shot = 2;          // debug only: inspect the shot 2 staging through the shot 4 camera
   const vis = shot === 2 || shot === 25;
   for (const f of [badger, piglet, goat, goatkid]) show(f, vis);
   cast.props.cloth.visible = shot === 2;
@@ -309,7 +316,7 @@ function directMothers(cast, frame, f2, lf, lt, shot) {
     P.look(pb, -0.2, 0.42); pb.eyes = blinkOr(f2, 4, 'half'); pb.mouth = 'smile';
     badger.setPose(breath(pb, f2, 4, 0.01));
     // piglet tugging at the apron hem (position pulled closer than the map point so it can reach)
-    const p = MOTHERS.piglet.shot2; place(piglet, -12.6, surfY(-12.6, p[2]) + 0.012, p[2], WEST);
+    const p = MOTHERS.piglet.shot2; place(piglet, -12.45, surfY(-12.45, p[2]) + 0.012, p[2], WEST);
     const pp = P.standPose(piglet, { lean: -0.12 - 0.1 * P.alt2(hold(frame, 12)), spread: 0.02 });
     pp.uaL = [-1.75, 0, 0.15]; pp.uaR = [-1.75, 0, -0.15]; pp.faL = [-0.2, 0, 0]; pp.faR = [-0.2, 0, 0];
     P.look(pp, 0.05, -0.55); pp.eyes = blinkOr(f2, 5, 'up'); pp.mouth = 'small';
@@ -338,7 +345,7 @@ function directMothers(cast, frame, f2, lf, lt, shot) {
     const stepT = smooth(clamp(lf / 6, 0, 1));
     const bx0 = lerp(b0[0], b0[0] + 0.45, stepT), bz0 = lerp(b0[2], b0[2] + 0.22, stepT);
     const curled = () => { const c = P.basePose(piglet); c.hipsPos = [0, piglet.dims.hipsY * 0.9, 0]; c.thighL = [-1.3, 0, 0.15]; c.thighR = [-1.3, 0, -0.15]; c.shinL = [1.6, 0, 0]; c.shinR = [1.6, 0, 0]; c.footL = [-0.3, 0, 0]; c.footR = [-0.3, 0, 0]; c.uaL = [-1.0, 0, 0.3]; c.uaR = [-1.0, 0, -0.3]; c.faL = [-1.0, 0, 0]; c.faR = [-1.0, 0, 0]; c.head = [0.2, 0, 0]; c.eyes = 'closed'; c.mouth = 'sad'; c.earL = [-0.4, 0, 0]; c.earR = [-0.4, 0, 0]; return c; };
-    const carryArms = (p) => { p.uaL = [-1.05, 0, 0.45]; p.uaR = [-1.05, 0, -0.45]; p.faL = [-1.2, 0.5, 0]; p.faR = [-1.2, -0.5, 0]; return p; };
+    const carryArms = (p) => { p.uaL = [-0.7, 0, 0.7]; p.uaR = [-0.7, 0, -0.7]; p.faL = [-1.6, 1.0, 0]; p.faR = [-1.6, -1.0, 0]; return p; };
     if (lf < 10) {
       place(badger, bx0, surfY(bx0, bz0) + 0.012, bz0, toPig);
       const bend = smooth(clamp(lf / 10, 0, 1));
@@ -354,8 +361,8 @@ function directMothers(cast, frame, f2, lf, lt, shot) {
         // blend toward the carried position
         const t = smooth((lf - 8) / 2);
         const gp = new THREE.Vector3(p0[0], surfY(p0[0], p0[2]) + 0.012, p0[2]);
-        const gq = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, yawTo(b0[0] - p0[0], b0[2] - p0[2]), 0));
-        carry(badger, piglet, [0, -0.12, 0.33], PI, curled());
+        const gq = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, yawTo(b0[0] - p0[0], b0[2] - p0[2]), 0));   // the piglet faces the mother on the ground, then is turned away as she lifts him
+        carry(badger, piglet, [0.1, -0.2, 0.37], 0, curled());
         piglet.root.position.lerpVectors(gp, piglet.root.position, t); piglet.root.quaternion.slerpQuaternions(gq, piglet.root.quaternion, t);
         piglet.setPose(P.lerpPose(pp, curled(), t));
       }
@@ -366,23 +373,23 @@ function directMothers(cast, frame, f2, lf, lt, shot) {
       const yaw = lf < 16 ? lerp(toPig, runYaw, rise) : runYaw;
       place(badger, bx, surfY(bx, bz) + 0.012, bz, yaw);
       let pb;
-      if (lf < 16) { pb = P.standPose(badger, { lean: lerp(1.0, 0.25, rise), crouch: 0.1 * (1 - rise) }); }
-      else pb = P.gaitPose(badger, (runT / 0.5) % 1, { run: true, stride: badger.dims.H * 0.5, lean: 0.3 });
+      if (lf < 16) { pb = P.standPose(badger, { lean: lerp(1.0, 0.12, rise), crouch: 0.1 * (1 - rise) }); }
+      else pb = P.gaitPose(badger, (runT / 0.5) % 1, { run: true, stride: badger.dims.H * 0.4, lean: 0.12, slope: slopeAt(bx, bz, yaw) });
       carryArms(pb); P.look(pb, 0, 0.1); pb.eyes = 'wide'; pb.mouth = 'gasp'; brows(pb, 0.35);
       badger.setPose(pb);
-      carry(badger, piglet, [0, -0.12, 0.33], PI, curled());
+      carry(badger, piglet, [0.1, -0.2, 0.37], 0, curled());
     }
     // goat mother clutching the baby, runs behind
     const g0 = MOTHERS.goat.shot25; const gDir = new THREE.Vector2(-2.5, 11).normalize(); const gYaw = yawTo(gDir.x, gDir.y);
     const gT = Math.max(0, lt - 6 / 24);
     const gx = g0[0] + gDir.x * 3.2 * gT, gz = g0[2] + gDir.y * 3.2 * gT;
     place(goat, gx, surfY(gx, gz) + 0.012, gz, gYaw);
-    let pg = gT > 0 ? P.gaitPose(goat, (gT / 0.5) % 1, { run: true, stride: goat.dims.H * 0.45, lean: 0.28 }) : P.standPose(goat, { lean: 0.2 });
+    let pg = gT > 0 ? P.gaitPose(goat, (gT / 0.5) % 1, { run: true, stride: goat.dims.H * 0.4, lean: 0.12, slope: slopeAt(gx, gz, gYaw) }) : P.standPose(goat, { lean: 0.1 });
     carryArms(pg); P.look(pg, 0, 0.15); pg.eyes = 'wide'; pg.mouth = 'gasp'; brows(pg, 0.35); pg.earL = [-0.5, 0, 0]; pg.earR = [-0.5, 0, 0];
     goat.setPose(pg);
     const kc = P.basePose(goatkid); kc.hipsPos = [0, goatkid.dims.hipsY * 0.9, 0]; kc.thighL = [-1.3, 0, 0.15]; kc.thighR = [-1.3, 0, -0.15]; kc.shinL = [1.6, 0, 0]; kc.shinR = [1.6, 0, 0]; kc.footL = [-0.3, 0, 0]; kc.footR = [-0.3, 0, 0];
     kc.uaL = [-1.0, 0, 0.3]; kc.uaR = [-1.0, 0, -0.3]; kc.faL = [-1.0, 0, 0]; kc.faR = [-1.0, 0, 0]; kc.head = [0.25, 0, 0]; kc.eyes = 'closed'; kc.mouth = 'sad';
-    carry(goat, goatkid, [0, -0.08, 0.3], PI, kc);
+    carry(goat, goatkid, [0, -0.24, 0.35], 0, kc);
   }
 }
 
@@ -422,17 +429,18 @@ function directCrowd(cast, frame, f2, lf, lt, shot) {
           if (flinch) fig.setEyes('closed');
         }
       } else {
-        // turn and run away from the gate toward +z
+        // turn and run away from the gate toward +z, converging on two lanes either side of the fountain
+        // (slots ordered by start z so paths never cross); all at the same speed so the file keeps its order
         const t0 = (T.KICK + 8) / 24, t = frame / 24 - t0;
         const turn = smooth(clamp(t / (6 / 24), 0, 1));
         const runT = Math.max(0, t - 6 / 24);
-        // run +z; once past the fountain converge on the main street (clear of houses beyond the square)
-        const path = (tt) => { const z = s.z + s.runV * tt; const k = smooth(clamp((z - 84) / 8, 0, 1)); const xT = Math.sign(s.x || 1) * Math.min(Math.abs(s.x), 3.5); return [lerp(s.x, xT, k), z]; };
+        const V = 3.6;
+        const path = (tt) => { const k = smooth(clamp(tt / 2.0, 0, 1)); return [lerp(s.x, s.laneX, k), lerp(s.z + V * tt, s.slotZ + V * tt, k)]; };
         const [px, z] = path(runT); const [px2, z2] = path(runT + 0.1);
         const yaw = runT > 0 ? yawTo(px2 - px, z2 - z) : SOUTH;
         place(fig, px, g(px, z), z, lerp(NORTH, yaw, turn));
         if (runT <= 0) { const p = crowdFrozen(fig, f2, i, s, { pitch: -0.2 }); fig.setPose(p); }
-        else { const p = P.gaitPose(fig, (runT / 0.5 + hash1(i)) % 1, { run: true }); p.eyes = 'wide'; p.mouth = 'gasp'; brows(p, 0.3); fig.setPose(p); }
+        else { const p = P.gaitPose(fig, (runT / 0.5 + hash1(i)) % 1, { run: true, slope: slopeAt(px, z, yaw) }); p.eyes = 'wide'; p.mouth = 'gasp'; brows(p, 0.3); fig.setPose(p); }
       }
     }
     if (shot === 10) {
@@ -459,7 +467,7 @@ function directCrowd(cast, frame, f2, lf, lt, shot) {
     for (const [i, x, dz] of pairs) {
       const fig = crowd[i]; vis[i] = true; const zz = z + dz;
       place(fig, x, g(x, zz), zz, SOUTH);
-      const p = P.gaitPose(fig, (lt / 0.5 + hash1(i)) % 1, { run: true, stride: fig.dims.H * 0.6 }); p.eyes = 'wide'; p.mouth = 'gasp'; brows(p, 0.3);
+      const p = P.gaitPose(fig, (lt / 0.5 + hash1(i)) % 1, { run: true, stride: fig.dims.H * 0.6, slope: slopeAt(x, zz, SOUTH) }); p.eyes = 'wide'; p.mouth = 'gasp'; brows(p, 0.3);
       fig.setPose(p);
     }
   } else if (shot === 24) {
@@ -473,15 +481,14 @@ function directCrowd(cast, frame, f2, lf, lt, shot) {
         const zRun = r.z0 + r.v * Math.min(lt, t30);
         const fallT = clamp((lt - t30) / (6 / 24), 0, 1), upT = clamp((lt - 44 / 24) / (6 / 24), 0, 1);
         z = zRun + 0.6 * smooth(fallT) + r.v * Math.max(0, lt - t50);
-        const run = P.gaitPose(fig, (lt / 0.5 + r.phase) % 1, { run: true });
-        const down = P.kneelPose(fig, { lean: 1.05 }); down.uaL = [-0.45, 0, 0.25]; down.uaR = [-0.45, 0, -0.25]; down.faL = [0, 0, 0]; down.faR = [0, 0, 0]; down.head = [-0.3, 0, 0];
-        down.hipsPos = [0, down.hipsPos[1] - fig.dims.thigh * 0.1, 0];
+        const run = P.gaitPose(fig, (lt / 0.5 + r.phase) % 1, { run: true, slope: slopeAt(r.x, z, SOUTH) });
+        const down = P.kneelPose(fig, { lean: 1.05, sit: 0.3 }); down.uaL = [-0.45, 0, 0.25]; down.uaR = [-0.45, 0, -0.25]; down.faL = [0, 0, 0]; down.faR = [0, 0, 0]; down.head = [-0.3, 0, 0];
         if (lt < t30) pose = run;
-        else if (lt < t30 + 6 / 24) pose = P.lerpPose(run, down, smooth(fallT));
+        else if (lt < t30 + 6 / 24) pose = P.blendPose(fig, run, down, smooth(fallT));
         else if (lt < 44 / 24) pose = down;
-        else if (lt < t50) pose = P.lerpPose(down, run, smooth(upT));
+        else if (lt < t50) pose = P.blendPose(fig, down, run, smooth(upT));
         else pose = run;
-      } else pose = P.gaitPose(fig, (lt / 0.5 + r.phase) % 1, { run: true, stride: fig.dims.H * (0.5 + 0.1 * hash1(i)) });
+      } else pose = P.gaitPose(fig, (lt / 0.5 + r.phase) % 1, { run: true, stride: fig.dims.H * (0.5 + 0.1 * hash1(i)), slope: slopeAt(r.x, z, SOUTH) });
       place(fig, r.x, g(r.x, z), z, SOUTH + (hash1(i + 20) - 0.5) * 0.1);
       pose.eyes = blinkOr(f2, i + 50, hash1(i + 7) < 0.5 ? 'wide' : 'open'); pose.mouth = hash1(i + 9) < 0.7 ? 'gasp' : 'small'; brows(pose, 0.3);
       fig.setPose(pose);
@@ -492,7 +499,7 @@ function directCrowd(cast, frame, f2, lf, lt, shot) {
       const i = 20 + k, fig = crowd[i], r = run25[k]; vis[i] = true;
       const z = r.z0 + r.v * lt;
       place(fig, r.x, g(r.x, z), z, SOUTH);
-      const p = P.gaitPose(fig, (lt / 0.5 + r.phase) % 1, { run: true }); p.eyes = 'wide'; p.mouth = 'gasp'; fig.setPose(p);
+      const p = P.gaitPose(fig, (lt / 0.5 + r.phase) % 1, { run: true, slope: slopeAt(r.x, z, SOUTH) }); p.eyes = 'wide'; p.mouth = 'gasp'; fig.setPose(p);
     }
   }
   for (let i = 0; i < n; i++) show(crowd[i], vis[i]);
@@ -521,7 +528,7 @@ function directProps(cast, frame, f2, lf, lt, shot) {
 
   // jug: raccoon (index 4) holds it in both hands; drops it at frame 960 (shot 17 local 12)
   props.jug.visible = shot <= 22;
-  if (shot <= 22) {
+  if (shot <= 22 && f2 < T.KICK + 8) {
     const rac = crowd[4];
     const dropF = 948 + 12;
     const hold0 = [0, -0.06, 0.32];
@@ -548,5 +555,9 @@ function directProps(cast, frame, f2, lf, lt, shot) {
       props.jug.rotation.set(0, rac.root.rotation.y, u * (PI / 2 + 0.1));
       if (u >= 1) props.jug.position.y = gy + 0.125;
     }
+  } else if (shot <= 22) {
+    // the crowd has fled: the jug lies where it fell
+    const rac = crowd[4]; const s4 = square[4];
+    props.jug.position.set(s4.x, surfY(s4.x, s4.z - 0.57) + 0.012 + 0.125, s4.z - 0.57); props.jug.rotation.set(0, NORTH, PI / 2 + 0.1);
   }
 }

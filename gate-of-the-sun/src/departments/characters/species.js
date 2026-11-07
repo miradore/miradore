@@ -43,7 +43,7 @@ export function foxSpec(inkId) {
     ...kidBody(1.25, 0.21, 0.42, 0.035, [0.98, 1.04, 0.98], [0.13, 0.12, 0.115]),
     fur: 0xE8803A, furShade: 0xA9522A, cream: 0xFBEBD2, creamShade: 0xC9A58F, dark: 0x3B2420, darkShade: 0x1E1210,
     ears: { type: 'fox', inner: 0xFBEBD2, innerShade: 0xC9A58F, tip: 0x3B2420 },
-    tail: { type: 'bushy', len: 0.55, r: 0.085, tip: 0xFBEBD2, tipShade: 0xC9A58F, pitch: 1.0 },
+    tail: { type: 'bushy', len: 0.5, r: 0.085, tip: 0xFBEBD2, tipShade: 0xC9A58F, pitch: 1.35 },
     muzzle: { w: 0.075, h: 0.058, d: 0.085, y: 0.3, z: 0.7, color: 0xFBEBD2, shade: 0xC9A58F },
     eyes: KID_EYES('fox', '#5b2a0a', '#f0a83a', { lid: 0.055 }),
     extras: [],

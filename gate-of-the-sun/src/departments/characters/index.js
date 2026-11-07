@@ -59,7 +59,6 @@ export default {
     for (const c of crowd) bodies.push({ name: c.name, parts: c.parts.slice() });
 
     const cast = makeCast(ctx, figs, crowd, props);
-    if (typeof location !== 'undefined') { const m = /charcam=([-\d.,]+)/.exec(location.search); if (m) cast.debugCam = m[1].split(',').map(Number); }
     const debug = typeof location !== 'undefined' && /chardebug/.test(location.search);
     if (debug) {
       const tri = (f) => Math.round(f.triangles());
