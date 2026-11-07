@@ -45,6 +45,7 @@ export function buildCanal(ctx, M) {
   // bollards along the west bank
   const bolG = [];
   for (let z = C.zMin + 4; z < C.zMax; z += 10) {
+    if (z > 36 && z < 56) continue;   // keep the kids' stretch of bank clear for the close-ups
     const y = bankY(z);
     bolG.push(cyl(0.22, 0.28, 0.9, 8, C.xBankTop - 1.9, y, z), sphere(0.3, C.xBankTop - 1.9, y + 1.0, z, 8, 6));
   }

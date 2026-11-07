@@ -136,7 +136,7 @@ export function makeDust(ctx, reg) {
           // low puffs sliding along the canal steps beyond the hare, 6 to 10 m from the shot 26 camera
           const x = 27 + (((fh - 1416) * (0.08 + 0.05 * h1) + h2 * 6) % 6);
           const z = 42 + h3 * 7, R = 0.4 + 0.5 * h2;
-          wisps[k].set(x, MAP.stepTopY(1, z) + 0.3 + h1 * 0.6, z, R, { t: fh * 0.12 + k, opacity: 1, spin: fh * 0.01 + k, squash: 0.7 });
+          wisps[k].set(x, MAP.stepTopY(1, z) + 1.6 + h1 * 0.8, z, R * 0.8, { t: fh * 0.12 + k, opacity: 0.7, spin: fh * 0.01 + k, squash: 0.7 });
         }
       } else for (const b of wisps) b.hide();
       // facade dust

@@ -49,12 +49,13 @@ export function buildWall(ctx, M) {
     g.push(box(5, 1.2, 4, bx, 38.6, hz + 2));
   }
   // plinth along the town face
-  g.push(box(W.length, 1.6, 1.0, 0, 0.8, hz + 0.5));
+  // plinth along the town face, interrupted at the gate opening
+  { const gx = MAP.GATE.width / 2 + 0.6; g.push(box(half - gx, 1.6, 1.0, -(gx + (half - gx) / 2), 0.8, hz + 0.5)); g.push(box(half - gx, 1.6, 1.0, gx + (half - gx) / 2, 0.8, hz + 0.5)); }
   const wall = new THREE.Mesh(merge(g), M.sandstone); wall.name = 'wall';
   tag(wall, { inkId: ID.WALL, layer: LAYER.BG }); group.add(wall); colliders.push(wall);
 
   // crack zone: top course blocks and merlons as separate meshes
-  const dropSet = new Set([3, 11, 14, 17, 7]);         // indices of the blocks that fall
+  const dropSet = new Set([1, 3, 14, 15, 17]);   // chosen clear of the hand (fingers span x 26..34)         // indices of the blocks that fall
   const blocks = [], drops = [];
   let bi = 0;
   for (let x = crack.x0; x < crack.x1 - 0.01; x += 2.5) {
