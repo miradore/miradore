@@ -90,7 +90,7 @@ export function makeChecker(app) {
       const vis = visibleUp(o);
       let inF = false;
       if (vis) { if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere(); sph.copy(o.geometry.boundingSphere).applyMatrix4(o.matrixWorld); inF = frustum.intersectsSphere(sph); }
-      out.vis.push([o.name, vis ? 1 : 0, inF ? 1 : 0, popAllowed.has(o.name) ? 1 : 0]);
+      out.vis.push([o.name, vis ? 1 : 0, inF ? 1 : 0, popAllowed.has(o.name) ? 1 : 0, o.uuid]);
     });
     return out;
   }

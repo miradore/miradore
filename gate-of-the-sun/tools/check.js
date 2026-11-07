@@ -38,9 +38,9 @@ for (let f = start; f < end; f += step) {
   }
   // pops: named mesh toggles visibility mid shot while inside the frustum, not in popAllowed
   if (prevVis && prevShot === shot.id) {
-    const pm = new Map(prevVis.map((v) => [v[0], v]));
+    const pm = new Map(prevVis.map((v) => [v[4], v]));
     for (const v of r.vis) {
-      const p = pm.get(v[0]); if (!p) continue;
+      const p = pm.get(v[4]); if (!p) continue;
       if (p[1] !== v[1] && (v[2] || p[2]) && !v[3]) report.pops.push({ frame: f, shot: shot.id, name: v[0], now: v[1] });
     }
   }
