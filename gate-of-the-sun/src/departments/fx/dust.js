@@ -22,32 +22,34 @@ export function makeDust(ctx, reg) {
   const { LAYER } = ctx;
 
   // ---------------- hand impact cracks: 12 jagged polylines on the town face of the wall (z = 6.15)
-  const crackMat = ctx.makeCel({ color: 0x5A3A2A, shade: 0x33201A });
+  const crackMat = ctx.makeCel({ color: 0x3A2418, shade: 0x241410 });
   const crackBox = new THREE.BoxGeometry(1, 1, 0.3);
   const cracks = new THREE.Group(); cracks.name = 'cracks';
   const crackSegs = [];
   {
     const rng = MAP.mulberry32(1201);
-    for (let i = 0; i < 12; i++) {
-      let x = 30 + (rng() - 0.5) * 6, y = 49.6;
-      let ang = (rng() - 0.5) * 2.2;                       // from straight down, radians
-      const n = 5 + Math.floor(rng() * 3);
-      const start = T.HAND_IMPACT + Math.floor(rng() * 5);
+    // 6 main cracks radiating down and sideways from the fingers, each with short side branches
+    const addCrack = (x, y, ang, n, start, t0, t1) => {
       for (let j = 0; j < n; j++) {
-        const len = 2.2 + rng() * 2.2;
-        ang += (rng() - 0.5) * 1.2; ang = MAP.clamp(ang, -1.3, 1.3);
+        const len = 1.4 + rng() * 2.4;
+        ang += (rng() - 0.5) * 1.6; ang = MAP.clamp(ang, -1.45, 1.45);
         const nx = x + Math.sin(ang) * len, ny = y - Math.cos(ang) * len;
-        if (ny < 27) break;
-        const m = new THREE.Mesh(crackBox, crackMat); m.name = `crack${i}_${j}`;
-        m.position.set((x + nx) / 2, (y + ny) / 2, 6.15);
-        m.rotation.z = Math.atan2(-(nx - x), ny - y);        // box y axis along the segment
-        const thick = MAP.lerp(0.32, 0.14, j / n);
-        m.scale.set(thick, len + thick * 0.5, 1);
+        if (ny < 30 || nx < 14 || nx > 46) break;
+        const m = new THREE.Mesh(crackBox, crackMat); m.name = `crack${crackSegs.length}`;
+        m.position.set((x + nx) / 2, (y + ny) / 2, 6.12);
+        m.rotation.z = Math.atan2(-(nx - x), ny - y);
+        const thick = MAP.lerp(t0, t1, j / n);
+        m.scale.set(thick, len + thick, 1);
         m.visible = false;
         cracks.add(m);
-        crackSegs.push({ mesh: m, at: start + Math.round(j * 2.6) });
+        crackSegs.push({ mesh: m, at: start + Math.round(j * 2.2) });
+        if (j > 0 && j < n - 1 && rng() < 0.45) addCrack(nx, ny, ang + (rng() < 0.5 ? -1 : 1) * (0.7 + rng() * 0.6), 2 + Math.floor(rng() * 3), start + Math.round(j * 2.2) + 2, thick * 0.6, 0.03);
         x = nx; y = ny;
       }
+    };
+    for (let i = 0; i < 6; i++) {
+      const x = 27 + (rng() - 0.5) * 8 + i * 1.2, y = 49.7;
+      addCrack(x, y, (i / 5 - 0.5) * 2.4 + (rng() - 0.5) * 0.4, 6 + Math.floor(rng() * 4), T.HAND_IMPACT + Math.floor(rng() * 4), 0.09, 0.025);
     }
     ctx.tag(cracks, { inkId: ID.DEBRIS_MIN, layer: LAYER.FG, castShadow: false, receiveShadow: false });
     reg.add(cracks);
@@ -100,7 +102,7 @@ export function makeDust(ctx, reg) {
     update(frame, fh) {
       // cracks appear progressively from their own frame and stay
       for (const s of crackSegs) s.mesh.visible = frame >= s.at;
-      burst(handBurst, fh, { x: 30, y: 49, z: 7.5, birth: T.HAND_IMPACT, life: 72, spread: 10, r0: 1.5, r1: 7, rise: 3, seed: 640, up: 0.15, zBias: 0.7 });
+      burst(handBurst, fh, { x: 30, y: 50.5, z: 8, birth: T.HAND_IMPACT, life: 56, spread: 5, r0: 1.0, r1: 3.6, rise: 2.5, seed: 640, up: 0.25, zBias: 0.8 });
       handChips.update(frame);
       // gate burst
       burst(gateBurst, fh, { x: 0, y: 7, z: 3, birth: T.KICK, life: 104, spread: 30, r0: 2, r1: 12, rise: 6, seed: 1112, up: 0.25, zBias: 0.9, floor: 0.5 });

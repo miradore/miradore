@@ -20,16 +20,16 @@ export const A = {
 // pos(frame) is linear along a straight line; speed in m/s, cycle in seconds.
 function makePlans() {
   const S = MAP.SMALL_AUTOMATONS.starts;
-  const fast = 50 / (72 / 24);                        // A covers z -30 .. +20 during shot 29 (1608..1680)
+  const fast = 20 / (72 / 24);                        // A covers z -16 .. +4 during shot 29 (1608..1680), about 6.7 m/s
   const plans = [];
-  plans.push({ name: 'A', from: V(0, 0, -30 - fast * ((1608 - 1548) / 24)), dir: V(0, 0, 1), speed: fast, cycle: 0.6 });
-  plans.push({ name: 'B', from: V(2.5, 0, -55 - fast * ((1608 - 1548) / 24)), dir: V(0, 0, 1), speed: fast, cycle: 0.6 });
+  plans.push({ name: 'A', from: V(0, 0, -16 - fast * ((1608 - 1548) / 24)), dir: V(0, 0, 1), speed: fast, cycle: 1.0, bob: 0.3, lift: 1.3 });
+  plans.push({ name: 'B', from: V(2.5, 0, -36 - fast * ((1608 - 1548) / 24)), dir: V(0, 0, 1), speed: fast, cycle: 1.0, bob: 0.3, lift: 1.3 });
   const targets = [[-4, 0, 0], [5, 0, 0], [-6, 0, 0]];
   for (let i = 2; i < 5; i++) {
     const from = V(S[i][0], 0, S[i][2]);
     const to = V(...targets[i - 2]);
     const dir = to.clone().sub(from).normalize();
-    plans.push({ name: 'CDE'[i - 2], from, dir, speed: 4, cycle: 1.6 });
+    plans.push({ name: 'CDE'[i - 2], from, dir, speed: 4, cycle: 1.6, bob: 0.15, lift: 0.9 });
   }
   return plans;
 }
@@ -112,8 +112,8 @@ export function buildAutomaton(ctx, index, mats) {
       root.position.copy(plan.from).addScaledVector(plan.dir, d);
       root.position.y = 0;
       root.rotation.y = yaw;
-      pelvis.position.y = A.hipWalk + 0.12 * Math.sin(phL * Math.PI * 4);
-      torso.rotation.set(0.06, 0.05 * Math.sin(phL * Math.PI * 2), 0.03 * Math.sin(phL * Math.PI * 2), 'YXZ');
+      pelvis.position.y = A.hipWalk - plan.bob * 0.5 + plan.bob * 0.5 * Math.cos(phL * Math.PI * 4 + Math.PI);   // heavy bob, lowest at each foot plant
+      torso.rotation.set(0.08, 0.08 * Math.sin(phL * Math.PI * 2), 0.05 * Math.sin(phL * Math.PI * 2), 'YXZ');
       head.rotation.set(0.1, 0, 0);
       root.updateMatrixWorld(true);
       // arms swing opposite to the legs
@@ -128,7 +128,7 @@ export function buildAutomaton(ctx, index, mats) {
         const ph = key === 'L' ? phL : phR, side = key === 'L' ? 1 : -1;
         let zOff, y, pitch;
         if (ph < 0.5) { const s = ph / 0.5; zOff = S / 4 - s * S / 2; y = A.ankleH; pitch = 0; }
-        else { const s = (ph - 0.5) / 0.5; zOff = -S / 4 + smooth(s) * S / 2; y = A.ankleH + 0.9 * Math.sin(Math.PI * s); pitch = 0.35 * Math.sin(Math.PI * s); }
+        else { const s = (ph - 0.5) / 0.5; zOff = -S / 4 + smooth(s) * S / 2; y = A.ankleH + plan.lift * Math.sin(Math.PI * s); pitch = 0.35 * Math.sin(Math.PI * s); }
         // ankle in world: body position + lateral + along the path
         _ankle.copy(root.position).addScaledVector(_side, side * A.hipX).addScaledVector(plan.dir, zOff);
         _ankle.y = y;

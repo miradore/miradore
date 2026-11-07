@@ -48,7 +48,7 @@ function breathe(p, fh, amp = 1) {
 
 // crouch behind the wall (shot 12 and the start of 14). u = 0 deep crouch, u = 1 standing.
 function crouch(p, u) {
-  p.hips.set(FEET[0], lerp(20, G.hipY, u), FEET[2]);
+  p.hips.set(FEET[0], lerp(20, G.hipY, u), FEET[2] - 3 * (1 - u));
   p.torso.pitch = lerp(0.61, 0, u);
   p.head.pitch = lerp(1.3, 0, u);
   p.legs.L.pole.set(0, 0.1, 1); p.legs.R.pole.set(0, 0.1, 1);
@@ -59,6 +59,7 @@ function crouchArms(p, u) {
     const key = side > 0 ? 'L' : 'R';
     const standWrist = V(side * (G.shoulderX + STAND_ARM[0]), G.hipY + G.shoulderY + STAND_ARM[1], FEET[2] + STAND_ARM[2]);
     const wrist = KNEE_WRIST(side).lerp(standWrist, u);
+    wrist.y += 6 * Math.sin(Math.PI * u);           // lift the hands clear of the ground mid blend
     const pole = V(side * 1, 0.2, -0.4).lerp(V(side * STAND_POLE[0], 0, -1), u);
     const q = HAND_FLAT.clone().slerp(HANG[key], u);
     p.arms[key] = armAbs(side, wrist, [pole.x * side, pole.y, pole.z], q);
@@ -114,23 +115,30 @@ export function giantPose(frame, info) {
 
   switch (shot) {
     case 12: {
-      // crouched behind the wall, left hand slams onto the wall top at local f4
-      crouch(p, 0); crouchArms(p, 0);
-      p.torso.roll = -0.15; p.head.yaw = 0.35;
+      // crouched behind the wall, left hand slams onto the wall top at local f4. The body starts a
+      // little higher and twisted toward the hand so the raised arm can reach, then drops with the blow.
       const u = clamp(lf / 4, 0, 1);
-      const wrist = V(MAP.GIANT.handImpact[0], 58.85, -6.5);
-      wrist.y += 28 * (1 - u);
+      crouch(p, 0); crouchArms(p, 0);
+      p.hips.y = lerp(25, 20, u);
+      p.torso.pitch = lerp(0.45, 0.61, u);
+      p.torso.roll = -0.25; p.torso.yaw = -0.35; p.head.yaw = 0.65; p.head.pitch = lerp(1.5, 1.3, u);
+      const wrist = V(MAP.GIANT.handImpact[0], lerp(70.85, 58.85, u), lerp(-4.0, -6.5, u));
       const settle = clamp((lf - 4) / 2, 0, 1);
       const pole = V(-0.2, 1, -0.3 - 0.25 * settle).normalize();
-      const q = new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), 0.9 * (1 - u)).multiply(HAND_FLAT);
+      const q = new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), -0.5 * (1 - u)).multiply(HAND_FLAT);   // fingers raised, then slapped flat
       p.arms.L = { ik: { wrist, pole, handQuat: q } };
       p.hips.y -= 0.5 * (lf === 4 ? 1 : lf === 6 ? 0.5 : 0);
       p.slit = 0;
       return p;
     }
     case 14: {
+      // rise from the crouch: head centre 50 at f0 to 82 at f84, eased, mask breaking the wall line about f30
       const u = smooth(lf / 84);
-      crouch(p, u); crouchArms(p, u);
+      p.hips.set(FEET[0], lerp(25, G.hipY, u), FEET[2] - 3 * (1 - u));
+      p.torso.pitch = lerp(0.5, 0, u);
+      p.head.pitch = lerp(1.05, 0, u);
+      p.legs.L.pole.set(0, 0.1, 1); p.legs.R.pole.set(0, 0.1, 1);
+      crouchArms(p, u);
       p.slit = remap(fh, MAP.T.HEAD_RISE_START + 40, MAP.T.HEAD_RISE_START + 48);
       return p;
     }

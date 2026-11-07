@@ -39,7 +39,7 @@ export function countTriangles(obj) {
  */
 export function mesh(bc, geo, mat, name, inkId) {
   const m = new THREE.Mesh(geo, mat);
-  m.name = bc.name + '.' + name;
+  m.name = bc.name + '.' + name + '.' + bc.meshes.length;
   bc.tag(m, { inkId: inkId ?? bc.ink.next(), layer: bc.layer });
   bc.meshes.push(m);
   return m;
