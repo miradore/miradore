@@ -75,7 +75,7 @@ export function buildWall(ctx, M) {
     if (!dropSet.has(b.idx)) { b.geo.translate(b.p.x, b.p.y, b.p.z); staticG.push(b.geo); continue; }
     const m = new THREE.Mesh(b.geo, M.sandstone);
     m.name = 'wallBlock' + b.idx; m.position.copy(b.p);
-    tag(m, { inkId: ID.DEBRIS_MIN + (b.idx % 10), layer: LAYER.FG });
+    tag(m, { inkId: ID.WALL, layer: LAYER.BG }); m.userData.debrisId = b.idx % 10;
     group.add(m); popAllowed.push(m); colliders.push(m);
     const r = MAP.mulberry32(7000 + b.idx);
     // toward the town side (+z), slow tumble, long fall
@@ -117,7 +117,8 @@ export function buildWall(ctx, M) {
   function update(frame) {
     for (const d of drops) {
       const m = d.mesh;
-      if (frame < d.tStart) { m.position.copy(d.p0); m.quaternion.identity(); continue; }
+      if (frame < d.tStart) { m.position.copy(d.p0); m.quaternion.identity(); m.userData.inkId = ID.WALL; m.layers.set(LAYER.BG); continue; }
+      m.userData.inkId = ID.DEBRIS_MIN + (d.mesh.userData.debrisId || 0); m.layers.set(LAYER.FG);
       const t = Math.min(d.t, (frame - d.tStart) / 24);
       if (t >= d.t) { m.position.copy(d.land); m.quaternion.copy(d.finalQ); continue; }
       m.position.set(d.p0.x + d.v.x * t, d.p0.y + d.v.y * t - 0.5 * G * t * t, Math.min(d.land.z, d.p0.z + d.v.z * t));

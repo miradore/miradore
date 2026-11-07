@@ -125,7 +125,9 @@ export function buildHero(ctx, M) {
   function update(frame) {
     for (const s of slabs) {
       const m = s.mesh;
-      if (frame < s.tStart) { m.position.set(streetX, s.y0, s.zc); m.quaternion.identity(); continue; }
+      const falling = frame >= s.tStart;
+      m.traverse((o) => { if (o.isMesh) { if (!falling) { if (o.userData.restId === undefined) o.userData.restId = o.userData.inkId; o.userData.inkId = ID.BG_MIN + 17; o.layers.set(LAYER.BG); } else { if (o.userData.restId !== undefined) o.userData.inkId = o.userData.restId; o.layers.set(LAYER.FG); } } });
+      if (!falling) { m.position.set(streetX, s.y0, s.zc); m.quaternion.identity(); continue; }
       const fr = frame - s.tStart;
       if (fr <= s.hingeFrames) {
         const a = s.hingeAngle * MAP.easeIn(fr / s.hingeFrames);
@@ -149,7 +151,10 @@ export function buildHero(ctx, M) {
     }
     for (const p of parapet) {
       const m = p.mesh;
-      if (frame < p.tStart) { m.position.copy(p.p0); m.quaternion.identity(); continue; }
+      const pf = frame >= p.tStart;
+      if (p.restId === undefined) p.restId = m.userData.inkId;
+      m.userData.inkId = pf ? p.restId : ID.BG_MIN + 17; m.layers.set(pf ? LAYER.FG : LAYER.BG);
+      if (!pf) { m.position.copy(p.p0); m.quaternion.identity(); continue; }
       const t = Math.min(p.t, (frame - p.tStart) / 24);
       if (t >= p.t) { m.position.copy(p.land); m.quaternion.setFromAxisAngle(_up, p.yaw); continue; }
       m.position.set(p.p0.x + p.v.x * t, p.p0.y + p.v.y * t - 0.5 * G * t * t, p.p0.z + p.v.z * t);
