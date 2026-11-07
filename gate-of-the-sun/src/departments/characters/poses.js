@@ -44,6 +44,33 @@ export function groundClamp(fig, pose) {
   return pose;
 }
 
+/** Per-foot clamp against a world surface: with the root at (rx, ry, rz) facing yaw, every sole corner of
+ *  each foot must sit at least `gap` above surf(x, z) under it; a sinking foot has its IK target raised. */
+export function clampFeet(fig, pose, rx, ry, rz, yaw, surf, gap = 0.015) {
+  const d = fig.dims; const feet = pose._feet; if (!feet) return pose;
+  const root = new THREE.Matrix4().makeTranslation(rx, ry, rz).multiply(new THREE.Matrix4().makeRotationY(yaw));
+  for (let iter = 0; iter < 2; iter++) {
+    let changed = false;
+    const hp = pose.hipsPos || [0, d.hipsY, 0];
+    const hips = root.clone().multiply(new THREE.Matrix4().makeTranslation(hp[0], hp[1], hp[2])).multiply(rotOf(fig, pose, 'hips'));
+    for (const s of ['L', 'R']) {
+      if (!feet[s]) continue;
+      const sx = s === 'L' ? 1 : -1;
+      const th = hips.clone().multiply(new THREE.Matrix4().makeTranslation(sx * d.hipW, -d.hipDrop, 0)).multiply(rotOf(fig, pose, 'thigh' + s));
+      const sh = th.clone().multiply(new THREE.Matrix4().makeTranslation(0, -d.thigh, 0)).multiply(rotOf(fig, pose, 'shin' + s));
+      const ft = sh.clone().multiply(new THREE.Matrix4().makeTranslation(0, -d.shin, 0)).multiply(rotOf(fig, pose, 'foot' + s));
+      let deficit = 0;
+      for (const cx of [-1, 1]) for (const cz of [-1, 1]) {
+        _p.set(cx * d.footW / 2, -d.footH, d.footL * 0.22 + cz * d.footL / 2).applyMatrix4(ft);
+        deficit = Math.max(deficit, surf(_p.x, _p.z) + gap - _p.y);
+      }
+      if (deficit > 0) { const t = feet[s]; legIK(fig, pose, s, t[0], t[1] + deficit, t[2]); changed = true; }
+    }
+    if (!changed) break;
+  }
+  return pose;
+}
+
 /** Two bone leg IK in the root frame. Target is the ankle position. Hips rotation is assumed small. */
 export function legIK(fig, pose, side, tx, ty, tz) {
   const d = fig.dims; const sx = side === 'L' ? 1 : -1;

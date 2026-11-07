@@ -21,6 +21,8 @@ export function surfY(x, z) {
 /** ground rise per metre along the facing direction (for foot placement over a stride) */
 function slopeAt(x, z, yaw) { const dx = Math.sin(yaw) * 0.5, dz = Math.cos(yaw) * 0.5; return surfY(x + dx, z + dz) - surfY(x - dx, z - dz); }
 function place(fig, x, y, z, yaw) { fig.root.position.set(x, y, z); fig.root.rotation.set(0, yaw, 0); }
+/** place a moving figure and make sure each foot clears the real surface under it (slope and paving edges) */
+function placeGait(fig, x, z, yaw, pose) { const y = surfY(x, z) + 0.012; place(fig, x, y, z, yaw); P.clampFeet(fig, pose, x, y, z, yaw, surfY); fig.setPose(pose); }
 function show(fig, v) { fig.root.visible = !!v; }
 function breath(pose, frame, seed, amp = 0.02) { const s = pose.spine || [0, 0, 0]; pose.spine = [s[0] + amp * Math.sin(frame * 0.26 + seed * 3.1), s[1], s[2]]; return pose; }
 function tremble(pose, frame, amp) { const t = P.alt2(frame) * amp; const s = pose.spine || [0, 0, 0]; pose.spine = [s[0], s[1], s[2] + t]; const h = pose.head || [0, 0, 0]; pose.head = [h[0], h[1], h[2] - t * 1.5]; return pose; }
@@ -97,7 +99,7 @@ export function makeCast(ctx, figs, crowd, props) {
     run24.push({ x: lane + (hash2(i, 3) - 0.5) * 0.1, z0: 64.5 + row * 3.4 + (outer ? 1.7 : 0) + (hash2(i, 5) - 0.5) * 0.4 - (i === 1 ? 2.0 : 0), v: i === 1 ? 3.9 : 4.3 + (hash2(i, 7) - 0.5) * 0.8, phase: hash2(i, 9) });
   }
   const run25 = [];
-  for (let i = 0; i < 6; i++) run25.push({ x: -7.6 - i * 0.7, z0: 61 + hash2(i, 11) * 3, v: 3.3 + hash2(i, 13) * 0.6, phase: hash2(i, 15) });
+  for (let i = 0; i < 6; i++) run25.push({ x: -7.6 - (i % 3) * 1.3, z0: 64.2 + Math.floor(i / 3) * 3.5 + (i % 3) * 0.6 + hash2(i, 11) * 0.6, v: 3.3 + hash2(i, 13) * 0.6, phase: hash2(i, 15) });
   return { ctx, figs, crowd, props, square, street10, run24, run25 };
 }
 
@@ -371,22 +373,20 @@ function directMothers(cast, frame, f2, lf, lt, shot) {
       const runT = Math.max(0, lt - 16 / 24);
       const bx = bx0 + runDir.x * 3.4 * runT, bz = bz0 + runDir.y * 3.4 * runT;
       const yaw = lf < 16 ? lerp(toPig, runYaw, rise) : runYaw;
-      place(badger, bx, surfY(bx, bz) + 0.012, bz, yaw);
       let pb;
       if (lf < 16) { pb = P.standPose(badger, { lean: lerp(1.0, 0.12, rise), crouch: 0.1 * (1 - rise) }); }
       else pb = P.gaitPose(badger, (runT / 0.5) % 1, { run: true, stride: badger.dims.H * 0.4, lean: 0.12, slope: slopeAt(bx, bz, yaw) });
       carryArms(pb); P.look(pb, 0, 0.1); pb.eyes = 'wide'; pb.mouth = 'gasp'; brows(pb, 0.35);
-      badger.setPose(pb);
+      placeGait(badger, bx, bz, yaw, pb);
       carry(badger, piglet, [0.1, -0.2, 0.37], 0, curled());
     }
     // goat mother clutching the baby, runs behind
     const g0 = MOTHERS.goat.shot25; const gDir = new THREE.Vector2(-2.5, 11).normalize(); const gYaw = yawTo(gDir.x, gDir.y);
     const gT = Math.max(0, lt - 6 / 24);
     const gx = g0[0] + gDir.x * 3.2 * gT, gz = g0[2] + gDir.y * 3.2 * gT;
-    place(goat, gx, surfY(gx, gz) + 0.012, gz, gYaw);
     let pg = gT > 0 ? P.gaitPose(goat, (gT / 0.5) % 1, { run: true, stride: goat.dims.H * 0.4, lean: 0.12, slope: slopeAt(gx, gz, gYaw) }) : P.standPose(goat, { lean: 0.1 });
     carryArms(pg); P.look(pg, 0, 0.15); pg.eyes = 'wide'; pg.mouth = 'gasp'; brows(pg, 0.35); pg.earL = [-0.5, 0, 0]; pg.earR = [-0.5, 0, 0];
-    goat.setPose(pg);
+    placeGait(goat, gx, gz, gYaw, pg);
     const kc = P.basePose(goatkid); kc.hipsPos = [0, goatkid.dims.hipsY * 0.9, 0]; kc.thighL = [-1.3, 0, 0.15]; kc.thighR = [-1.3, 0, -0.15]; kc.shinL = [1.6, 0, 0]; kc.shinR = [1.6, 0, 0]; kc.footL = [-0.3, 0, 0]; kc.footR = [-0.3, 0, 0];
     kc.uaL = [-1.0, 0, 0.3]; kc.uaR = [-1.0, 0, -0.3]; kc.faL = [-1.0, 0, 0]; kc.faR = [-1.0, 0, 0]; kc.head = [0.25, 0, 0]; kc.eyes = 'closed'; kc.mouth = 'sad';
     carry(goat, goatkid, [0, -0.24, 0.35], 0, kc);
@@ -438,9 +438,8 @@ function directCrowd(cast, frame, f2, lf, lt, shot) {
         const path = (tt) => { const k = smooth(clamp(tt / 2.0, 0, 1)); return [lerp(s.x, s.laneX, k), lerp(s.z + V * tt, s.slotZ + V * tt, k)]; };
         const [px, z] = path(runT); const [px2, z2] = path(runT + 0.1);
         const yaw = runT > 0 ? yawTo(px2 - px, z2 - z) : SOUTH;
-        place(fig, px, g(px, z), z, lerp(NORTH, yaw, turn));
-        if (runT <= 0) { const p = crowdFrozen(fig, f2, i, s, { pitch: -0.2 }); fig.setPose(p); }
-        else { const p = P.gaitPose(fig, (runT / 0.5 + hash1(i)) % 1, { run: true, slope: slopeAt(px, z, yaw) }); p.eyes = 'wide'; p.mouth = 'gasp'; brows(p, 0.3); fig.setPose(p); }
+        if (runT <= 0) { place(fig, px, g(px, z), z, lerp(NORTH, yaw, turn)); const p = crowdFrozen(fig, f2, i, s, { pitch: -0.2 }); fig.setPose(p); }
+        else { const p = P.gaitPose(fig, (runT / 0.5 + hash1(i)) % 1, { run: true, slope: slopeAt(px, z, yaw) }); p.eyes = 'wide'; p.mouth = 'gasp'; brows(p, 0.3); placeGait(fig, px, z, yaw, p); }
       }
     }
     if (shot === 10) {
@@ -466,9 +465,8 @@ function directCrowd(cast, frame, f2, lf, lt, shot) {
     const pairs = [[9, 1.6, 0], [10, 3.1, -2.2]];
     for (const [i, x, dz] of pairs) {
       const fig = crowd[i]; vis[i] = true; const zz = z + dz;
-      place(fig, x, g(x, zz), zz, SOUTH);
       const p = P.gaitPose(fig, (lt / 0.5 + hash1(i)) % 1, { run: true, stride: fig.dims.H * 0.6, slope: slopeAt(x, zz, SOUTH) }); p.eyes = 'wide'; p.mouth = 'gasp'; brows(p, 0.3);
-      fig.setPose(p);
+      placeGait(fig, x, zz, SOUTH, p);
     }
   } else if (shot === 24) {
     // 20 runners toward camera; the otter (index 5) trips at local 30 and is up by 50
@@ -489,17 +487,16 @@ function directCrowd(cast, frame, f2, lf, lt, shot) {
         else if (lt < t50) pose = P.blendPose(fig, down, run, smooth(upT));
         else pose = run;
       } else pose = P.gaitPose(fig, (lt / 0.5 + r.phase) % 1, { run: true, stride: fig.dims.H * (0.5 + 0.1 * hash1(i)), slope: slopeAt(r.x, z, SOUTH) });
-      place(fig, r.x, g(r.x, z), z, SOUTH + (hash1(i + 20) - 0.5) * 0.1);
       pose.eyes = blinkOr(f2, i + 50, hash1(i + 7) < 0.5 ? 'wide' : 'open'); pose.mouth = hash1(i + 9) < 0.7 ? 'gasp' : 'small'; brows(pose, 0.3);
-      fig.setPose(pose);
+      placeGait(fig, r.x, z, SOUTH + (hash1(i + 20) - 0.5) * 0.1, pose);
     }
   } else if (shot === 25) {
     // background runners beyond the mothers (further west)
     for (let k = 0; k < 6; k++) {
       const i = 20 + k, fig = crowd[i], r = run25[k]; vis[i] = true;
       const z = r.z0 + r.v * lt;
-      place(fig, r.x, g(r.x, z), z, SOUTH);
-      const p = P.gaitPose(fig, (lt / 0.5 + r.phase) % 1, { run: true, slope: slopeAt(r.x, z, SOUTH) }); p.eyes = 'wide'; p.mouth = 'gasp'; fig.setPose(p);
+      const p = P.gaitPose(fig, (lt / 0.5 + r.phase) % 1, { run: true, slope: slopeAt(r.x, z, SOUTH) }); p.eyes = 'wide'; p.mouth = 'gasp';
+      placeGait(fig, r.x, z, SOUTH, p);
     }
   }
   for (let i = 0; i < n; i++) show(crowd[i], vis[i]);
