@@ -3,12 +3,12 @@
 import { chromium } from 'playwright'; import fs from 'node:fs'; import { serve } from './serve.js';
 import shotsJson from '../shared/shots.json' with { type: 'json' };
 const arg = (k, d) => { const a = process.argv.find((x) => x.startsWith('--' + k + '=')); return a ? a.slice(k.length + 3) : d; };
-const step = parseInt(arg('step', '1')), start = parseInt(arg('start', '0')), end = parseInt(arg('end', '1860'));
+const step = parseInt(arg('step', '1')), start = parseInt(arg('start', '0')), end = parseInt(arg('end', '1860')); const depts = arg('depts', '');
 const { server, url } = await serve();
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));
-await page.goto(`${url}/index.html?scale=0.25`);
+await page.goto(`${url}/index.html?scale=0.25${depts ? '&depts=' + depts : ''}`);
 await page.waitForFunction(() => window.__anime && (window.__anime.app || window.__anime.error), null, { timeout: 900000 });
 const err = await page.evaluate(() => window.__anime.error); if (err) { console.log('BUILD ERROR', err); process.exit(1); }
 console.log('checker stats', JSON.stringify(await page.evaluate(() => window.__anime.checkStats())));
