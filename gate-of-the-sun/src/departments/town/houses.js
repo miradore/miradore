@@ -581,7 +581,6 @@ export function buildHouses(ctx, M, detail) {
   for (const k of Object.keys(decal)) addMerged(decal[k], M[k === 'damp' ? 'stainDark' : k], 'decal_' + k, ID.NONE, false);
   signG.forEach((g, k) => addMerged(g, M.signs[k], 'shopSigns' + k, ID.NONE, false));
   addMerged(signInkG, M.signInk, 'shopSignLetters', ID.NONE, false);
-  console.log('[town] houses', lots.length, 'windows by level', stat.windows.join('/'), JSON.stringify(stat));
 
   return { group, colliders, footprints, laundry, tiles, lots };
 }

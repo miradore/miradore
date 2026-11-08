@@ -15,13 +15,13 @@ function toTex(c) { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.S
  *  lookX, lookY   pupil offset (-1..1), lookY negative looks up
  *  outer     'left' or 'right': screen side of the outer corner (lash flick side)
  *  flat      true gives a flatter, calmer upper lid (lynx)
- *  mirror    canvas is mirrored horizontally (needed because the sphere patch mapping flips u)
+ *  mirror    true mirrors the canvas horizontally (the skull patches map u left to right as seen from the front, so eyes are not mirrored)
  */
 export function drawEye(opts = {}) {
   const S = opts.size ?? 256;
   const c = newCanvas(S, S); const g = c.getContext('2d');
   g.clearRect(0, 0, S, S);
-  if (opts.mirror !== false) { g.translate(S, 0); g.scale(-1, 1); }
+  if (opts.mirror === true) { g.translate(S, 0); g.scale(-1, 1); }
   const open = opts.closed ? 0 : (opts.open ?? 1);
   const cx = S * 0.5, cy = S * 0.56;
   const rx = S * 0.40;
@@ -147,12 +147,12 @@ export function makeEyeFrames(style, side) {
   return f;
 }
 
-/** Mouth frames drawn on a small canvas (viewer space, mirrored for the plane mapping).
+/** Mouth frames drawn on a small canvas in viewer space (plane u runs left to right as seen from the front).
  *  closed (soft cat "w"), smile, sad, small, gasp, trem1/trem2 (fear, small open trembling), sadT1/sadT2
  *  (grief: trembling downturned line, no tongue), grit (clenched teeth), scream (wide open, corners down). */
 export function makeMouthFrames(opts = {}) {
   const S = opts.size ?? 128; const ink = '#2b1a16'; const inside = '#5a1e24'; const lw = S * 0.06;
-  function base() { const c = newCanvas(S, S); const g = c.getContext('2d'); g.clearRect(0, 0, S, S); g.translate(S, 0); g.scale(-1, 1); g.lineCap = 'round'; g.lineJoin = 'round'; return [c, g]; }
+  function base() { const c = newCanvas(S, S); const g = c.getContext('2d'); g.clearRect(0, 0, S, S); g.lineCap = 'round'; g.lineJoin = 'round'; return [c, g]; }
   const P = (v) => v * S;
   const out = {};
   { const [c, g] = base(); g.strokeStyle = ink; g.lineWidth = lw;
@@ -161,10 +161,10 @@ export function makeMouthFrames(opts = {}) {
     g.beginPath(); g.moveTo(P(0.3), P(0.58)); g.quadraticCurveTo(P(0.5), P(0.4), P(0.7), P(0.58)); g.stroke(); out.sad = toTex(c); }
   { const [c, g] = base(); g.fillStyle = ink; g.beginPath(); g.ellipse(P(0.5), P(0.53), P(0.13), P(0.11), 0, 0, Math.PI * 2); g.fill();
     g.fillStyle = inside; g.beginPath(); g.ellipse(P(0.5), P(0.545), P(0.085), P(0.07), 0, 0, Math.PI * 2); g.fill(); out.small = toTex(c); }
-  { const [c, g] = base(); g.fillStyle = ink; g.beginPath(); g.ellipse(P(0.5), P(0.52), P(0.27), P(0.31), 0, 0, Math.PI * 2); g.fill();
-    g.fillStyle = inside; g.beginPath(); g.ellipse(P(0.5), P(0.54), P(0.22), P(0.26), 0, 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#d9607a'; g.beginPath(); g.ellipse(P(0.5), P(0.72), P(0.14), P(0.08), 0, 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#fff'; g.beginPath(); g.ellipse(P(0.5), P(0.3), P(0.17), P(0.045), 0, 0, Math.PI * 2); g.fill(); out.gasp = toTex(c); }
+  // shocked gasp: a tall "O", dark inside, a sliver of upper teeth, no tongue (an open smile would read as joy)
+  { const [c, g] = base(); g.fillStyle = ink; g.beginPath(); g.ellipse(P(0.5), P(0.54), P(0.17), P(0.26), 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = inside; g.beginPath(); g.ellipse(P(0.5), P(0.57), P(0.12), P(0.2), 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#fff'; g.beginPath(); g.ellipse(P(0.5), P(0.335), P(0.1), P(0.03), 0, 0, Math.PI * 2); g.fill(); out.gasp = toTex(c); }
   { const [c, g] = base(); g.strokeStyle = ink; g.lineWidth = lw;
     g.beginPath(); g.moveTo(P(0.24), P(0.42)); g.quadraticCurveTo(P(0.37), P(0.66), P(0.5), P(0.48)); g.quadraticCurveTo(P(0.63), P(0.66), P(0.76), P(0.42)); g.stroke(); out.smile = toTex(c); }
   // fear: small open mouth, wavy upper lip, corners pulled down; two phases alternate on 2s

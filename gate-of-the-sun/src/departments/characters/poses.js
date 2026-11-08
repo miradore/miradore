@@ -235,3 +235,33 @@ export function blinkState(frame, seed, o = {}) {
 export function alt2(frame) { return Math.floor(frame / 2) % 2 === 0 ? 1 : -1; }
 
 export function facing(pose, yawWorld) { pose.rootYaw = yawWorld; return pose; }
+
+/**
+ * Two-bone arm IK toward a WORLD wrist target. The figure must already carry its pose (setPose) so the
+ * chest matrix is current. pole: world direction the elbow should point to. Writes ua/fa into pose.
+ */
+export function armIK(fig, pose, side, target, pole) {
+  const d = fig.dims; const sx = side === 'L' ? 1 : -1;
+  fig.root.updateMatrixWorld(true);
+  const chest = fig.j.chest;
+  const inv = new THREE.Matrix4().copy(chest.matrixWorld).invert();
+  const sh = new THREE.Vector3(sx * d.shoulderW, d.torso * 0.42, 0);
+  const t = new THREE.Vector3(...target).applyMatrix4(inv).sub(sh);
+  const p = new THREE.Vector3(...pole).transformDirection(inv);
+  const a = d.upperArm, b = d.foreArm;
+  let dist = t.length(); const D = t.clone().normalize();
+  dist = clamp(dist, Math.abs(a - b) + 1e-3, (a + b) * 0.999);
+  const alpha = Math.acos(clamp((a * a + dist * dist - b * b) / (2 * a * dist), -1, 1));
+  const bend = PI - Math.acos(clamp((a * a + b * b - dist * dist) / (2 * a * b), -1, 1));
+  const e = p.sub(D.clone().multiplyScalar(p.dot(D))).normalize();
+  const U = D.clone().multiplyScalar(Math.cos(alpha)).add(e.clone().multiplyScalar(Math.sin(alpha))).normalize();
+  const Y = U.clone().negate();
+  const Z = D.clone().sub(U.clone().multiplyScalar(D.dot(U))).normalize();
+  const X = new THREE.Vector3().crossVectors(Y, Z).normalize();
+  const m = new THREE.Matrix4().makeBasis(X, Y, Z);
+  const eu = new THREE.Euler().setFromRotationMatrix(m, 'XYZ');
+  const base = fig.base['ua' + side] || [0, 0, 0];
+  pose['ua' + side] = [eu.x - base[0], eu.y - base[1], eu.z - base[2]];
+  pose['fa' + side] = [-bend, 0, 0];
+  return pose;
+}

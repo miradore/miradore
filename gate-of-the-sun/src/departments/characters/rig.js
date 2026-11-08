@@ -188,6 +188,8 @@ export function buildFigure(ctx, spec) {
     part(hips, S.lathe(`hem_${spec.name}`, hemPts, RS + 4), tm, 'hem', [0, 0, 0], null, [1, 1, Math.min(0.98, depth * 1.05)]);
     const collarR = torsoAt(T * 0.965) * 1.07 + 0.004;
     part(spine, G.torus(collarR, Math.max(0.006, headR * 0.035), 5, RS + 4), celMat(ctx, tunic.shade, darker(tunic.shade, 0.75)), 'collar', [0, T * 0.965, 0], [Math.PI / 2, 0, 0], [1, depth, 1]);
+    // belt: breaks the tube of the tunic at the waist (a drawn design line)
+    if (!spec.clothes.sash) part(spine, G.torus(torsoAt(T * 0.2) * 1.09 + 0.006, Math.max(0.008, headR * 0.06), 5, RS + 4), celMat(ctx, 0x6B4A2E, 0x3E2A1A), 'belt', [0, T * 0.2, 0], [Math.PI / 2, 0, 0], [1, depth, 1]);
   }
   if (spec.clothes?.waistcoat) {
     const wc = clothDS(spec.clothes.waistcoat);
@@ -476,7 +478,7 @@ function buildTufts(fig, skull, spec, k) {
   }
   if (spec.forelock) {
     const items = [[0, 1.3, 0.46, 0.35], [0.3, 1.22, 0.36, 0.5], [-0.28, 1.24, 0.34, 0.45]].map(([az, el, len, tilt], i) => ({
-      len: len * R, width: R * 0.17 * (1 - i * 0.15), thick: R * 0.06, curl: 1.1, seg: hero ? 6 : 3,
+      len: len * R, width: R * 0.17 * (1 - i * 0.15), thick: R * 0.11, curl: 1.1, seg: hero ? 6 : 3,
       pos: onSkull(az, el, -0.08 * R), rot: [tilt, 0, -az * 1.6] }));
     part(skull, S.tuft(`${spec.name}_forelock`, items), furHi, 'forelock');
   }

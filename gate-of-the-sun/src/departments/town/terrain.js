@@ -1,6 +1,6 @@
 // Terrain: ground following MAP.groundY, the canal trench, fields, road, hedges and the mountain ring.
 import * as THREE from 'three';
-import { box, boxRot, cone, merge, heightGrid } from './common.js';
+import { box, boxRot, cone, merge, heightGrid, groundStrip, rawGeometry } from './common.js';
 
 export function buildTerrain(ctx, M) {
   const { MAP, ID, LAYER, tag } = ctx;
@@ -37,6 +37,37 @@ export function buildTerrain(ctx, M) {
   streets.name = 'streets';
   tag(streets, { inkId: ID.TERRAIN, layer: LAYER.BG });
   group.add(streets);
+
+  // street paving drawn on: slab joints (own ink id, 3 mm proud) and a darker centre gutter and kerb bands
+  // (painted, id 0). Characters stand 1 cm above the street, above all of this.
+  {
+    const gy = (x, z) => MAP.groundY(x, z);
+    const joints = [], bands = [];
+    const inSquare = (z) => z > MAP.SQUARE.zMin - 0.6 && z < MAP.SQUARE.zMax + 0.2;
+    const crossAt = (z) => MAP.CROSS_STREETS_Z.some((c) => Math.abs(z - c) < MAP.CROSS_STREET_HALF);
+    for (let z = 8.6; z < 170; z += 1.5) {
+      if (inSquare(z) || crossAt(z)) continue;
+      const zz = z + (MAP.hash1(z) - 0.5) * 0.2;
+      groundStrip(joints, -5.9, zz, -0.35, zz, 0.05, gy, 0.004, 6);
+      groundStrip(joints, 0.35, zz + 0.4, 5.9, zz + 0.4, 0.05, gy, 0.004, 6);
+    }
+    for (const [z0, z1] of [[8.2, MAP.SQUARE.zMin - 0.6], [MAP.SQUARE.zMax + 0.2, 170]]) {
+      groundStrip(bands, 0, z0, 0, z1, 0.55, gy, 0.003, 1.5);                  // centre gutter
+      for (const s of [-1, 1]) groundStrip(bands, s * 5.75, z0, s * 5.75, z1, 0.45, gy, 0.003, 1.5);   // kerb bands
+    }
+    // cross streets near the close cameras: joints across their width
+    for (const c of MAP.CROSS_STREETS_Z) {
+      const h = MAP.CROSS_STREET_HALF;
+      for (let x = -45; x < 22; x += 1.5) {
+        if (Math.abs(x) < 6.2) continue;
+        groundStrip(joints, x, c - h + 0.1, x, c + h - 0.1, 0.05, gy, 0.004, 1.5);
+      }
+      groundStrip(bands, -45, c, -6.2, c, 0.5, gy, 0.003, 4);
+      groundStrip(bands, 6.2, c, 22, c, 0.5, gy, 0.003, 4);
+    }
+    const jm = new THREE.Mesh(rawGeometry(joints), M.jointDark); jm.name = 'streetJoints'; tag(jm, { inkId: 249, layer: LAYER.BG, castShadow: false }); group.add(jm);
+    const bm = new THREE.Mesh(rawGeometry(bands), M.streetBand); bm.name = 'streetBands'; tag(bm, { inkId: ID.NONE, layer: LAYER.BG, castShadow: false }); group.add(bm);
+  }
 
   // ---------------------------------------------------------------- fields (z < -6)
   const rng = MAP.mulberry32(1101);

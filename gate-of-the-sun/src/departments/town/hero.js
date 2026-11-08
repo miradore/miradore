@@ -47,6 +47,15 @@ export function buildHero(ctx, M) {
     for (const x of [H.xMin + 3, H.xMin + 7]) { rec.push(box(1.0, 1.5, 0.2, x, y, H.zMin - 0.03 + 0.1)); rec.push(box(1.0, 1.5, 0.2, x, y, H.zMax + 0.03 - 0.1)); }
   }
   add(merge(rec), M.recess, 'heroRecesses', ID.BG_MIN + 38);
+  {
+    const tr = [];
+    for (let f = 0; f < floors; f++) {
+      const y = base + f * fh + 2.0;
+      for (const z of [H.zMin + 3, H.zMin + 6, H.zMin + 9]) tr.push(box(0.3, 0.12, 1.4, H.xMin - 0.15 + 0.02, y - 0.83, z), box(0.14, 0.18, 1.3, H.xMin - 0.07 + 0.01, y + 0.84, z));
+      for (const x of [H.xMin + 3, H.xMin + 7]) for (const [z, sgn] of [[H.zMin, -1], [H.zMax, 1]]) tr.push(box(1.4, 0.12, 0.3, x, y - 0.83, z + sgn * 0.13), box(1.3, 0.18, 0.14, x, y + 0.84, z + sgn * 0.06));
+    }
+    add(merge(tr), M.trim, 'heroTrims', ID.BG_MIN + 39);
+  }
   add(merge(cob), M.cobalt, 'heroShutters', ID.BG_MIN + 37);
 
   // furniture silhouettes: table and chairs on the ground floor, bed on the first, hanging lamp on the second
@@ -85,6 +94,11 @@ export function buildHero(ctx, M) {
       slab.name = 'heroFacade' + idx;
       tag(slab, { inkId: ID.DEBRIS_MIN + (idx % 10), layer: LAYER.FG });
       const cobM = new THREE.Mesh(merge(cobG), M.cobalt); cobM.name = 'heroFacadeShutter' + idx; tag(cobM, { inkId: ID.DEBRIS_MIN + ((idx + 3) % 10), layer: LAYER.FG }); slab.add(cobM);
+      // stone trims: lintel, slim jambs and a sill (the door gets jambs and a step)
+      const trimG = f === 0 && b === 1
+        ? [box(0.18, 2.4, 0.2, 0.09 - 0.09, 1.2, -0.74), box(0.18, 2.4, 0.2, 0, 1.2, 0.74)]
+        : [box(0.14, 0.18, 1.38, 0.04, 2.05 + 0.775 + 0.09, 0), box(0.3, 0.12, 1.46, 0.09, 2.05 - 0.775 - 0.06, 0), box(0.08, 1.55, 0.1, 0.02, 2.05, -0.55), box(0.08, 1.55, 0.1, 0.02, 2.05, 0.55)];
+      const trimM = new THREE.Mesh(merge(trimG), M.trim); trimM.name = 'heroFacadeTrim' + idx; tag(trimM, { inkId: ID.DEBRIS_MIN + ((idx + 7) % 10), layer: LAYER.FG }); slab.add(trimM);
       if (recG.length) { const recM = new THREE.Mesh(merge(recG), M.recess); recM.name = 'heroFacadeRecess' + idx; tag(recM, { inkId: ID.DEBRIS_MIN + ((idx + 5) % 10), layer: LAYER.FG, castShadow: false }); slab.add(recM); }
       slab.position.set(streetX, y0, zc);
       group.add(slab); colliders.push(slab); popAllowed.push(slab);
@@ -126,7 +140,7 @@ export function buildHero(ctx, M) {
     for (const s of slabs) {
       const m = s.mesh;
       const falling = frame >= s.tStart;
-      m.traverse((o) => { if (o.isMesh) { if (!falling) { if (o.userData.restId === undefined) o.userData.restId = o.userData.inkId; o.userData.inkId = ID.BG_MIN + 17; o.layers.set(LAYER.BG); } else { if (o.userData.restId !== undefined) o.userData.inkId = o.userData.restId; o.layers.set(LAYER.FG); } } });
+      m.traverse((o) => { if (o.isMesh) { if (!falling) { if (o.userData.restId === undefined) o.userData.restId = o.userData.inkId; o.userData.inkId = o.name.startsWith('heroFacadeTrim') ? ID.BG_MIN + 39 : ID.BG_MIN + 17; o.layers.set(LAYER.BG); } else { if (o.userData.restId !== undefined) o.userData.inkId = o.userData.restId; o.layers.set(LAYER.FG); } } });
       if (!falling) { m.position.set(streetX, s.y0, s.zc); m.quaternion.identity(); continue; }
       const fr = frame - s.tStart;
       if (fr <= s.hingeFrames) {

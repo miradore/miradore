@@ -58,10 +58,11 @@ export function buildDistant(ctx, M) {
   // the windmill on the hill west of the road
   const wh = hills[1];
   const wx = wh.x + 20, wz = wh.z - 5, wy = hillY(wh, wx, wz) - 0.5;
-  whiteG.push(cyl(3.2, 4.2, 13, 14, wx, wy, wz));
-  roofG.push(cone(3.8, 4.5, 14, wx, wy + 13, wz));
+  const WS = 1.6;                                              // read at 600 m from the establishing camera
+  whiteG.push(cyl(3.2 * WS, 4.2 * WS, 13 * WS, 14, wx, wy, wz));
+  roofG.push(cone(3.8 * WS, 4.5 * WS, 14, wx, wy + 13 * WS, wz));
   const sails = new THREE.Group(); sails.name = 'windmillSails';
-  sails.position.set(wx, wy + 11.5, wz + 4.4);
+  sails.position.set(wx, wy + 11.5 * WS, wz + 4.4 * WS); sails.scale.setScalar(WS);
   const sailG = [cyl(0.5, 0.5, 1.2, 8, 0, -0.6, 0).rotateX(Math.PI / 2)];
   for (let k = 0; k < 4; k++) {
     const arm = box(0.35, 10, 0.25, 0, 5.4, 0); arm.rotateZ(k * Math.PI / 2); sailG.push(arm);

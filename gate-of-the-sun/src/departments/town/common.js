@@ -165,6 +165,33 @@ export function decalRect(u0, u1, v0, v1, O, U, V, N, off = 0.01) {
   return decalPoly([[u0, v0], [u1, v0], [u1, v1], [u0, v1]], O, U, V, N, off);
 }
 
+/**
+ * Flat strip lying on a surface y = yFn(x, z) + lift, from (ax, az) to (bx, bz), width w, split every `seg`
+ * metres so it follows slopes. Pushes raw triangle positions (facing up) into list.
+ */
+export function groundStrip(list, ax, az, bx, bz, w, yFn, lift = 0.003, seg = 1.5) {
+  const L = Math.hypot(bx - ax, bz - az); if (L < 1e-6) return;
+  const dx = (bx - ax) / L, dz = (bz - az) / L, px = -dz * w / 2, pz = dx * w / 2;
+  const n = Math.max(1, Math.ceil(L / seg));
+  for (let k = 0; k < n; k++) {
+    const x0 = ax + dx * L * k / n, z0 = az + dz * L * k / n, x1 = ax + dx * L * (k + 1) / n, z1 = az + dz * L * (k + 1) / n;
+    const P = (x, z) => [x, yFn(x, z) + lift, z];
+    const a = P(x0 - px, z0 - pz), b = P(x0 + px, z0 + pz), c = P(x1 + px, z1 + pz), d = P(x1 - px, z1 - pz);
+    // wind so the normal points up
+    const up = ((b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2])) > 0;
+    if (up) list.push(...a, ...b, ...c, ...a, ...c, ...d); else list.push(...a, ...c, ...b, ...a, ...d, ...c);
+  }
+}
+
+/** Geometry from raw triangle positions (non-indexed, flat normals, empty uvs). */
+export function rawGeometry(pos) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.computeVertexNormals();
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(new Array((pos.length / 3) * 2).fill(0), 2));
+  return g;
+}
+
 /** Build the shared material set once. */
 export function makeMaterials(ctx) {
   const { makeCel, MAP } = ctx; const P = MAP.PALETTE;
@@ -201,6 +228,7 @@ export function makeMaterials(ctx) {
     ripple: cel(0x9BE6EE, 0x5FBBCB),
     sand: cel(0xE9D9B6, 0xB9A4C9, { paint: 'ground', paintScale: 5, paintSeed: 14 }),
     street: cel(0xE6D2B4, 0xB49EC4, { paint: 'paving', paintScale: 3, paintSeed: 15 }),
+    streetBand: cel(0xCDB396, 0x9C88AA, { paint: 'stone', paintScale: 1.2, paintSeed: 1 }),
     paving: cel(0xE3CDB0, 0xB29AC2, { paint: 'paving', paintScale: 3, paintSeed: 16 }),
     stone: cel(0xD8C7AE, 0xA891B5, { shade2: 0x86709A, band2Edge: -0.3, ...stoneP(3, 17) }),
     canalStone: cel(0xD8C7AE, 0xA891B5, { shade2: 0x86709A, band2Edge: -0.3, ...stoneP(2.5, 18) }),
