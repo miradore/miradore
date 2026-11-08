@@ -55,10 +55,10 @@ export function hareSpec(inkId) {
   return {
     name: 'hare', inkId, lod: 'hero',
     ...kidBody(1.15, 0.205, 0.38, 0.03, [1.0, 1.04, 1.0], [0.12, 0.11, 0.105]),
-    fur: 0xE9E1D2, furShade: 0xA99FBF, cream: 0xFBF7F0, creamShade: 0xC4BBD4, dark: 0x3A3238, darkShade: 0x1D181C,
+    fur: 0xE9E1D2, furShade: 0xA6A4BA, cream: 0xFBF7F0, creamShade: 0xC2C0D2, dark: 0x3A3238, darkShade: 0x1D181C,
     ears: { type: 'hare', inner: 0xF2B8C0, innerShade: 0xB97E8C, flop: 'R' },
-    tail: { type: 'puff', r: 0.07, tip: 0xFBF7F0, tipShade: 0xC4BBD4, pitch: 0.7 },
-    muzzle: { w: 0.062, h: 0.05, d: 0.062, y: 0.28, z: 0.72, color: 0xFBF7F0, shade: 0xC4BBD4, noseColor: 0xE08A98, noseShade: 0x9E5A68 },
+    tail: { type: 'puff', r: 0.07, tip: 0xFBF7F0, tipShade: 0xC2C0D2, pitch: 0.7 },
+    muzzle: { w: 0.062, h: 0.05, d: 0.062, y: 0.28, z: 0.72, color: 0xFBF7F0, shade: 0xC2C0D2, noseColor: 0xE08A98, noseShade: 0x9E5A68 },
     eyes: { ...KID_EYES('hare', '#2f3f63', '#8fb6d9', { size: 512, lid: 0.052 }), phiLen: 0.72, thetaLen: 0.82 },
     extras: ['glasses'], tufts: 'hare', skull: { crown: 0.12, jaw: 0.2, lift: 0.05 },
     browColor: 0x5E5468, browShade: 0x433C4E,
@@ -85,13 +85,13 @@ export function badgerSpec(inkId) {
   return {
     name: 'badger', inkId, lod: 'hero',
     ...adultBody(1.6, { headK: 0.115, bellyK: 1.0 }),
-    fur: 0x8C8A90, furShade: 0x55535C, cream: 0xF4F0EA, creamShade: 0xB9A4C9, dark: 0x2A2428, darkShade: 0x15120F,
-    ears: { type: 'round', inner: 0xF4F0EA, innerShade: 0xB9A4C9, size: 0.8 },
+    fur: 0x8C8A90, furShade: 0x55535C, cream: 0xF4F0EA, creamShade: 0xB0B5C7, dark: 0x2A2428, darkShade: 0x15120F,
+    ears: { type: 'round', inner: 0xF4F0EA, innerShade: 0xB0B5C7, size: 0.8 },
     tail: { type: 'stub', r: 0.06, pitch: 0.9 },
-    muzzle: { w: 0.07, h: 0.055, d: 0.09, y: 0.3, z: 0.72, color: 0xF4F0EA, shade: 0xB9A4C9 },
+    muzzle: { w: 0.07, h: 0.055, d: 0.09, y: 0.3, z: 0.72, color: 0xF4F0EA, shade: 0xB0B5C7 },
     eyes: ADULT_EYES('badger', '#2a1a14', '#7a4a2a'),
     extras: ['badgerFace'],
-    clothes: { tunic: { color: 0x6E5A8E, shade: 0x443560, sleeveless: false }, apron: { color: 0xF2E9D8, shade: 0xB9A4C9 }, headscarf: { color: 0xD9A441, shade: 0x8E6A22 } },
+    clothes: { tunic: { color: 0x6E5A8E, shade: 0x443560, sleeveless: false }, apron: { color: 0xF2E9D8, shade: 0xB0B5C7 }, headscarf: { color: 0xD9A441, shade: 0x8E6A22 } },
   };
 }
 export function pigletSpec(inkId) {
@@ -111,23 +111,23 @@ export function goatSpec(inkId) {
   return {
     name: 'goat', inkId, lod: 'hero',
     ...adultBody(1.7, { headK: 0.108 }),
-    fur: 0xF3EBDA, furShade: 0xB9A4C9, cream: 0xFBF7F0, creamShade: 0xC4BBD4, dark: 0x4a3a30, darkShade: 0x261d18,
+    fur: 0xF3EBDA, furShade: 0xB0B5C7, cream: 0xFBF7F0, creamShade: 0xC2C0D2, dark: 0x4a3a30, darkShade: 0x261d18,
     ears: { type: 'goat', inner: 0xF2C4C8, innerShade: 0xB98A90 },
     tail: { type: 'stub', r: 0.05, pitch: 0.4 },
-    muzzle: { w: 0.07, h: 0.06, d: 0.1, y: 0.3, z: 0.72, color: 0xFBF7F0, shade: 0xC4BBD4, noseColor: 0x6a4a45, noseShade: 0x3a2a25 },
+    muzzle: { w: 0.07, h: 0.06, d: 0.1, y: 0.3, z: 0.72, color: 0xFBF7F0, shade: 0xC2C0D2, noseColor: 0x6a4a45, noseShade: 0x3a2a25 },
     eyes: ADULT_EYES('goat', '#3a2f1a', '#c9a24a'),
     extras: ['horns', 'beard'],
-    clothes: { dress: { color: 0x3C6ED8, shade: 0x22418A }, sash: { color: 0xF2E9D8, shade: 0xB9A4C9 } },
+    clothes: { dress: { color: 0x3C6ED8, shade: 0x22418A }, sash: { color: 0xF2E9D8, shade: 0xB0B5C7 } },
   };
 }
 export function goatKidSpec(inkId) {
   return {
     name: 'goatkid', inkId, lod: 'hero',
     ...childBody(0.6),
-    fur: 0xF3EBDA, furShade: 0xB9A4C9, cream: 0xFBF7F0, creamShade: 0xC4BBD4, dark: 0x4a3a30, darkShade: 0x261d18,
+    fur: 0xF3EBDA, furShade: 0xB0B5C7, cream: 0xFBF7F0, creamShade: 0xC2C0D2, dark: 0x4a3a30, darkShade: 0x261d18,
     ears: { type: 'goat', inner: 0xF2C4C8, innerShade: 0xB98A90, size: 0.9 },
     tail: { type: 'stub', r: 0.025, pitch: 0.4 },
-    muzzle: { w: 0.04, h: 0.035, d: 0.05, y: 0.3, z: 0.72, color: 0xFBF7F0, shade: 0xC4BBD4, noseColor: 0x6a4a45, noseShade: 0x3a2a25 },
+    muzzle: { w: 0.04, h: 0.035, d: 0.05, y: 0.3, z: 0.72, color: 0xFBF7F0, shade: 0xC2C0D2, noseColor: 0x6a4a45, noseShade: 0x3a2a25 },
     eyes: KID_EYES('goatkid', '#3a2f1a', '#c9a24a', { size: 128 }),
     extras: [],
     clothes: { tunic: { color: 0xE9553B, shade: 0x9A3524, sleeveless: true } },
@@ -137,7 +137,7 @@ export function goatKidSpec(inkId) {
 // ------------------------------------------------------------------ crowd species
 const CLOTH = [
   [0x1F49B5, 0x15307A], [0xE9553B, 0x9A3524], [0xF2C94C, 0xB08A22], [0x3E8E5A, 0x245535], [0x8E2A2A, 0x561717],
-  [0x6E5A8E, 0x443560], [0xF2E9D8, 0xB9A4C9], [0x8C8C96, 0x55555E], [0xD9A441, 0x8E6A22], [0x3C8ED8, 0x22528A],
+  [0x6E5A8E, 0x443560], [0xF2E9D8, 0xB0B5C7], [0x8C8C96, 0x55555E], [0xD9A441, 0x8E6A22], [0x3C8ED8, 0x22528A],
 ];
 function tint(hex, k) { const r = Math.min(255, Math.round(((hex >> 16) & 255) * k)), g = Math.min(255, Math.round(((hex >> 8) & 255) * k)), b = Math.min(255, Math.round((hex & 255) * k)); return (r << 16) | (g << 8) | b; }
 
@@ -164,21 +164,21 @@ export function crowdSpec(species, seed, inkId) {
         eyes: ADULT_EYES('deer', '#1f140e', '#5a3a2a', { lid: 0.06 }), extras: female ? [] : ['antlers'] };
       break; }
     case 'dog': {
-      const H = 1.58 + rng() * 0.12; const base = pick([[0xD9A86C, 0x9A7042, 0x5a3a24], [0xE8E0D0, 0xA99FBF, 0x6a5a4a], [0x6A4A34, 0x3E2A1C, 0xE8D8C0], [0x3a3a3f, 0x1f1f24, 0xd8d0c8]]);
-      s = { ...adultBody(H, { headK: 0.112 }), fur: base[0], furShade: base[1], cream: 0xF2E8DA, creamShade: 0xB9A4C9, dark: base[2], darkShade: tint(base[2], 0.6),
-        ears: { type: 'floppy', size: 1.0 }, tail: { type: 'long', len: H * 0.3, r: H * 0.028, pitch: 1.6 }, muzzle: { w: 0.075, h: 0.06, d: 0.11, y: 0.3, z: 0.7, color: 0xF2E8DA, shade: 0xB9A4C9 },
+      const H = 1.58 + rng() * 0.12; const base = pick([[0xD9A86C, 0x9A7042, 0x5a3a24], [0xE8E0D0, 0xA6A4BA, 0x6a5a4a], [0x6A4A34, 0x3E2A1C, 0xE8D8C0], [0x3a3a3f, 0x1f1f24, 0xd8d0c8]]);
+      s = { ...adultBody(H, { headK: 0.112 }), fur: base[0], furShade: base[1], cream: 0xF2E8DA, creamShade: 0xB0B5C7, dark: base[2], darkShade: tint(base[2], 0.6),
+        ears: { type: 'floppy', size: 1.0 }, tail: { type: 'long', len: H * 0.3, r: H * 0.028, pitch: 1.6 }, muzzle: { w: 0.075, h: 0.06, d: 0.11, y: 0.3, z: 0.7, color: 0xF2E8DA, shade: 0xB0B5C7 },
         eyes: ADULT_EYES('dog', '#3a2010', '#c08030'), extras: ['dogPatch'] };
       break; }
     case 'sheep': {
       const H = 1.52 + rng() * 0.1; const dark = rng() < 0.4;
-      s = { ...adultBody(H, { headK: 0.11, pelvisK: 0.1, chestK: 1.2 }), fur: dark ? 0x3a3034 : 0xE9DCC6, furShade: dark ? 0x1e181b : 0xA99FBF, cream: dark ? 0x4a4044 : 0xF2E8DA, creamShade: dark ? 0x2a2428 : 0xB9A4C9,
-        wool: 0xF7F1E4, woolShade: 0xC5B6D8, ears: { type: 'small', size: 1.3 }, tail: { type: 'stub', r: 0.04 }, muzzle: { w: 0.07, h: 0.06, d: 0.09, y: 0.3, z: 0.7, color: dark ? 0x4a4044 : 0xF2E8DA, shade: dark ? 0x2a2428 : 0xB9A4C9 },
+      s = { ...adultBody(H, { headK: 0.11, pelvisK: 0.1, chestK: 1.2 }), fur: dark ? 0x3a3034 : 0xE9DCC6, furShade: dark ? 0x1e181b : 0xA6A4BA, cream: dark ? 0x4a4044 : 0xF2E8DA, creamShade: dark ? 0x2a2428 : 0xB0B5C7,
+        wool: 0xF7F1E4, woolShade: 0xC1BED2, ears: { type: 'small', size: 1.3 }, tail: { type: 'stub', r: 0.04 }, muzzle: { w: 0.07, h: 0.06, d: 0.09, y: 0.3, z: 0.7, color: dark ? 0x4a4044 : 0xF2E8DA, shade: dark ? 0x2a2428 : 0xB0B5C7 },
         eyes: ADULT_EYES('sheep', '#2f3a4a', '#9fb8c8'), extras: ['wool'] };
       break; }
     case 'raccoon': {
       const H = 1.5 + rng() * 0.08;
-      s = { ...adultBody(H, { headK: 0.12 }), fur: 0x8E8A86, furShade: 0x5A5658, cream: 0xEDE7DD, creamShade: 0xB9A4C9, dark: 0x3a2f33, darkShade: 0x1f181b,
-        ears: { type: 'small', inner: 0xEDE7DD, innerShade: 0xB9A4C9, size: 1.2 }, tail: { type: 'long', len: H * 0.35, r: H * 0.04, pitch: 1.3, rings: true }, muzzle: { w: 0.06, h: 0.05, d: 0.09, y: 0.32, z: 0.72, color: 0xEDE7DD, shade: 0xB9A4C9 },
+      s = { ...adultBody(H, { headK: 0.12 }), fur: 0x8E8A86, furShade: 0x5A5658, cream: 0xEDE7DD, creamShade: 0xB0B5C7, dark: 0x3a2f33, darkShade: 0x1f181b,
+        ears: { type: 'small', inner: 0xEDE7DD, innerShade: 0xB0B5C7, size: 1.2 }, tail: { type: 'long', len: H * 0.35, r: H * 0.04, pitch: 1.3, rings: true }, muzzle: { w: 0.06, h: 0.05, d: 0.09, y: 0.32, z: 0.72, color: 0xEDE7DD, shade: 0xB0B5C7 },
         eyes: ADULT_EYES('raccoon', '#1a1410', '#5a4a3a'), extras: ['mask'] };
       break; }
     case 'otter': {

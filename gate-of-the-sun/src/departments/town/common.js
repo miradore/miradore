@@ -204,14 +204,14 @@ export function makeMaterials(ctx) {
     return makeCel(o);
   };
   // stucco: four whites, each painted with two different seeds so neighbouring houses never share a wash
-  const STUCCO2 = 0x9883B3;            // deep violet core shadow on the far side of the form
+  const STUCCO2 = 0x8A91A9;            // deep blue-grey core shadow on the far side of the form
   const SAND2 = 0x985440;              // deep sienna core shadow on the sandstone
   const stucco = [];
   for (let s = 0; s < 2; s++) P.stucco.forEach((c, k) => stucco.push(cel(c, P.stuccoShade, { shade2: STUCCO2, band2Edge: -0.3, paint: 'stucco', paintScale: 3 + ((k * 3 + s * 5) % 5) * 0.5, paintSeed: 11 + k * 7 + s * 31 })));
   const stoneP = (scale, seed, amount = 1) => ({ paint: 'stone', paintScale: scale, paintSeed: seed, paintAmount: amount });
   return {
     stucco,
-    interior: cel(0xF1E4CF, 0xB9A4C9, { paint: 'stucco', paintScale: 3, paintSeed: 3 }),
+    interior: cel(0xF1E4CF, 0xB0B5C7, { paint: 'stucco', paintScale: 3, paintSeed: 3 }),
     recess: cel(0x4E4070, 0x362B52),
     cobalt: cel(P.cobalt, P.cobaltShade, { shade2: 0x0F2160, band2Edge: -0.3, paint: 'metal', paintScale: 2, paintSeed: 5, paintAmount: 0.6 }),
     cobaltSlat: cel(0x2A58C4, 0x183784, { shade2: 0x10235F, band2Edge: -0.3, paint: 'metal', paintScale: 2, paintSeed: 6, paintAmount: 0.6 }),
@@ -226,14 +226,14 @@ export function makeMaterials(ctx) {
     gold: cel(MAP.GATE.sunColor, 0xB08A32, { highlight: 0xFFF0B0, highlightEdge: 0.8, paint: 'metal', paintScale: 3, paintSeed: 12, paintAmount: 0.6 }),
     water: cel(0x2DA6BC, 0x1C7589, { paint: 'soft', paintScale: 6, paintSeed: 13 }),
     ripple: cel(0x9BE6EE, 0x5FBBCB),
-    sand: cel(0xE9D9B6, 0xB9A4C9, { paint: 'ground', paintScale: 5, paintSeed: 14 }),
+    sand: cel(0xE9D9B6, 0xB0B5C7, { paint: 'ground', paintScale: 5, paintSeed: 14 }),
     street: cel(0xE6D2B4, 0xB49EC4, { paint: 'paving', paintScale: 3, paintSeed: 15 }),
     streetBand: cel(0xCDB396, 0x9C88AA, { paint: 'stone', paintScale: 1.2, paintSeed: 1 }),
     paving: cel(0xE3CDB0, 0xB29AC2, { paint: 'paving', paintScale: 3, paintSeed: 16 }),
-    stone: cel(0xD8C7AE, 0xA891B5, { shade2: 0x86709A, band2Edge: -0.3, ...stoneP(3, 17) }),
-    canalStone: cel(0xD8C7AE, 0xA891B5, { shade2: 0x86709A, band2Edge: -0.3, ...stoneP(2.5, 18) }),
+    stone: cel(0xD8C7AE, 0xA8A2B4, { shade2: 0x86809A, band2Edge: -0.3, ...stoneP(3, 17) }),
+    canalStone: cel(0xD8C7AE, 0xA8A2B4, { shade2: 0x86809A, band2Edge: -0.3, ...stoneP(2.5, 18) }),
     canalSand: cel(P.sandstone, P.sandstoneShade, { shade2: SAND2, band2Edge: -0.3, ...stoneP(2.5, 19) }),
-    trim: cel(0xEADCC4, 0xAE98BC, { shade2: 0x8E78A6, band2Edge: -0.3, ...stoneP(1.5, 26) }),
+    trim: cel(0xEADCC4, 0xADA8BE, { shade2: 0x8A85A2, band2Edge: -0.3, ...stoneP(1.5, 26) }),
     field: cel(P.field, P.fieldShade, { paint: 'soft', paintScale: 60, paintSeed: 27 }),
     fieldShade: cel(P.fieldShade, 0x4E7328, { paint: 'soft', paintScale: 50, paintSeed: 28 }),
     wheat: cel(0xE0C45E, 0xB2933A, { paint: 'soft', paintScale: 40, paintSeed: 29 }),
@@ -246,7 +246,7 @@ export function makeMaterials(ctx) {
     mountain: cel(P.mountain, P.mountainShade, { shade2: 0x3E4E8E, paint: 'soft', paintScale: 120, paintSeed: 36 }),
     mountainFar: cel(0x8DA3DC, 0x6D85C9, { paint: 'soft', paintScale: 120, paintSeed: 37 }),
     awning: P.awning.map((c, k) => cel(c, new THREE.Color(c).multiplyScalar(0.62).getHex(), { paint: 'soft', paintScale: 2, paintSeed: 40 + k, paintAmount: 0.8 })),
-    white: cel(0xFFFFFF, 0xC7B9EA, { paint: 'soft', paintScale: 2, paintSeed: 43, paintAmount: 0.6 }),
+    white: cel(0xFFFFFF, 0xC3C3DC, { paint: 'soft', paintScale: 2, paintSeed: 43, paintAmount: 0.6 }),
     bougainvillea: cel(P.bougainvillea, P.bougainvilleaShade, { shade2: 0x7A1244, paint: 'foliage', paintScale: 1.5, paintSeed: 44 }),
     blossomLight: cel(0xF26FA6, 0xC23A78, { shade2: 0x8A1A52, paint: 'foliage', paintScale: 1.5, paintSeed: 45 }),
     leaf: cel(0x5FA05A, 0x33663A, { shade2: 0x234A30, paint: 'foliage', paintScale: 2, paintSeed: 46 }),
@@ -274,6 +274,6 @@ export function makeMaterials(ctx) {
     wornEdge: cel(0xEFE2CC, 0xBCA9C4, { paint: 'stone', paintScale: 1.2, paintSeed: 61 }),
     signs: [cel(0x8FB9B2, 0x6E8FA0), cel(0xD69A86, 0xA27484), cel(0xE2C27E, 0xAE9478), cel(0x9FA8D4, 0x7880AC)],
     signInk: cel(0x5C4A5E, 0x3E3050),
-    cloth: [cel(0xFFFFFF, 0xC7B9EA), cel(P.cobalt, P.cobaltShade), cel(0xE9553B, 0x9A3625), cel(0xF2C94C, 0xA88A2C), cel(0xE6397E, 0xA71E5A), cel(0x7CC5E8, 0x4A86B0), cel(0xF6E7C8, 0xB9A4C9)],
+    cloth: [cel(0xFFFFFF, 0xC3C3DC), cel(P.cobalt, P.cobaltShade), cel(0xE9553B, 0x9A3625), cel(0xF2C94C, 0xA88A2C), cel(0xE6397E, 0xA71E5A), cel(0x7CC5E8, 0x4A86B0), cel(0xF6E7C8, 0xB0B5C7)],
   };
 }

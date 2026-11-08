@@ -542,7 +542,7 @@ function buildExtras(fig, face, faceS, skull, spec, k) {
         patchMesh(cream, 'maskBrow', 0, Math.PI * 2, Math.PI / 2 - ey.elev - ey.thetaLen * 0.95, ey.thetaLen * 0.33, 0.0015);
         break; }
       case 'badgerFace': { // white face with the dark head and dark eye stripes
-        const wh = celMat(k.ctx, 0xF6F2EC, 0xB9A4C9, { shade2: deeper(0xB9A4C9) });
+        const wh = celMat(k.ctx, 0xF6F2EC, 0xB0B5C7, { shade2: deeper(0xB0B5C7) });
         patchMesh(wh, 'faceWhite', Math.PI / 2 - 1.3, 2.6, 0.5, 1.5, 0.0015);
         for (const sx of [-1, 1]) patchMesh(dark, 'stripe' + sx, Math.PI / 2 + sx * ey.az - 0.3, 0.6, 0.2, 1.9, 0.002);
         break; }
@@ -564,13 +564,13 @@ function buildExtras(fig, face, faceS, skull, spec, k) {
         }
         break; }
       case 'tusks': {
-        const tm = celMat(k.ctx, 0xF3EBDA, 0xB9A4C9);
+        const tm = celMat(k.ctx, 0xF3EBDA, 0xB0B5C7);
         const mz = spec.muzzle;
         for (const sx of [-1, 1]) part(face, G.cone(R * 0.06, R * 0.32, 6), tm, 'tusk' + sx, [sx * mz.w * 0.85, -R * (mz.y ?? 0.3) - mz.h * 0.1, R * (mz.z ?? 0.72) + mz.d * 0.4], [0.15, 0, -sx * 0.35]);
         break; }
       case 'beard': part(face, G.cone(R * 0.16, R * 0.45, 6), cream, 'beard', [0, -R * 0.85, R * 0.55], [Math.PI - 0.3, 0, 0]); break;
       case 'wool': {
-        const wm = celMat(k.ctx, spec.wool ?? 0xF7F1E4, spec.woolShade ?? 0xC5B6D8, { shade2: deeper(spec.woolShade ?? 0xC5B6D8) });
+        const wm = celMat(k.ctx, spec.wool ?? 0xF7F1E4, spec.woolShade ?? 0xC1BED2, { shade2: deeper(spec.woolShade ?? 0xC1BED2) });
         const rng = (i) => (Math.sin(i * 12.9898) * 43758.5453) % 1;
         for (let i = 0; i < 7; i++) {
           const a = i / 7 * Math.PI * 2; const r = R * 0.33;

@@ -50,7 +50,7 @@ export default {
     [[0.3, 0.06, 0.1], [0.42, 0.06, -0.08], [0.55, 0.06, 0.18], [0.25, 0.06, -0.25], [0.7, 0.06, 0.02]].forEach((p, i) => { const a = new THREE.Mesh(G.sphere(0.055, 10, 8), appleMat); a.name = 'apple' + i; a.position.set(p[0], p[1], p[2]); props.basket.add(a); });
     group.add(props.basket);
     // folded cloth in the badger's hands (shot 2), a part of the badger body
-    props.cloth = new THREE.Mesh(G.box(0.2, 0.025, 0.16), propMat(0xF2E9D8, 0xB9A4C9)); props.cloth.name = 'badger_cloth';
+    props.cloth = new THREE.Mesh(G.box(0.2, 0.025, 0.16), propMat(0xF2E9D8, 0xB0B5C7)); props.cloth.name = 'badger_cloth';
     figs.badger.j.prop.add(props.cloth); props.cloth.position.set(0.1, 0, 0.02); figs.badger.parts.push(props.cloth);
 
     for (const p of [props.pebble, props.jug, props.basket, props.cloth, props.tear]) tag(p, { inkId: ID.CHAR_MAX, layer: LAYER.FG });

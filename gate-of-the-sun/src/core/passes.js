@@ -215,9 +215,9 @@ export function makeFinal(width, height) {
         float d = length((vUv - uLeakPos) * vec2(uRes.x / uRes.y, 1.0));
         vec3 leak = uLeakColor * uLeakAmt * pow(max(0.0, 1.0 - d / 1.4), 2.2);
         col = 1.0 - (1.0 - col) * (1.0 - leak);
-        // gentle grade: lift shadows toward violet, keep highlights clean
+        // gentle grade: lift shadows toward a cool blue, keep highlights clean
         float l = dot(col, vec3(0.299, 0.587, 0.114));
-        col = mix(col, col + vec3(0.025, 0.01, 0.045) * (1.0 - l), 1.0);
+        col = mix(col, col + vec3(0.016, 0.016, 0.036) * (1.0 - l), 1.0);
         col = mix(vec3(l), col, 1.06);
         // speed / focus lines
         if (uSpeed > 0.0) {

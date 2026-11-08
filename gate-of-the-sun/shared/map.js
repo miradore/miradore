@@ -141,9 +141,9 @@ export const LAYER = { BG: 1, FG: 2 };   // three.js layers: BG = painted pass, 
 // ---------------------------------------------------------------- palette
 export const PALETTE = {
   sky: 0x2F6FD6, skyZenith: 0x1E4FB8, skyHorizon: 0xA9D4F2,
-  cloud: 0xFFFFFF, cloudShade: 0xC7B9EA,
+  cloud: 0xFFFFFF, cloudShade: 0xC3C3DC,
   stucco: [0xFCF7EE, 0xF4E7D3, 0xEBD9BD, 0xFFFDF7],
-  stuccoShade: 0xB9A4C9,            // cool violet shadow on white walls
+  stuccoShade: 0xB0B5C7,            // cool blue-grey shadow on white walls
   dome: 0x33C2CC, domeShade: 0x1D8798,
   cobalt: 0x1F49B5, cobaltShade: 0x15307A,
   bougainvillea: 0xE6397E, bougainvilleaShade: 0xA71E5A,
