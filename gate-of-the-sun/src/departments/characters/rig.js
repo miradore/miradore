@@ -9,7 +9,7 @@
 //                   -> faceS (scaled by headScale): eyes, brows, blush, masks
 //                   -> muzzle, nose, mouth, glasses, tear
 import * as THREE from 'three';
-import { makeEyeFrames, makeMouthFrames, makeBlushTexture } from './eyes.js';
+import { makeEyeFrames, makeMouthFrames, makeBlushTexture, makeEarTexture } from './eyes.js';
 import * as S from './shapes.js';
 
 // ------------------------------------------------------------------ caches
@@ -32,7 +32,7 @@ export const G = {
 const ch = (hex, i) => (hex >> (16 - 8 * i)) & 255;
 const pack = (r, g, b) => (Math.min(255, Math.max(0, Math.round(r))) << 16) | (Math.min(255, Math.max(0, Math.round(g))) << 8) | Math.min(255, Math.max(0, Math.round(b)));
 /** deeper core-shadow tone: darker and cooler (violet) than the painted shade */
-export function deeper(hex, k = 0.7) { return pack(ch(hex, 0) * k * 0.94, ch(hex, 1) * k * 0.92, ch(hex, 2) * k * 1.06); }
+export function deeper(hex, k = 0.8) { return pack(ch(hex, 0) * k * 0.94, ch(hex, 1) * k * 0.92, ch(hex, 2) * k * 1.06); }
 /** warm highlight tone toward cream */
 export function lighter(hex, k = 0.3) { return pack(ch(hex, 0) + (255 - ch(hex, 0)) * k, ch(hex, 1) + (250 - ch(hex, 1)) * k, ch(hex, 2) + (232 - ch(hex, 2)) * k); }
 export function darker(hex, k = 0.72) { return pack(ch(hex, 0) * k, ch(hex, 1) * k, ch(hex, 2) * k * 1.04); }
@@ -42,7 +42,22 @@ const matCache = new Map();
 export function celMat(ctx, color, shade, opts = {}) {
   const key = `${color}_${shade ?? 'auto'}_${opts.shade2 ?? ''}_${opts.highlight ?? ''}_${opts.highlightEdge ?? ''}_${opts.paint ?? ''}_${opts.side ?? ''}`;
   let m = matCache.get(key);
-  if (!m) { m = ctx.makeCel({ color, shade, wobble: 0.1, ...opts }); matCache.set(key, m); }
+  if (!m) { m = ctx.makeCel({ color, shade, wobble: 0.1, ...(opts.shade2 !== undefined ? { band2Edge: -0.6 } : {}), ...opts }); matCache.set(key, m); }
+  return m;
+}
+/** linear-space ratio a / b as an sRGB hex (a shade multiplier for a white-based mapped material) */
+function ratioHex(a, b) { const A = new THREE.Color(a), B = new THREE.Color(b); return new THREE.Color(Math.min(1, A.r / Math.max(1e-4, B.r)), Math.min(1, A.g / Math.max(1e-4, B.g)), Math.min(1, A.b / Math.max(1e-4, B.b))).getHex(); }
+const css = (hex) => '#' + (hex >>> 0).toString(16).padStart(6, '0');
+const earMatCache = new Map();
+/** cel material carrying a painted ear texture: lit = texture, shadows keep the fur's shade ratios */
+function earMat(ctx, o, fur, furShade) {
+  const key = JSON.stringify(o) + fur + '_' + furShade;
+  let m = earMatCache.get(key);
+  if (!m) {
+    const tex = makeEarTexture({ ...o, fur: css(fur), inner: css(o.inner), tip: o.tip !== undefined ? css(o.tip) : undefined });
+    m = ctx.makeCel({ color: 0xffffff, map: tex, shade: ratioHex(furShade, fur), shade2: ratioHex(deeper(furShade, 0.82), fur), band2Edge: -0.6, wobble: 0.1 });
+    earMatCache.set(key, m);
+  }
   return m;
 }
 const flatCache = new Map();
@@ -169,7 +184,7 @@ export function buildFigure(ctx, spec) {
     // body of the tunic up to a collar line, then a flared hem on the hips (the hips frame stays upright when seated)
     part(spine, shell('tunic', -p * 0.05, T * 0.965, 1.07, 0.004), tm, 'tunic', [0, 0, 0], null, [1, 1, depth]);
     const r0 = torsoAt(p * 0.15) * 1.08 + 0.004;
-    const hemPts = S.smoothProfile([[r0 * 0.98, p * 0.35], [r0 * 1.0, p * 0.05], [r0 * 1.06, -p * 0.25], [r0 * 1.17, -p * 0.5], [r0 * 1.22, -p * 0.6]], 3);
+    const hemPts = S.smoothProfile([[r0 * 0.98, p * 0.35], [r0 * 1.0, p * 0.05], [r0 * 1.06, -p * 0.2], [r0 * 1.15, -p * 0.4], [r0 * 1.2, -p * 0.48]], 3);
     part(hips, S.lathe(`hem_${spec.name}`, hemPts, RS + 4), tm, 'hem', [0, 0, 0], null, [1, 1, Math.min(0.98, depth * 1.05)]);
     const collarR = torsoAt(T * 0.965) * 1.07 + 0.004;
     part(spine, G.torus(collarR, Math.max(0.006, headR * 0.035), 5, RS + 4), celMat(ctx, tunic.shade, darker(tunic.shade, 0.75)), 'collar', [0, T * 0.965, 0], [Math.PI / 2, 0, 0], [1, depth, 1]);
@@ -209,9 +224,9 @@ export function buildFigure(ctx, spec) {
     const sleeve = tunic && !tunic.sleeveless;
     const uaMat = sleeve ? tunicMat : fur;
     part(ua, G.sphere(d.armR * 1.25, SW - 4, SH - 2), uaMat, 'shoulder' + s, [0, 0, 0]);
-    part(ua, S.taperLimb(d.armR * 1.05, d.armR * 0.88, d.upperArm, RS, CAP, 0.06), uaMat, 'upperArm' + s);
+    part(ua, S.taperLimb(d.armR * 1.15, d.armR * 0.95, d.upperArm, RS, CAP, 0.06), uaMat, 'upperArm' + s);
     const fa = joint(ua, 'fa' + s, [0, -d.upperArm, 0]);
-    part(fa, S.taperLimb(d.armR * 0.9, d.armR * 0.74, d.foreArm, RS, CAP, 0.12), fur, 'foreArm' + s);
+    part(fa, S.taperLimb(d.armR * 0.98, d.armR * 0.8, d.foreArm, RS, CAP, 0.14), fur, 'foreArm' + s);
     const hand = joint(fa, 'hand' + s, [0, -d.foreArm, 0]);
     buildHand(fig, hand, s, d.armR, spec.handColor ? celMat(ctx, spec.handColor, spec.handShade) : (spec.cream && spec.creamHands ? cream : fur), hero);
   }
@@ -260,13 +275,13 @@ export function buildFigure(ctx, spec) {
   fig.setEyes = (frame) => { for (const s of ['L', 'R']) { const t = set[s][frame] || set[s].open; fig.eyeMeshes[s].material = eyeMat(ctx, t); } };
 
   // brows: thin tapered curved ribbons lying on the skull, slightly darker than the fur
-  const browEl = ey.elev + ey.thetaLen * 0.6, browAz = ey.az * 0.98;
+  const browEl = ey.elev + ey.thetaLen * 0.56, browAz = ey.az * 0.98;
   const browRad = (() => { const v = S.skullPoint(headR, 0, Math.sin(browEl), Math.cos(browEl), SK); return v.length() + 0.0028; })();
   const browMat = celMat(ctx, spec.browColor ?? darker(spec.fur, 0.6), spec.browShade ?? darker(spec.furShade, 0.6));
   for (const s of ['L', 'R']) {
     const sx = s === 'L' ? 1 : -1;
     const g = joint(faceS, 'brow' + s, [0, 0, 0], [-browEl, sx * browAz, 0], 'YXZ');
-    fig['browMesh' + s] = part(g, S.browRibbon(browRad, ey.phiLen * 0.36, hero ? 0.062 : 0.085, 0.045, s, hero ? 12 : 6), browMat, 'brow' + s);
+    fig['browMesh' + s] = part(g, S.browRibbon(browRad, ey.phiLen * 0.36, hero ? 0.09 : 0.1, 0.05, s, hero ? 12 : 6), browMat, 'brow' + s);
   }
 
   // cheek blush (kids and children only): hatched pink decals under the eyes
@@ -399,25 +414,18 @@ function buildEars(fig, skull, spec, k) {
     const g = joint(skull, 'ear' + s, pos, [tiltX, 0, -sx * tiltZ]);
     switch (e.type) {
       case 'hare': {
-        // flattened tapered leaf with a pink inner panel; the flop ear bends backward at a third of its length
-        const L = R * 1.8 * sz, W = R * 0.27 * sz, TH = R * 0.075 * sz; const cut = 1 / 3;
-        part(g, S.earShape('leaf', L, W, TH, 0, cut + 0.01, 1, 1, Math.ceil(segL / 3), segW, 0), furHi, 'ear' + s);
-        part(g, S.earShape('leaf', L, W, TH, 0.07, cut + 0.01, 0.58, 0.32, Math.ceil(segL / 3), segW, 0), innerMat, 'earIn' + s, [0, 0.07 * L, TH * 0.72]);
-        const bend = group(g, 'earBend' + s, [0, cut * L, 0]);
-        bend.rotation.x = e.flop === s ? -1.15 : -0.12; bend.rotation.z = e.flop === s ? -sx * 0.12 : 0;
-        const wCut = W * Math.pow(Math.sin(Math.PI * Math.min(1, 0.16 + 0.84 * Math.pow(cut, 0.8))), 0.75) * (1 - 0.15 * cut);
-        part(bend, G.sphere(1, 10, 6), furHi, 'earKnuckle' + s, [0, 0, 0], null, [wCut * 0.98, TH * 0.8, TH * 0.95]);
-        part(bend, S.earShape('leaf', L, W, TH, cut - 0.01, 1, 1, 1, segL, segW, 0), furHi, 'earTip' + s, [0, -0.01 * L, 0]);
-        part(bend, S.earShape('leaf', L, W, TH, cut - 0.01, 0.9, 0.58, 0.32, segL, segW, 0), innerMat, 'earInTip' + s, [0, -0.01 * L, TH * 0.72]);
+        // flattened tapered leaf with a painted pink inner panel; the flop ear folds backward at a third of its length
+        const L = R * 1.85 * sz, W = R * 0.3 * sz, TH = R * 0.07 * sz;
+        const flop = e.flop === s;
+        const geo = S.earGeo('leaf', L, W, TH, { segL: hero ? 18 : 8, segW: hero ? 14 : 8, bend: flop ? -1.25 : -0.08, bendAt: 0.34, cup: 0.3 });
+        part(g, geo, earMat(k.ctx, { inner: e.inner, v0: 0.1, v1: 0.88, panel: 0.56 }, spec.fur, spec.furShade), 'ear' + s);
         break; }
       case 'fox': case 'lynx': {
-        // pointed triangle ears: cream inner panel, dark tip; the lynx adds a thin dark tuft spike
+        // pointed triangle ears, cream inner panel and dark tip painted on; the lynx adds a thin dark tuft spike
         const lynx = e.type === 'lynx';
-        const L = R * (lynx ? 0.68 : 0.98) * sz, W = R * (lynx ? 0.34 : 0.4) * sz, TH = R * 0.08 * sz;
-        part(g, S.earShape('tri', L, W, TH, 0, 1, 1, 1, segL, segW, 0), furHi, 'ear' + s);
-        part(g, S.earShape('tri', L, W, TH, 0.06, 0.72, 0.62, 0.35, segL, segW, 0), innerMat, 'earIn' + s, [0, 0.06 * L, TH * 0.68]);
-        const t0 = lynx ? 0.68 : 0.6;
-        part(g, S.earShape('tri', L, W, TH, t0, 1, 1.1, 1.45, Math.ceil(segL / 2), segW, 0), tipMat, 'earTip' + s, [0, t0 * L, 0]);
+        const L = R * (lynx ? 0.7 : 1.0) * sz, W = R * (lynx ? 0.34 : 0.4) * sz, TH = R * 0.075 * sz;
+        const geo = S.earGeo('tri', L, W, TH, { segL: hero ? 12 : 6, segW: hero ? 14 : 8, bend: lynx ? 0 : -0.12, bendAt: 0.5, cup: 0.35 });
+        part(g, geo, earMat(k.ctx, { inner: e.inner ?? spec.cream, v0: 0.06, v1: 0.7, panel: 0.62, panelPow: 0.4, tip: e.tip ?? spec.dark, tipFrom: lynx ? 0.7 : 0.6 }, spec.fur, spec.furShade), 'ear' + s);
         if (lynx) part(g, S.spike(R * 0.5 * sz, R * 0.028, R * 0.014, sx * 0.4, 5, true), dark, 'earTuft' + s, [0, L * 0.96, 0], [0, 0, -sx * 0.08]);
         break; }
       case 'leaf': case 'goat': {
@@ -467,9 +475,9 @@ function buildTufts(fig, skull, spec, k) {
     part(skull, geo, tuftMat, 'cheekTuft' + (sx > 0 ? 'L' : 'R'));
   }
   if (spec.forelock) {
-    const items = [[0, 1.12, 0.5], [0.26, 1.05, 0.4], [-0.24, 1.08, 0.36]].map(([az, el, len], i) => ({
-      len: len * R, width: R * 0.15 * (1 - i * 0.12), thick: R * 0.05, curl: 0.9, seg: hero ? 6 : 3,
-      pos: onSkull(az, el, -0.06 * R), rot: [0.85 + i * 0.12, 0, -az * 1.4] }));
+    const items = [[0, 1.3, 0.46, 0.35], [0.3, 1.22, 0.36, 0.5], [-0.28, 1.24, 0.34, 0.45]].map(([az, el, len, tilt], i) => ({
+      len: len * R, width: R * 0.17 * (1 - i * 0.15), thick: R * 0.06, curl: 1.1, seg: hero ? 6 : 3,
+      pos: onSkull(az, el, -0.08 * R), rot: [tilt, 0, -az * 1.6] }));
     part(skull, S.tuft(`${spec.name}_forelock`, items), furHi, 'forelock');
   }
 }
@@ -584,8 +592,8 @@ function buildExtras(fig, face, faceS, skull, spec, k) {
         for (const sx of [-1, 1]) {
           const side = group(g, 'glassSide' + sx);
           const rim = part(side, G.torus(lensR0, R * 0.022, 6, 28), gm, 'rim' + sx);
-          const hl = new THREE.Mesh(G.plane(lensR0 * 0.8, lensR0 * 0.12), flatMat(k.ctx, 0xDDEFFA)); hl.name = `${spec.name}_lensHL${sx}`;
-          hl.position.set(sx * lensR0 * 0.05, lensR0 * 0.62, 0.004); hl.rotation.set(0, 0, sx * 0.35); side.add(hl); fig.parts.push(hl); hl.castShadow = false;
+          const hl = new THREE.Mesh(G.plane(lensR0 * 0.07, lensR0 * 0.34), flatMat(k.ctx, 0xEAF6FF)); hl.name = `${spec.name}_lensHL${sx}`;
+          hl.position.set(sx * lensR0 * 0.66, lensR0 * 0.5, 0.004); hl.rotation.set(0, 0, sx * 0.75); side.add(hl); fig.parts.push(hl); hl.castShadow = false;
           const arm = part(side, G.cyl(R * 0.014, R * 0.014, R * 1.1, 5), gm, 'glassArm' + sx, [sx * lensR0 * 0.9, lensR0 * 0.3, -R * 0.5], [Math.PI / 2, 0, 0]);
           void rim; void arm;
           const update = (on) => {

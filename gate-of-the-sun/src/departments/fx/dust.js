@@ -112,7 +112,7 @@ export function makeDust(ctx, reg) {
   }));
   // crest: mid-size lobes along the top edge, leaning forward and rolling over
   const crest = makeBillows(ctx, reg, 7, { seed: 117, count: 8, style, name: 'wallCrest', flat: 0.5 });
-  const crestData = crest.map((b, k) => ({ x: -50 + k * 10 + (MAP.hash1(k + 1150) - 0.5) * 4, R: 6 + 2.5 * MAP.hash1(k + 1160), up: MAP.hash1(k + 1170), ph: MAP.hash1(k + 1180) * 6.28 }));
+  const crestData = crest.map((b, k) => ({ x: -53 + k * 10 + (MAP.hash1(k + 1150) - 0.5) * 4, R: 6 + 2.5 * MAP.hash1(k + 1160), up: MAP.hash1(k + 1170), ph: MAP.hash1(k + 1180) * 6.28 }));
   // wisps: small stretched billows streaming off the west and east ends, cycling with fades at both ends
   const wisps = makeBillows(ctx, reg, 8, { seed: 119, count: 6, style, name: 'wallWisp', flat: 0.4 });
   const wispDir = new THREE.Vector3();
@@ -176,7 +176,7 @@ export function makeDust(ctx, reg) {
           const y = MAP.groundY(d.x, zc) + top + R * 0.2 + 10 * thin + 1.2 * Math.sin(fh * 0.04 + d.ph);
           crest[k].set(d.x, y, zc, R, { t: fh * 0.07 + d.ph, opacity: 1 - thin, spin: d.ph, roll: d.ph + (fh - T.DUST_WALL_START) * 0.02 });
         }
-        // wisps: 5 off the west end (drifting west and up), 3 off the east end (rising, held inside x <= 20)
+        // wisps: 5 off the west end (drifting west and up), 3 off the east end (rising and curling back west, inside x <= 20)
         for (let k = 0; k < wisps.length; k++) {
           const h1 = MAP.hash1(k + 1190), h2 = MAP.hash1(k + 1195);
           const s = ((fh - T.DUST_WALL_START) * (0.006 + 0.004 * h1) + h2) % 1;
@@ -186,7 +186,7 @@ export function makeDust(ctx, reg) {
           const Rb = R * st;
           let x, y;
           if (k < 5) { x = -55 - 26 * s - 6 * h1; y = 8 + 14 * h2 + 18 * s; wispDir.set(-1, 0.45, 0).normalize(); }
-          else { x = 20 - Rb - 0.5 - 4 * h1; y = 16 + 8 * h2 + 26 * s; wispDir.set(0.25, 1, 0).normalize(); }
+          else { x = 20 - Rb - 0.5 - 4 * h1 - 16 * s; y = 18 + 10 * h2 + 22 * s; wispDir.set(-0.7, 1, 0).normalize(); }
           const zc = Math.max(front - 6 * depthK - Rb, 4 + Rb * 0.3);
           wisps[k].set(x, MAP.groundY(x, zc) + y * grow + 10 * thin, zc, R, { t: fh * 0.1 + k, opacity: op, spin: h2 * 6, stretch: st, dir: wispDir });
         }

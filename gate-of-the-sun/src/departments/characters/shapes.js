@@ -142,6 +142,40 @@ export function earShape(kind, L, W, TH, t0 = 0, t1 = 1, wScale = 1, thScale = 1
   });
 }
 
+/**
+ * One continuous ear with UVs (u around the section, v along the length) and an optional bend built into
+ * the centreline (no seams): the centreline rises along +y, then folds by `bend` radians about x
+ * (negative folds backward) around t = bendAt. Front of the ear is +z. kind 'leaf' (rounded tip) or 'tri'.
+ */
+export function earGeo(kind, L, W, TH, o = {}) {
+  const segL = o.segL ?? 14, segW = o.segW ?? 12, bend = o.bend ?? 0, bendAt = o.bendAt ?? 0.33, cup = o.cup ?? 0.25;
+  return cached(`eg${kind}_${r3(L)}_${r3(W)}_${r3(TH)}_${segL}_${segW}_${r3(bend)}_${r3(bendAt)}_${r3(cup)}`, () => {
+    const wOf = (t) => kind === 'leaf'
+      ? W * Math.sqrt(Math.max(0, 1 - Math.pow((t - 0.42) / 0.58, 2))) * (1 - 0.12 * t)
+      : W * Math.pow(Math.max(0, 1 - t), 0.85) * (0.82 + 0.18 * Math.sin(Math.PI * t * 0.9));
+    const pos = [], uv = [], idx = [];
+    let cy = 0, cz = 0; const dt = 1 / segL;
+    const angAt = (t) => { const k = Math.min(1, Math.max(0, (t - (bendAt - 0.07)) / 0.14)); return bend * k * k * (3 - 2 * k); };
+    for (let i = 0; i <= segL; i++) {
+      const t = i / segL;
+      if (i > 0) { const a = angAt(t - dt / 2); cy += Math.cos(a) * L * dt; cz += Math.sin(a) * L * dt; }
+      const a = angAt(t); const ny = -Math.sin(a), nz = Math.cos(a);       // front normal of the section frame
+      const w = Math.max(0.0008, wOf(t)), th = Math.max(0.0006, TH * (0.4 + 0.6 * wOf(t) / W));
+      for (let j = 0; j <= segW; j++) {
+        const v = (j / segW) * Math.PI * 2; const cx = Math.cos(v), sz = Math.sin(v);
+        const off = sz * th + cup * w * 0.3 * (1 - cx * cx) * (1 - t);      // cupped front
+        pos.push(cx * w, cy + ny * off, cz + nz * off); uv.push(j / segW, t);
+      }
+    }
+    const R = segW + 1;
+    for (let i = 0; i < segL; i++) for (let j = 0; j < segW; j++) { const a = i * R + j, b = a + 1, c = a + R, d = c + 1; idx.push(a, c, b, b, c, d); }
+    // base cap (buried in the skull)
+    const ci = pos.length / 3; pos.push(0, 0, 0); uv.push(0.25, 0); for (let j = 0; j < segW; j++) idx.push(ci, j + 1, j);
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx);
+    g.computeVertexNormals(); weldNormals(g); g.computeBoundingSphere(); return g;
+  });
+}
+
 /** a flat pointed fur spike along +y, curled toward +z (positive curl) and flattened in z */
 export function spike(len, width, thick, curl = 0.3, seg = 5, inPlane = false) {
   return cached(`spk${r3(len)}_${r3(width)}_${r3(thick)}_${r3(curl)}_${seg}_${inPlane}`, () => {

@@ -44,7 +44,7 @@ export function foxSpec(inkId) {
     fur: 0xE8803A, furShade: 0xA9522A, cream: 0xFBEBD2, creamShade: 0xC9A58F, dark: 0x3B2420, darkShade: 0x1E1210,
     ears: { type: 'fox', inner: 0xFBEBD2, innerShade: 0xC9A58F, tip: 0x3B2420 },
     tail: { type: 'bushy', len: 0.5, r: 0.085, tip: 0xFBEBD2, tipShade: 0xC9A58F, pitch: 1.35 },
-    muzzle: { w: 0.075, h: 0.058, d: 0.085, y: 0.3, z: 0.7, color: 0xFBEBD2, shade: 0xC9A58F },
+    muzzle: { w: 0.098, h: 0.066, d: 0.085, y: 0.33, z: 0.7, color: 0xFBEBD2, shade: 0xD9B8A0 },
     eyes: KID_EYES('fox', '#5b2a0a', '#f0a83a', { lid: 0.055 }),
     extras: [], tufts: 'fox', forelock: true, skull: { crown: 0.16, jaw: 0.22, lift: 0.06 },
     browColor: 0x9E4E22, browShade: 0x6E3218,
@@ -61,7 +61,7 @@ export function hareSpec(inkId) {
     muzzle: { w: 0.062, h: 0.05, d: 0.062, y: 0.28, z: 0.72, color: 0xFBF7F0, shade: 0xC4BBD4, noseColor: 0xE08A98, noseShade: 0x9E5A68 },
     eyes: { ...KID_EYES('hare', '#2f3f63', '#8fb6d9', { size: 512, lid: 0.052 }), phiLen: 0.72, thetaLen: 0.82 },
     extras: ['glasses'], tufts: 'hare', skull: { crown: 0.12, jaw: 0.2, lift: 0.05 },
-    browColor: 0x8C8090, browShade: 0x625870,
+    browColor: 0x5E5468, browShade: 0x433C4E,
     clothes: { waistcoat: { color: 0x3E8E5A, shade: 0x245535 }, chestPatch: true, satchel: { color: 0x8B5A2B, shade: 0x53351A } },
   };
 }

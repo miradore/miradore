@@ -92,6 +92,12 @@ export function buildCanal(ctx, M, detail) {
       jointG.push(decalRect(zj - 0.018, zj + 0.018, yBot + 0.01, yTop - 0.01, [x1, 0, 0], [0, 0, 1], [0, 1, 0], EASTN, 0.003));
     }
   }
+  // kerb at the top of the steps: joints on its tread and on its face down to the first step
+  for (let z = C.zMin + 0.3; z < C.zMax - 0.3; z += 1.2) {
+    const zj = z + (drng() - 0.5) * 0.08, yk = bankY(zj) + 0.12;
+    jointG.push(decalPoly([[C.xBankTop - 1.17, zj - 0.018], [C.xBankTop - 0.03, zj - 0.018], [C.xBankTop - 0.03, zj + 0.018], [C.xBankTop - 1.17, zj + 0.018]], [0, yk, 0], [1, 0, 0], [0, 0, 1], UP, 0.003));
+    jointG.push(decalRect(zj - 0.018, zj + 0.018, MAP.stepTopY(0, zj) + 0.01, yk - 0.01, [C.xBankTop, 0, 0], [0, 0, 1], [0, 1, 0], EASTN, 0.003));
+  }
   // a lighter worn nosing along the front edge of each tread (flat, 2 mm, following the sloping top)
   for (let i = 0; i < C.steps; i++) {
     const x1 = C.xBankTop + (i + 1) * C.stepDepth;
@@ -128,7 +134,7 @@ export function buildCanal(ctx, M, detail) {
     const y = MAP.stepTopY(i, z);
     mossFlatG.push(decalPoly([[xr + 0.005, z - L / 2], [xr + W * 0.7, z - L * 0.35], [xr + W, z], [xr + W * 0.6, z + L * 0.4], [xr + 0.005, z + L / 2]], [0, y, 0], [1, 0, 0], [0, 0, 1], UP, 0.004));
   }
-  for (let k = 0; k < 120; k++) {
+  for (let k = 0; k < 70; k++) {
     const z = C.zMin + 1 + drng() * (C.zMax - C.zMin - 2);
     const yTopRiser = MAP.stepTopY(C.steps - 1, z) - 0.08, yW = waterY(z) + 0.04;
     const y = yW + drng() * Math.max(0, (yTopRiser - yW) * 0.35);
@@ -161,7 +167,7 @@ export function buildCanal(ctx, M, detail) {
   for (let k = 0; k < nR; k++) {
     // denser where the kids sit (shots 3, 4, 9, 13, 26, 30, 31)
     const z = k < 90 ? 30 + drng() * 34 : C.zMin + 2 + drng() * (C.zMax - C.zMin - 4);
-    rdata.push({ x: C.xWater + 0.4 + drng() * (C.xEast - C.xWater - 0.8), z, len: 0.6 + drng() * 1.4, wid: 0.8 + drng() * 0.8, ph: drng() * 6.283, sp: 0.6 + drng() * 0.8, flip: drng() < 0.5 ? -1 : 1 });
+    rdata.push({ x: C.xWater + 0.4 + drng() * (C.xEast - C.xWater - 0.8), z, len: 1.0 + drng() * 1.8, wid: 3.0 + drng() * 2.5, ph: drng() * 6.283, sp: 0.6 + drng() * 0.8, flip: drng() < 0.5 ? -1 : 1 });
   }
   group.add(ripples);
   const _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _p = new THREE.Vector3(), _yAx = new THREE.Vector3(0, 1, 0);

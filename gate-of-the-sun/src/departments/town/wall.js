@@ -40,7 +40,7 @@ export function buildWall(ctx, M, detail) {
         const a = Math.max(x0, x), b = Math.min(x1, x + L - 0.09);
         if (b - a > 0.2) {
           const g = box(b - a, sh, 0.6, (a + b) / 2, yc, hz - 0.3);
-          if (crng() < 0.045) repairG.push(g); else blkG[k % 2].push(g);
+          if (crng() < 0.022) repairG.push(g); else blkG[k % 2].push(g);
         }
         x += L; k++;
       }
@@ -78,15 +78,27 @@ export function buildWall(ctx, M, detail) {
   }
 
   // ---------------------------------------------------------------- weathering on the town face (painted, id 0)
-  const streakG = [], streakDarkG = [], tuftG = [];
+  const streakG = [], streakDarkG = [], bleachG = [], tuftG = [];
   const wr = MAP.mulberry32(7400);
   const FACE = [0, 0, hz], U = [1, 0, 0], V = [0, 1, 0], N = [0, 0, 1];
   const buttressNear = (x) => [-225, -165, -105, -45, -15, 15, 45, 105, 165, 225].some((b) => Math.abs(x - b) < 3.2);
   // streaks run down from under the merlons, clipped to the course faces so they never float over a groove
   for (let x = -half + 3; x < half - 3; x += 2.2 + wr() * 3.4) {
-    if (Math.abs(x) < gx + 2 || (x > crack.x0 - 2 && x < crack.x1 + 2) || buttressNear(x)) continue;
-    const w = 0.5 + wr() * 1.1, L = 3 + wr() * (wr() < 0.3 ? 14 : 6);
-    const yTop = h - 0.35, dark = wr() < 0.35;
+    if (x > crack.x0 - 2 && x < crack.x1 + 2) continue;
+    const w = 0.7 + wr() * 1.3, kind = wr();
+    let L = 3 + wr() * (wr() < 0.3 ? 14 : 6);
+    if (buttressNear(x)) L = Math.min(L, 7.5);                  // stop above the buttress caps
+    const list = kind < 0.3 ? streakDarkG : kind < 0.8 ? streakG : bleachG;
+    if (Math.abs(x) < gx + 1.5) {
+      // over the gate's ashlar spandrel the streak lies on the block faces (one continuous shape, above the arch)
+      L = Math.min(L, 12);
+      const yTop = h - 0.1, pts = [[x - w / 2, yTop], [x + w / 2, yTop]];
+      for (let k = 1; k <= 4; k++) { const t = k / 4; pts.push([x + w / 2 * (1 - t * 0.75) + (wr() - 0.5) * 0.1, yTop - L * t]); }
+      for (let k = 4; k >= 1; k--) { const t = k / 4; pts.push([x - w / 2 * (1 - t * 0.75) + (wr() - 0.5) * 0.1, yTop - L * t * (0.8 + wr() * 0.2)]); }
+      list.push(decalPoly(pts, [0, 0, hz + 0.3 + 0.08], U, V, N, 0.012));
+      continue;
+    }
+    const yTop = h - 0.35;
     for (let c = 19; c >= 0; c--) {
       const y0 = c * courseH + 0.05, y1 = y0 + courseH - 0.4;
       if (y1 < yTop - L) break;
@@ -94,7 +106,7 @@ export function buildWall(ctx, M, detail) {
       if (b - a < 0.05) continue;
       const wa = w * (0.25 + 0.75 * (1 - (yTop - a) / L)), wb = w * (0.25 + 0.75 * (1 - (yTop - b) / L));
       const j = (wr() - 0.5) * 0.1;
-      (dark ? streakDarkG : streakG).push(decalPoly([[x - wa / 2 + j, a], [x + wa / 2 + j, a], [x + wb / 2, b], [x - wb / 2, b]], FACE, U, V, N, 0.012));
+      list.push(decalPoly([[x - wa / 2 + j, a], [x + wa / 2 + j, a], [x + wb / 2, b], [x - wb / 2, b]], FACE, U, V, N, 0.012));
     }
   }
   // tufts on the ledges: buttress caps, the plinth and a few course grooves near the shots' cameras
@@ -110,7 +122,8 @@ export function buildWall(ctx, M, detail) {
   }
   const addW = (list, mat, name, inkId, cast = false) => { const g = merge(list); if (!g) return; const m = new THREE.Mesh(g, mat); m.name = name; tag(m, { inkId, layer: LAYER.BG, castShadow: cast }); group.add(m); };
   addW(streakG, M.wallStreak, 'wallStreaks', ID.NONE);
-  addW(streakDarkG, M.stainDark, 'wallStreaksDark', ID.NONE);
+  addW(streakDarkG, M.wallStreakDark, 'wallStreaksDark', ID.NONE);
+  addW(bleachG, M.wallBleach, 'wallStreaksPale', ID.NONE);
   addW(tuftG, M.moss, 'wallTufts', ID.PLANT, true);
 
   // crack zone: top course blocks and merlons as separate meshes

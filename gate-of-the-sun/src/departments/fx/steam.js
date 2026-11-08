@@ -47,6 +47,11 @@ export function makeSteam(ctx, reg) {
   // ---------------- joint steam: two puff slots per vent, jetting along the vent then rising
   const MAX_VENTS = 16, SLOTS = 2;
   const joint = makeBillows(ctx, reg, MAX_VENTS * SLOTS, { seed: 71, count: 8, style, name: 'jointPuff', flat: 0.55 });
+  // ---------------- small automatons (shots 28 and 29): one small puff slot per vent
+  const AUTO_VENTS = 35;
+  const autoJoint = makeBillows(ctx, reg, AUTO_VENTS, { seed: 75, count: 6, style, name: 'autoPuff', flat: 0.55 });
+  const autoVents = [];
+  for (let i = 0; i < AUTO_VENTS; i++) autoVents.push(null);
   // ---------------- dissolve burst along the body volume
   const dissolve = makeBillows(ctx, reg, 60, { seed: 81, count: 7, style, name: 'dissolve' });
   const disData = dissolve.map((b, k) => {
@@ -54,7 +59,7 @@ export function makeSteam(ctx, reg) {
     return { birth: MAP.hold(T.DISSOLVE_START + Math.floor(h(1) * 44), 2), x: (h(2) - 0.5) * 50, y: 10 + h(3) * 80, z: -60 + h(4) * 30, dx: (h(5) - 0.5) * 2, dz: (h(6) - 0.5) * 2, r: 4 + h(7) * 3 };
   });
 
-  let giantDept;       // lazily looked up; null when the giant department is not loaded
+  let giantDept;       // the giant department group ('giantDept'), lazily looked up; null when not loaded
   const tmp = new THREE.Vector3(), dir = new THREE.Vector3(), tmpD = new THREE.Vector3();
   const vents = [];    // [x, y, z, dx, dy, dz] or null for an inactive vent
   for (let i = 0; i < MAX_VENTS; i++) vents.push([0, 0, 0, 0, 1, 0]);
@@ -77,6 +82,36 @@ export function makeSteam(ctx, reg) {
       ventCount = FALLBACK_VENTS.length;
       FALLBACK_VENTS.forEach((v, i) => { const L = Math.hypot(v[3], v[4], v[5]); vents[i] = [v[0], v[1], v[2], v[3] / L, v[4] / L, v[5] / L]; });
     }
+  }
+
+  function resolveAutoVents() {
+    if (giantDept === undefined) giantDept = ctx.scene.getObjectByName('giantDept') || null;
+    const groups = giantDept && giantDept.userData && Array.isArray(giantDept.userData.automatonVents) ? giantDept.userData.automatonVents : [];
+    const list = groups.flat();
+    if (list.length) giantDept.updateMatrixWorld(true);
+    for (let i = 0; i < AUTO_VENTS; i++) {
+      const v = list[i];
+      if (!v || (v.userData && typeof v.userData.active === 'function' && !v.userData.active())) { autoVents[i] = null; continue; }
+      v.getWorldPosition(tmp); v.getWorldDirection(tmpD);
+      autoVents[i] = [tmp.x, tmp.y, tmp.z, tmpD.x, tmpD.y, tmpD.z];
+    }
+  }
+
+  /** One jet puff: shoots out along the vent, elongated on its first drawings, then rises and rounds up. */
+  function jetPuff(b, p, age, life, n, v, { r0, r1, jetLen, riseLen, drift, cam }) {
+    const u = age / life, e = MAP.easeOut(u);
+    const hv = MAP.hash2(v + 7, n), hw = MAP.hash2(v + 13, n + 1);
+    dir.set(p[3], p[4], p[5]);
+    const R = MAP.lerp(r0, r1, e) * (0.8 + 0.4 * hw);
+    // elongated along the jet on the first drawing, round by the fourth (on 2s: 2.8, 2.0, 1.45, 1.1, 1)
+    const st = 1 + 1.8 * Math.pow(MAP.clamp(1 - age / 8, 0, 1), 2);
+    const jet = jetLen * (1 + 0.8 * hv) * MAP.easeOut(age / 12);
+    const rise = riseLen * (1 + hv) * MAP.smooth((age - 4) / (life - 4));
+    const along = jet + R * st * 0.85;
+    tmp.set(p[0] + dir.x * along + (hw - 0.5) * drift * e, p[1] + dir.y * along + rise + R * 0.4 * e, p[2] + dir.z * along + drift * 0.33 * e);
+    // keep the puff surface clear of the camera with a continuous push (no pop)
+    if (cam) { const dd = tmp.distanceTo(cam), need = R * st * 1.05 + 1.5; if (dd < need) tmp.sub(cam).normalize().multiplyScalar(need).add(cam); }
+    b.set(tmp.x, tmp.y, tmp.z, R, { t: age * 0.1 + hv * 6, opacity: 1 - MAP.smooth((u - 0.65) / 0.35), spin: hv * 6, stretch: st, dir });
   }
 
   return {
@@ -139,21 +174,21 @@ export function makeSteam(ctx, reg) {
           if (n < 0) { b.hide(); continue; }
           const birth = base + n * 48, age = fh - birth, life = 44;
           if (age > life) { b.hide(); continue; }
-          const u = age / life, e = MAP.easeOut(u);
-          const hv = MAP.hash2(v + 7, n), hw = MAP.hash2(v + 13, n + s);
-          dir.set(p[3], p[4], p[5]);
-          const R = MAP.lerp(1.4, 5, e) * (0.8 + 0.4 * hw);
-          // elongated along the jet on the first drawing, round by the fourth (on 2s: 2.8, 2.0, 1.45, 1.1, 1)
-          const st = 1 + 1.8 * Math.pow(MAP.clamp(1 - age / 8, 0, 1), 2);
-          const jet = (5 + 4 * hv) * MAP.easeOut(age / 12);
-          const rise = (10 + 10 * hv) * MAP.smooth((age - 4) / 40);
-          const along = jet + R * st * 0.85;
-          tmp.set(p[0] + dir.x * along + (hw - 0.5) * 6 * e, p[1] + dir.y * along + rise + R * 0.4 * e, p[2] + dir.z * along + 2 * e);
-          // keep the puff surface clear of the camera (shot 16 sits just above the head): a continuous push, no pop
-          if (cam) { const dd = tmp.distanceTo(cam), need = R * st * 1.05 + 1.5; if (dd < need) tmp.sub(cam).normalize().multiplyScalar(need).add(cam); }
-          b.set(tmp.x, tmp.y, tmp.z, R, { t: fh * 0.1, opacity: 1 - MAP.smooth((u - 0.65) / 0.35), spin: hv * 6, stretch: st, dir });
+          jetPuff(b, p, age, life, n * 2 + s, v, { r0: 1.4, r1: 5, jetLen: 5, riseLen: 10, drift: 6, cam });
         }
       } else for (const b of joint) b.hide();
+      // ---------------- automaton joint steam, shots 28 and 29 (1548..1680), hidden at the shot boundaries
+      if (fh >= T.AUTOMATONS_START && fh < 1680) {
+        resolveAutoVents();
+        for (let v = 0; v < AUTO_VENTS; v++) {
+          const b = autoJoint[v], p = autoVents[v];
+          if (!p) { b.hide(); continue; }
+          const base = T.AUTOMATONS_START - 30 + MAP.hash2(v + 31, 3) * 36;
+          const n = Math.floor((fh - base) / 36), birth = base + n * 36, age = fh - birth, life = 32;
+          if (n < 0 || age > life) { b.hide(); continue; }
+          jetPuff(b, p, age, life, n, v + 100, { r0: 0.45, r1: 1.8, jetLen: 1.6, riseLen: 4, drift: 2, cam });
+        }
+      } else for (const b of autoJoint) b.hide();
       // ---------------- dissolve 1476..1600
       if (fh >= T.DISSOLVE_START && fh < 1600) {
         for (let k = 0; k < dissolve.length; k++) {

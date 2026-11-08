@@ -39,6 +39,25 @@ export function buildGate(ctx, M, surfFn) {
   // a carved sun disc in the spandrel over the arch (stone), and a cornice
   sg.push(box(hx * 2 + 4, 1.0, thick + 1.4, 0, 34.5, 0));
   const spandrel = new THREE.Mesh(merge(sg), M.sandstone); spandrel.name = 'gateSpandrel'; tag(spandrel, { inkId: ID.GATE, layer: LAYER.BG }); group.add(spandrel); colliders.push(spandrel);
+  // coursed ashlar on both faces of the spandrel (alternating ink ids so every joint is drawn)
+  {
+    const cr = MAP.mulberry32(9500), cg = [[], []];
+    const rows = [[31.05, 33.95]];
+    for (let y = 35.05; y < W.height - 0.2; y += 2.5) rows.push([y, Math.min(W.height - 0.05, y + 2.4)]);
+    rows.forEach(([y0, y1], r) => {
+      for (const zs of [1, -1]) {
+        let x = -hx - 1.6 - (r % 2) * 1.3 - cr() * 0.5, k = r % 2;
+        while (x < hx + 1.6) {
+          const L = 2.4 + cr() * 1.2;
+          const a = Math.max(-hx - 1.6, x), b = Math.min(hx + 1.6, x + L - 0.08);
+          if (b - a > 0.2) cg[k % 2].push(box(b - a, y1 - y0, 0.1, (a + b) / 2, (y0 + y1) / 2, zs * (thick / 2 + 0.3 + 0.03)));
+          x += L; k++;
+        }
+      }
+    });
+    const ca = new THREE.Mesh(merge(cg[0]), M.sandstone); ca.name = 'gateCoursesA'; tag(ca, { inkId: ID.GATE, layer: LAYER.BG }); group.add(ca); colliders.push(ca);
+    const cb = new THREE.Mesh(merge(cg[1]), M.sandstoneAlt); cb.name = 'gateCoursesB'; tag(cb, { inkId: 247, layer: LAYER.BG }); group.add(cb); colliders.push(cb);
+  }
   const relief = new THREE.Mesh(merge([cyl(2.6, 2.6, 0.3, 16, 0, 0, 0).rotateX(Math.PI / 2).translate(0, 40.5, thick / 2 + 0.3)]), M.sandstoneDark);
   relief.name = 'gateRelief'; tag(relief, { inkId: ID.WALL, layer: LAYER.BG }); group.add(relief);
 

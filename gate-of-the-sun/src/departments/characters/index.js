@@ -83,6 +83,9 @@ export default {
           const a = MAP.ANCHORS; const d = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]).toFixed(3);
           const fh = figs.fox.headWorld(), hh = figs.hare.headWorld(), lh = figs.lynx.headWorld();
           const hj = figs.hare.j; console.log('[characters] hare hips', hj.hips.position.toArray().map((v) => v.toFixed(3)), 'thighL', hj.thighL.rotation.toArray().slice(0, 3).map((v) => v.toFixed(2)), 'shinL', hj.shinL.rotation.toArray().slice(0, 3).map((v) => v.toFixed(2)), 'spine', hj.spine.rotation.toArray().slice(0, 3).map((v) => v.toFixed(2)));
+          if (info.shotId === 9) { const w = (o) => { const v = new THREE.Vector3(); o.getWorldPosition(v); return v.toArray().map((x) => x.toFixed(2)).join(','); };
+            const F = figs.fox.j, Hh = figs.hare.j;
+            console.log(`[characters] hug f${frame} foxHead ${w(figs.fox.headMesh)} foxChest ${w(F.chest)} foxHandL ${w(F.handL)} foxHandR ${w(F.handR)} foxElbowL ${w(F.faL)} foxElbowR ${w(F.faR)} | hareHead ${w(figs.hare.headMesh)} hareChest ${w(Hh.chest)} hareNeck ${w(Hh.neck)} hareHips ${w(Hh.hips)} hareShL ${w(Hh.uaL)} hareShR ${w(Hh.uaR)}`); }
           console.log(`[characters] f${frame} shot${info.shotId} fox ${fh.map((v) => v.toFixed(2))} d=${d(fh, a.foxHead)} hare ${hh.map((v) => v.toFixed(2))} d=${d(hh, a.hareHead)} lynx ${lh.map((v) => v.toFixed(2))} d=${d(lh, a.lynxHead)}`);
         }
       },

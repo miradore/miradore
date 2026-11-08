@@ -114,18 +114,27 @@ export function buildHouses(ctx, M, detail) {
 
   /** Window with frame, sill, shutters (slatted), optional balcony or hanging pot. */
   const addWindow = (f, u, y, lvl, shutters, isFront, upper, dr) => {
+    if (lvl === 1 && upper && isFront && dr() < 0.16) lvl = 2;          // some full windows with balconies on the streets
     stat.windows[lvl]++;
-    if (lvl === 0) {
-      recessG.push(faceRect(f, u - 0.5, u + 0.5, y - 0.775, y + 0.775, 0.03));
-      if (shutters) for (const s of [-1, 1]) cobaltG.push(faceRect(f, u + s * 0.9 - 0.23, u + s * 0.9 + 0.23, y - 0.8, y + 0.8, 0.06));
-      trimG.push(faceBox(f, u, y - 0.84, 1.4, 0.12, 0.26, 0.2));
+    if (lvl < 2) {
+      // painted-flat window: dark pane quad (or a shallow box at medium range), a trim surround quad and
+      // shutter quads with slat quads on top; the differing ink ids still draw every edge
+      if (lvl === 1) recessG.push(faceBox(f, u, y, 1.0, 1.55, 0.2, 0.03)); else recessG.push(faceRect(f, u - 0.5, u + 0.5, y - 0.775, y + 0.775, 0.03));
+      trimG.push(faceRect(f, u - 0.68, u + 0.68, y - 0.86, y + 0.96, 0.02));
+      if (lvl === 1) trimG.push(faceBox(f, u, y - 0.84, 1.46, 0.12, 0.3, 0.22));
+      if (shutters) for (const s of [-1, 1]) {
+        const us = u + s * 0.9;
+        cobaltG.push(faceRect(f, us - 0.23, us + 0.23, y - 0.8, y + 0.8, 0.05));
+        if (lvl === 1) for (let k = 0; k < 2; k++) slatG.push(faceRect(f, us - 0.18, us + 0.18, y - 0.72 + k * 0.78, y - 0.08 + k * 0.78, 0.06));
+      }
+      if (lvl === 1 && dr() < 0.12) { stat.stains++; decal.stain.push(faceDecal(f, streak(f, u, y - 0.9, 1.2, 0.6 + dr() * 0.8, dr), 0.012)); }
       return;
     }
     const p = facePoint(f, u, y, 0.4);
-    const balcony = upper && isFront && dr() < (lvl === 2 ? 0.2 : 0.12) && detail.clear(p[0], p[1] - 0.6, p[2], 1.2, 1.8);
+    const balcony = upper && isFront && dr() < 0.3 && detail.clear(p[0], p[1] - 0.6, p[2], 1.2, 1.8);
     const yb = balcony ? y - 0.83 : y - 0.775;            // window becomes a French door over a balcony
     recessG.push(faceBox(f, u, (yb + y + 0.775) / 2, 1.0, y + 0.775 - yb, 0.2, 0.03));
-    if (lvl === 2 && dr() < 0.7) glintG.push(faceDecal(f, [[u - 0.36, y + 0.1], [u - 0.12, y + 0.62], [u + 0.04, y + 0.62], [u - 0.2, y + 0.1]], 0.036));
+    if (dr() < 0.7) glintG.push(faceDecal(f, [[u - 0.36, y + 0.1], [u - 0.12, y + 0.62], [u + 0.04, y + 0.62], [u - 0.2, y + 0.1]], 0.036));
     // frame: lintel and jambs proud of the wall, a deeper sill
     trimG.push(faceBox(f, u, y + 0.775 + 0.09, 1.38, 0.18, 0.14, 0.11));
     for (const s of [-1, 1]) trimG.push(faceBox(f, u + s * 0.59, (yb + y + 0.775) / 2, 0.18, y + 0.775 - yb, 0.1, 0.08));
@@ -150,13 +159,13 @@ export function buildHouses(ctx, M, detail) {
         ironG.push(faceBox(f, u + s * 0.91, railY, 0.05, 0.05, 0.76, 0.8));
         for (const dd of [0.3, 0.55]) ironG.push(faceBox(f, u + s * 0.91, (ys + railY) / 2 + 0.03, 0.03, railY - ys - 0.07, 0.03, dd));
       }
-      const spacing = lvl === 2 ? 0.17 : 0.3;
+      const spacing = 0.17;
       for (let x = -0.85 + spacing / 2; x < 0.86; x += spacing) ironG.push(faceBox(f, u + x, (ys + railY) / 2 + 0.03, 0.025, railY - ys - 0.07, 0.025, 0.78));
       // a pot on the balcony
       if (dr() < 0.6) {
         const q = facePoint(f, u + (dr() - 0.5) * 1.0, ys + 0.07, 0.45);
         potG.push(cyl(0.18, 0.13, 0.3, 7, q[0], q[1], q[2]));
-        bougCluster(boug, q[0], q[1] + 0.55, q[2], f.axis === 'x' ? f.sign : 0, f.axis === 'z' ? f.sign : 0, 0.42, dr, lvl);
+        bougCluster(boug, q[0], q[1] + 0.55, q[2], f.axis === 'x' ? f.sign : 0, f.axis === 'z' ? f.sign : 0, 0.42, dr, lvl, true);
       }
     } else if (lvl === 2 && !shutters && dr() < 0.3) {
       // hanging pot on an iron bracket beside the window
@@ -173,7 +182,18 @@ export function buildHouses(ctx, M, detail) {
       }
     }
     // grime run under the sill
-    if (dr() < (lvl === 2 ? 0.3 : 0.18)) { stat.stains++; decal.stain.push(faceDecal(f, streak(f, u, y - 0.9, 1.2, 0.6 + dr() * 0.8, dr), 0.012)); }
+    if (dr() < 0.3) { stat.stains++; decal.stain.push(faceDecal(f, streak(f, u, y - 0.9, 1.2, 0.6 + dr() * 0.8, dr), 0.012)); }
+  };
+
+  // true distance to the next house beside a lot (east: dir 1, west: dir -1)
+  const realGap = (lot, dir) => {
+    let g = 99;
+    for (const o of lots) {
+      if (o === lot || o.z1 <= lot.z0 || o.z0 >= lot.z1) continue;
+      const d = dir > 0 ? o.x0 - lot.x1 : lot.x0 - o.x1;
+      if (d >= -0.01 && d < g) g = d;
+    }
+    return g;
   };
 
   // ---------------------------------------------------------------- houses
@@ -221,7 +241,9 @@ export function buildHouses(ctx, M, detail) {
       const len = f.u1 - f.u0;
       const n = Math.max(1, Math.floor((len - 1.4) / 2.7));
       const step = len / n;
-      openFaces.push({ f, n, step, key });
+      // faces onto a wide gap (the canal quay, the forecourt, a lane) may carry balconies like a street front
+      const wide = f === bfront || (f.axis === 'x' && realGap(lot, key === 'E' ? 1 : -1) > 2.5);
+      openFaces.push({ f, n, step, key, wide });
       for (let fl = 0; fl < floors; fl++) {
         const y = base + fl * FH + 2.05;
         for (let k = 0; k < n; k++) {
@@ -230,7 +252,7 @@ export function buildHouses(ctx, M, detail) {
           if (rng() < 0.12) continue;
           if (!shutters) rng();                                                          // (kept: the old sill choice)
           const p = facePoint(f, u, y, 0);
-          addWindow(f, u, y, detail.lvlAt(p[0], p[1], p[2]), shutters, f === bfront, fl > 0, dr);
+          addWindow(f, u, y, detail.lvlAt(p[0], p[1], p[2]), shutters, wide, fl > 0, dr);
         }
       }
     }
@@ -318,18 +340,18 @@ export function buildHouses(ctx, M, detail) {
         decal.stain.push(faceDecal(bfront, blobPts(su + sw * 0.3, y0 - 0.05, 0.5, 0.25, dr, 7), 0.011));
       }
     }
-    // rising damp along the foot of street fronts (follows the sloping street)
-    {
-      const f = bfront, pts = [], n = Math.max(3, Math.ceil((f.u1 - f.u0) / 0.8));
+    // rising damp along the foot of the street front and of open faces near the cameras (follows the slope)
+    for (const f of [bfront, ...openFaces.map((o) => o.f).filter((f) => f !== bfront && lvlHouse >= 1)]) {
+      const pts = [], n = Math.max(3, Math.ceil((f.u1 - f.u0) / 0.8));
       const hd = 0.35 + dr() * 0.3;
       for (let k = 0; k <= n; k++) { const u = f.u0 + 0.02 + (f.u1 - f.u0 - 0.04) * k / n; pts.push([u, gyAt(f, u) + hd + (dr() - 0.5) * 0.18]); }
       for (let k = n; k >= 0; k--) { const u = f.u0 + 0.02 + (f.u1 - f.u0 - 0.04) * k / n; pts.push([u, gyAt(f, u) - 0.05]); }
       decal.damp.push(faceDecal(f, pts, 0.01));
     }
     // plaster fallen off in patches, showing the rubble stone underneath
-    const nPatch = lvlHouse === 2 ? 2 : 1;
+    const nPatch = lvlHouse === 2 ? 4 : lvlHouse === 1 ? 2 : 1;
     for (let k = 0; k < nPatch; k++) {
-      if (dr() > 0.55) continue;
+      if (dr() > 0.6) continue;
       const of = openFaces[Math.floor(dr() * openFaces.length)]; if (!of) continue;
       const f = of.f;
       const gi = Math.floor(dr() * (of.n + 1));
@@ -413,9 +435,10 @@ export function buildHouses(ctx, M, detail) {
       for (let k = 0; k < n; k++) {
         const rad = 0.5 + rng() * 0.65;
         const p = facePoint(front, u0 + rng() * 3.5, top + 0.9 - rng() * 3.2 - (k === 0 ? -0.4 : 0), rad * 0.45);
-        const lv = detail.lvlAt(p[0], p[1], p[2]);
+        const dd = detail.distAt(p[0], p[1], p[2]);
+        const lv = dd < 40 ? 2 : dd < 70 ? 1 : 0;
         if (lv === 0 && k % 2) continue;
-        bougCluster(boug, p[0], p[1], p[2], nx, nz, rad * (lv === 0 ? 1.15 : 1), dr, k < 3 ? lv : Math.min(lv, 1));
+        bougCluster(boug, p[0], p[1], p[2], nx, nz, rad * (lv === 0 ? 1.2 : 1), dr, lv, k < (lv === 2 ? 4 : 2));
       }
     }
     // pots by the door
@@ -423,8 +446,8 @@ export function buildHouses(ctx, M, detail) {
       for (const s of [-1, 1]) {
         if (rng() < 0.4) continue;
         const p = facePoint(bfront, doorU + s * 1.15, doorBottom, 0.5);
-        potG.push(cyl(0.34, 0.26, 0.55, 8, p[0], p[1], p[2]));
-        leafG.push(sphere(0.48, p[0], p[1] + 0.85, p[2], 8, 6));
+        potG.push(cyl(0.34, 0.26, 0.55, 7, p[0], p[1], p[2]));
+        leafG.push(sphere(0.48, p[0], p[1] + 0.85, p[2], 7, 5));
         if (lvlFront === 2) { leafG.push(sphere(0.3, p[0] + 0.25, p[1] + 1.15, p[2], 7, 5)); boug.blossB.push(sphere(0.14, p[0] - 0.2, p[1] + 1.1, p[2] + 0.1, 6, 4)); }
       }
     }
@@ -456,7 +479,7 @@ export function buildHouses(ctx, M, detail) {
     for (let x = x0 + 1.5; x < x1 - 1; x += 3.1 + (x1 - x0) * 0.02) {
       const rad = 0.5 + MAP.hash1(x) * 0.5;
       const py = y + 1.9 + MAP.hash1(x + 3) * 0.3, pz = 50.6 + (MAP.hash1(x + 9) - 0.5) * 0.6;
-      bougCluster(boug, x, py, pz, 0, 1, rad * 1.1, grng, detail.lvlAt(x, py, pz));
+      { const dd = detail.distAt(x, py, pz); bougCluster(boug, x, py, pz, 0, 1, rad * 1.1, grng, dd < 40 ? 2 : dd < 70 ? 1 : 0, true); }
     }
     // damp at the foot and a few stains on the town side
     const fN = { axis: 'z', sign: 1, c: 50.8, u0: x0, u1: x1 };

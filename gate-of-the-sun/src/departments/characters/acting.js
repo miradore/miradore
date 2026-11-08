@@ -9,6 +9,8 @@ const PI = Math.PI;
 const EAST = PI / 2, WEST = -PI / 2, NORTH = PI, SOUTH = 0;   // root yaw to face +x, -x, -z, +z
 const yawTo = (dx, dz) => Math.atan2(dx, dz);
 const FOX13 = { z: 47.75, lean: 0.5 };   // fox placement in the lynx close-up (shot 13)
+// shot 9: the fox kneels on the wall side of the hare and folds over him (root, lean, left arm; the right mirrors)
+const HUG9 = { x: 29.45, z: 44.95, lean: 0.85, uaL: [-1.15, 0, 0.6], faL: [-0.25, 0, -1.25], head: [0.55, 0.25, 0] };
 
 const _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
 const _zero = new THREE.Vector3(0, 0, 0), _up = new THREE.Vector3(0, 1, 0);
@@ -176,11 +178,13 @@ function directKids(cast, frame, f2, lf, lt, shot, info, ctx) {
   } else if (shot === 9) {
     // ---- blown back: fox throws himself over the hare, lynx braces
     const s1h = stepTopY(1, 45.4) + 0.0;
-    const foxKneel = { x: 29.0, y: stepTopY(1, 44.85), z: 44.85 };
+    const foxKneel = { x: HUG9.x, y: stepTopY(1, HUG9.z), z: HUG9.z };
     const t = smooth(clamp(lf / 6, 0, 1));
-    const kneel = P.kneelPose(fox, { lean: 0.6 });
-    kneel.uaL = [-1.45, 0, 0.45]; kneel.uaR = [-1.45, 0, -0.45]; kneel.faL = [-0.35, 0, 0]; kneel.faR = [-0.35, 0, 0];
-    kneel.head = [0.35, 0, 0]; kneel.eyes = 'squeeze'; kneel.mouth = 'grit'; kneel.earL = [0.7, 0, 0.1]; kneel.earR = [0.7, 0, -0.1]; kneel.tail = [0.3, 0.9, 0]; kneel.tail2 = [0.3, 0, 0];
+    // protective hug: the fox kneels on the wall side of the hare, folds over him and wraps both arms round his shoulders
+    const kneel = P.kneelPose(fox, { lean: HUG9.lean });
+    kneel.uaL = HUG9.uaL.slice(); kneel.uaR = [HUG9.uaL[0], -HUG9.uaL[1], -HUG9.uaL[2]]; kneel.faL = HUG9.faL.slice(); kneel.faR = [HUG9.faL[0], -HUG9.faL[1], -HUG9.faL[2]];
+    kneel.handL = [0, 0, -0.3]; kneel.handR = [0, 0, 0.3];
+    kneel.head = HUG9.head.slice(); kneel.eyes = 'squeeze'; kneel.mouth = 'grit'; kneel.earL = [0.7, 0, 0.1]; kneel.earR = [0.7, 0, -0.1]; kneel.tail = [0.3, 0.9, 0]; kneel.tail2 = [0.3, 0, 0];
     brows(kneel, 0.45);
     if (t < 1) {
       const sit = foxSit(fox, { lean: 0.1 }); sit.eyes = 'squeeze'; sit.mouth = 'scream'; brows(sit, 0.45);
@@ -312,7 +316,7 @@ function directKids(cast, frame, f2, lf, lt, shot, info, ctx) {
     }
     // fox beside him, partially in frame; lynx further along the bank
     place(fox, 25.3, bank(46.5), 46.5, EAST);
-    const pf = P.standPose(fox, { lean: 0.08 }); P.look(pf, 1.3, -0.1, { spineShare: 0.45 }); pf.eyes = blinkOr(f2, 1, 'open'); pf.mouth = 'closed'; brows(pf, 0.1, 0.15); fox.setPose(breath(pf, f2, 1));
+    const pf = P.standPose(fox, { lean: 0.08 }); P.look(pf, 1.3, -0.1, { spineShare: 0.45 }); pf.eyes = blinkOr(f2, 1, 'half'); pf.mouth = 'sad'; brows(pf, 0.35); fox.setPose(breath(pf, f2, 1));
     place(lynx, 25.0, bank(48.5), 48.5, NORTH);
     const pl = P.standPose(lynx, { lean: 0.02 }); P.look(pl, 0.1, -0.2); pl.eyes = blinkOr(f2, 3, 'narrow'); lynx.setPose(breath(pl, f2, 3));
   }

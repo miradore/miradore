@@ -143,6 +143,60 @@ export function buildSquare(ctx, M) {
   pavDome.name = 'pavilionDome'; tag(pavDome, { inkId: ID.BG_MIN + 36, layer: LAYER.BG }); group.add(pavDome); popAllowed.push(pavDome);
   footprints.push({ x0: px - 2.5, x1: px + 2.5, z0: pz - 2.5, z1: pz + 2.5, top: py + 5.3 });
 
+  // paving pattern: painted bands of darker cobble on a 6 m grid and slab joints every 1.5 m (flat, 3 mm,
+  // own ink id so the joints draw as lines), following the slope of the square
+  {
+    const yT = (z) => gy(0, z) + 0.08;
+    const bandG = [], jointG = [], wornG = [];
+    // strip along x at z (width w): one quad per 10 m, at the paving height of z
+    const stripX = (list, z, w, lift, x0 = S.xMin + 0.3, x1 = S.xMax - 0.3) => {
+      for (let x = x0; x < x1 - 1e-6; x += 10) {
+        const xb = Math.min(x1, x + 10);
+        const pos = [x, yT(z - w / 2) + lift, z - w / 2, x, yT(z + w / 2) + lift, z + w / 2, xb, yT(z + w / 2) + lift, z + w / 2,
+          x, yT(z - w / 2) + lift, z - w / 2, xb, yT(z + w / 2) + lift, z + w / 2, xb, yT(z - w / 2) + lift, z - w / 2];
+        list.push(pos);
+      }
+    };
+    // strip along z at x (width w): segments every 1.5 m so it follows the slope
+    const stripZ = (list, x, w, lift, z0 = S.zMin, z1 = S.zMax - 0.3) => {
+      for (let z = z0; z < z1 - 1e-6; z += 1.5) {
+        const zb = Math.min(z1, z + 1.5);
+        list.push([x - w / 2, yT(z) + lift, z, x - w / 2, yT(zb) + lift, zb, x + w / 2, yT(zb) + lift, zb,
+          x - w / 2, yT(z) + lift, z, x + w / 2, yT(zb) + lift, zb, x + w / 2, yT(z) + lift, z]);
+      }
+    };
+    for (let z = S.zMin + 1.5; z < S.zMax - 0.5; z += 6) stripX(bandG, z, 0.45, 0.003);
+    for (let x = -27; x <= 27.01; x += 6) stripZ(bandG, x, 0.45, 0.003);
+    for (let z = S.zMin + 0.75; z < 84; z += 1.5) if (Math.abs(((z - S.zMin - 1.5) % 6 + 6) % 6) > 0.3) stripX(jointG, z, 0.05, 0.004);
+    for (let x = -29.25; x <= 29.3; x += 1.5) if (Math.abs(((x + 27) % 6 + 6) % 6) > 0.3) stripZ(jointG, x, 0.05, 0.004, S.zMin, 84);
+    // worn, paler rings of paving round the fountains
+    for (const fx of [-15, 15]) {
+      const fz = 78, n = 24, r0 = 3.6, r1 = 5.2;
+      const ring = [];
+      for (let k = 0; k < n; k++) {
+        const a0 = (k / n) * Math.PI * 2, a1 = ((k + 1) / n) * Math.PI * 2;
+        const P = (r, a) => [fx + Math.cos(a) * r, yT(fz + Math.sin(a) * r) + 0.002, fz + Math.sin(a) * r];
+        ring.push([...P(r0, a0), ...P(r1, a1), ...P(r1, a0), ...P(r0, a0), ...P(r0, a1), ...P(r1, a1)]);
+      }
+      wornG.push(...ring);
+    }
+    const toMesh = (list, mat, name, inkId) => {
+      const pos = list.flat();
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      g.computeVertexNormals();
+      // make every triangle face up
+      const p = g.attributes.position, nrm = g.attributes.normal;
+      for (let t = 0; t < p.count; t += 3) if (nrm.getY(t) < 0) { const x = p.getX(t + 1), y = p.getY(t + 1), z = p.getZ(t + 1); p.setXYZ(t + 1, p.getX(t + 2), p.getY(t + 2), p.getZ(t + 2)); p.setXYZ(t + 2, x, y, z); }
+      g.computeVertexNormals();
+      g.setAttribute('uv', new THREE.Float32BufferAttribute(new Array(p.count * 2).fill(0), 2));
+      const m = new THREE.Mesh(g, mat); m.name = name; tag(m, { inkId, layer: LAYER.BG, castShadow: false }); group.add(m);
+    };
+    toMesh(bandG, ctx.makeCel({ color: 0xC8AE92, shade: 0x9A86A8, paint: 'stone', paintScale: 1.2, paintSeed: 1 }), 'squareBands', ID.NONE);
+    toMesh(jointG, M.jointDark, 'squareJoints', 249);
+    toMesh(wornG, M.wornEdge, 'squareWorn', ID.NONE);
+  }
+
   function update(frame) {
     pavDome.visible = frame < MAP.T.DOME_SHATTER;
     // fountain ripple: a tiny breathing of the water discs on 2s

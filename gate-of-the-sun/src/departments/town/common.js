@@ -168,7 +168,14 @@ export function decalRect(u0, u1, v0, v1, O, U, V, N, off = 0.01) {
 /** Build the shared material set once. */
 export function makeMaterials(ctx) {
   const { makeCel, MAP } = ctx; const P = MAP.PALETTE;
-  const cel = (color, shade, extra = {}) => makeCel({ color, shade, ...extra });
+  // paint maps are costly to generate (one canvas per kind and seed), so seeds collapse onto a small set:
+  // two washes for stucco and stone, one for the rest. Scale and world position give the remaining variety.
+  const SEEDS = { stucco: 2, stone: 1 };
+  const cel = (color, shade, extra = {}) => {
+    const o = { color, shade, ...extra };
+    if (o.paint) o.paintSeed = 1 + ((o.paintSeed ?? 1) % (SEEDS[o.paint] || 1));
+    return makeCel(o);
+  };
   // stucco: four whites, each painted with two different seeds so neighbouring houses never share a wash
   const STUCCO2 = 0x9883B3;            // deep violet core shadow on the far side of the form
   const SAND2 = 0x985440;              // deep sienna core shadow on the sandstone
@@ -184,7 +191,7 @@ export function makeMaterials(ctx) {
     dome: cel(P.dome, P.domeShade, { shade2: 0x136070, highlight: 0x7FE6EA, highlightEdge: 0.86, paint: 'soft', paintScale: 4, paintSeed: 8 }),
     sandstone: cel(P.sandstone, P.sandstoneShade, { shade2: SAND2, band2Edge: -0.3, ...stoneP(6, 21) }),
     sandstoneAlt: cel(0xDDAC86, 0xB27254, { shade2: SAND2, band2Edge: -0.3, ...stoneP(6, 22) }),
-    sandstoneRepair: cel(0xD3BC9C, 0xA58C8E, { shade2: 0x7E6070, band2Edge: -0.3, ...stoneP(4, 23) }),
+    sandstoneRepair: cel(0xD9B392, 0xAC7E6E, { shade2: 0x8A5848, band2Edge: -0.3, ...stoneP(4, 23) }),
     sandstoneFrame: cel(0xB98563, 0x8C5640, { shade2: 0x6E3C2C, band2Edge: -0.3, ...stoneP(3, 24) }),
     sandstoneDark: cel(0xD1A27D, 0xA86A4C, { shade2: 0x8A4A36, band2Edge: -0.3, ...stoneP(6, 25) }),
     bronze: cel(P.bronze, P.bronzeShade, { shade2: 0x3A2810, highlight: 0xC9A15A, highlightEdge: 0.86, paint: 'metal', paintScale: 3, paintSeed: 9 }),
@@ -225,15 +232,17 @@ export function makeMaterials(ctx) {
     glass: cel(0xFFE6A0, 0xD8A85E),
     glint: cel(0x857CB6, 0x5F5690),
     // painted decals (flat shapes 1 cm off the walls, no ink): stains, plaster patches, damp, signs
-    stain: cel(0xD2C3B6, 0x9F8DB2, { paint: 'stucco', paintScale: 1.5, paintSeed: 53 }),
-    stainDark: cel(0xBFAE9E, 0x8E7CA0, { paint: 'stucco', paintScale: 1.5, paintSeed: 54 }),
+    stain: cel(0xC9B6A2, 0x9580A8, { paint: 'stucco', paintScale: 1.5, paintSeed: 53 }),
+    stainDark: cel(0xAE9A86, 0x7E6A96, { paint: 'stucco', paintScale: 1.5, paintSeed: 54 }),
     patch: cel(0xDDB792, 0xAE8274, { paint: 'stone', paintScale: 1.2, paintSeed: 55 }),
     patchStone: cel(0xC99A78, 0x9A6C62, { paint: 'stone', paintScale: 0.8, paintSeed: 56 }),
-    wallStreak: cel(0xC99A7A, 0x9E6450, { paint: 'stone', paintScale: 2, paintSeed: 57 }),
-    wet: cel(0x9E8A78, 0x6E5E70, { highlight: 0xC8B6A4, highlightEdge: 0.9, paint: 'stone', paintScale: 1.5, paintSeed: 58 }),
-    algae: cel(0x5E7E4E, 0x3E5844, { paint: 'foliage', paintScale: 1, paintSeed: 59 }),
+    wallStreak: cel(0xB27C62, 0x86524A, { paint: 'stone', paintScale: 2, paintSeed: 57 }),
+    wallStreakDark: cel(0x9A6C5C, 0x704846, { paint: 'stone', paintScale: 2, paintSeed: 57 }),
+    wallBleach: cel(0xF6DEC4, 0xCC9C84, { paint: 'stone', paintScale: 2, paintSeed: 57 }),
+    wet: cel(0xA87660, 0x744A4A, { highlight: 0xD0A890, highlightEdge: 0.9, paint: 'stone', paintScale: 1.5, paintSeed: 58 }),
+    algae: cel(0x587A3E, 0x3A5638, { paint: 'foliage', paintScale: 1, paintSeed: 59 }),
     moss: cel(0x7E9E4E, 0x4E6A3E, { shade2: 0x334A30, paint: 'foliage', paintScale: 1, paintSeed: 60 }),
-    jointDark: cel(0xA48E80, 0x7A6680),
+    jointDark: cel(0x8E6E5C, 0x6A4C4C),
     wornEdge: cel(0xEFE2CC, 0xBCA9C4, { paint: 'stone', paintScale: 1.2, paintSeed: 61 }),
     signs: [cel(0x8FB9B2, 0x6E8FA0), cel(0xD69A86, 0xA27484), cel(0xE2C27E, 0xAE9478), cel(0x9FA8D4, 0x7880AC)],
     signInk: cel(0x5C4A5E, 0x3E3050),

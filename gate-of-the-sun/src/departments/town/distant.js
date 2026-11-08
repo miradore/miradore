@@ -73,7 +73,7 @@ export function buildDistant(ctx, M) {
   const add = (list, mat, name, inkId) => { const g = merge(list); if (!g) return; const m = new THREE.Mesh(g, mat); m.name = name; tag(m, { inkId, layer: LAYER.BG, castShadow: false }); group.add(m); };
   add(hillG[0], M.hill, 'hillsGreen', ID.FIELD);
   add(hillG[1], M.hillOchre, 'hillsOchre', ID.MOUNTAIN);
-  const villageWhite = makeCel({ color: 0xF6F0E4, shade: 0xB4A6CC, paint: 'soft', paintScale: 20, paintSeed: 81 });
+  const villageWhite = makeCel({ color: 0xF6F0E4, shade: 0xB4A6CC, paint: 'soft', paintScale: 20, paintSeed: 1 });
   add(whiteG, villageWhite, 'farVillages', ID.BG_MIN + 31);
   add(roofG, M.pot, 'farRoofs', ID.BG_MIN + 32);
   add(domeG, M.dome, 'farDomes', ID.BG_MIN + 36);

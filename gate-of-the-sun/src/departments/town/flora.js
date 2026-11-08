@@ -58,24 +58,24 @@ export function makeTree(out, x, gy, z, rng, size = 1) {
  * strands hanging down. (x, y, z) is the cluster centre, out normal (nx, nz) points away from the wall.
  * out = { blossA, blossB, leafA, leafB }.
  */
-export function bougCluster(out, x, y, z, nx, nz, rad, rng, lvl = 2) {
-  const n = lvl >= 2 ? 9 : lvl === 1 ? 6 : 3;
+export function bougCluster(out, x, y, z, nx, nz, rad, rng, lvl = 2, strands = true) {
+  const n = lvl >= 2 ? 7 : lvl === 1 ? 3 : 2;
   const tx = -nz, tz = nx;                      // tangent along the wall
-  const seg = lvl >= 1 ? [7, 5] : [6, 4];
+  const seg = lvl >= 2 ? [7, 5] : lvl === 1 ? [6, 4] : [5, 4];
   for (let k = 0; k < n; k++) {
     const u = (rng() - 0.5) * rad * 1.8, v = (rng() - 0.5) * rad * 1.2, w = rng() * rad * 0.5;
-    const r = rad * (0.32 + rng() * 0.22);
+    const r = rad * (lvl >= 2 ? 0.32 + rng() * 0.22 : 0.42 + rng() * 0.22);
     const px = x + tx * u + nx * w, pz = z + tz * u + nz * w, py = y + v;
     (rng() < 0.55 ? out.blossA : out.blossB).push(sphere(r, px, py, pz, seg[0], seg[1]));
   }
   // leaves peeking out between the blossoms (two greens)
-  const nl = lvl >= 2 ? 4 : lvl === 1 ? 2 : 1;
+  const nl = lvl >= 2 ? 3 : 1;
   for (let k = 0; k < nl; k++) {
     const u = (rng() - 0.5) * rad * 1.9, v = (rng() - 0.6) * rad * 1.1;
-    (k % 2 ? out.leafB : out.leafA).push(sphere(rad * (0.22 + rng() * 0.12), x + tx * u + nx * rad * 0.15, y + v, z + tz * u + nz * rad * 0.15, 6, 4));
+    (k % 2 ? out.leafB : out.leafA).push(sphere(rad * (0.22 + rng() * 0.12), x + tx * u + nx * rad * 0.15, y + v, z + tz * u + nz * rad * 0.15, lvl ? 6 : 5, 4));
   }
   // trailing strands: chains of small blossoms hanging down the wall
-  if (lvl >= 1) {
+  if (lvl >= 1 && strands) {
     const ns = lvl >= 2 ? 2 + Math.floor(rng() * 2) : 1;
     for (let s = 0; s < ns; s++) {
       const u = (rng() - 0.5) * rad * 1.6;

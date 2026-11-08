@@ -109,8 +109,6 @@ export function drawEye(opts = {}) {
   g.strokeStyle = ink; g.lineWidth = lw; g.lineCap = 'round'; g.lineJoin = 'round';
   g.beginPath(); upperPath(); g.stroke();
   g.lineWidth = lw * 0.9; g.beginPath(); g.moveTo(cx + ox * rx, cy); g.lineTo(cx + ox * (rx + S * 0.06), cy - S * 0.08 - ryTop * 0.15); g.stroke();
-  // inner corner little tick
-  g.lineWidth = lw * 0.5; g.beginPath(); g.moveTo(cx - ox * rx, cy); g.lineTo(cx - ox * (rx + S * 0.02), cy + S * 0.02); g.stroke();
   // lower lid faint line
   g.strokeStyle = 'rgba(42,26,20,0.5)'; g.lineWidth = lw * 0.3;
   g.beginPath(); g.moveTo(cx - rx * 0.85, cy + ryBot * 0.55); g.bezierCurveTo(cx - rx * 0.5, cy + ryBot * 1.25, cx + rx * 0.5, cy + ryBot * 1.25, cx + rx * 0.85, cy + ryBot * 0.55); g.stroke();
@@ -143,9 +141,9 @@ export function makeEyeFrames(style, side) {
   f.fearUp = drawEye({ ...base, open: Math.min(1, (style.baseOpen ?? 1) * 1.12), irisScale: 0.44, pupil: 0.32, lookY: -0.7 });
   f.fearWet1 = drawEye({ ...base, open: Math.min(1, (style.baseOpen ?? 1) * 1.08), irisScale: 0.5, pupil: 0.36, lookY: -0.45, wet: 1 });
   f.fearWet2 = drawEye({ ...base, open: Math.min(1, (style.baseOpen ?? 1) * 1.08), irisScale: 0.5, pupil: 0.36, lookY: -0.45, wet: 2 });
-  f.wetGaze1 = drawEye({ ...base, wet: 1, lookX: 0.42, lookY: 0.08, open: (style.baseOpen ?? 1) * 0.9 });
-  f.wetGaze2 = drawEye({ ...base, wet: 2, lookX: 0.42, lookY: 0.08, open: (style.baseOpen ?? 1) * 0.9 });
-  f.wetGazeHalf = drawEye({ ...base, wet: 1, lookX: 0.35, lookY: 0.2, open: (style.baseOpen ?? 1) * 0.45 });
+  f.wetGaze1 = drawEye({ ...base, wet: 1, lookX: 0.85, lookY: 0.08, open: (style.baseOpen ?? 1) * 0.9 });
+  f.wetGaze2 = drawEye({ ...base, wet: 2, lookX: 0.85, lookY: 0.08, open: (style.baseOpen ?? 1) * 0.9 });
+  f.wetGazeHalf = drawEye({ ...base, wet: 1, lookX: 0.7, lookY: 0.2, open: (style.baseOpen ?? 1) * 0.45 });
   return f;
 }
 
@@ -217,4 +215,24 @@ export function makeTearTexture() {
   g.fillStyle = gr; g.beginPath(); g.moveTo(S * 0.5, S * 0.05); g.bezierCurveTo(S * 0.9, S * 0.6, S * 0.85, S * 0.95, S * 0.5, S * 0.95); g.bezierCurveTo(S * 0.15, S * 0.95, S * 0.1, S * 0.6, S * 0.5, S * 0.05); g.fill();
   g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(S * 0.38, S * 0.6, S * 0.08, S * 0.14, 0, 0, Math.PI * 2); g.fill();
   return toTex(c);
+}
+
+/**
+ * Ear texture in the earGeo UV layout (u around the section, front of the ear is u in 0..0.5, v along the
+ * length): fur base, an inner panel lens on the front face, an optional dark tip. Hard edges, no gradients.
+ */
+export function makeEarTexture(o) {
+  const Wc = 128, Hc = 512; const c = newCanvas(Wc, Hc); const g = c.getContext('2d');
+  g.fillStyle = o.fur; g.fillRect(0, 0, Wc, Hc);
+  const v0 = o.v0 ?? 0.08, v1 = o.v1 ?? 0.88, pw = o.panel ?? 0.6;
+  g.fillStyle = o.inner;
+  for (let y = 0; y < Hc; y++) {
+    const v = 1 - (y + 0.5) / Hc; if (v < v0 || v > v1) continue;
+    const k = Math.pow(Math.sin(Math.PI * (v - v0) / (v1 - v0)), o.panelPow ?? 0.55) * pw;
+    const a = Math.acos(Math.min(1, k)) / (Math.PI * 2);              // cos(2 pi u) < k on the front half
+    g.fillRect(a * Wc, y, (0.5 - 2 * a) * Wc, 1);
+  }
+  if (o.tip) { const vt = o.tipFrom ?? 0.62; g.fillStyle = o.tip;
+    for (let y = 0; y < Hc; y++) { const v = 1 - (y + 0.5) / Hc; if (v < vt) continue; const wob = 0.025 * Math.sin(y * 0.15); if (v > vt + wob) g.fillRect(0, y, Wc, 1); } }
+  const t = toTex(c); t.anisotropy = 8; return t;
 }

@@ -34,8 +34,8 @@ export function makeDetail(ctx) {
   function lvlAt(x, y, z) {
     const d = distAt(x, y, z);
     // the main street is seen end to end by shots 10, 14, 21, 24 and 28: never let it fall to the far level
-    if (Math.abs(x) < 9 && z > 8 && z < 170 && d >= 110) return 1;
-    return d < 42 ? 2 : d < 110 ? 1 : 0;
+    if (Math.abs(x) < 7.5 && z > 8 && z < 170 && d >= 75) return 1;
+    return d < 40 ? 2 : d < 75 ? 1 : 0;
   }
   /** True when a box around (x, y, z) of half size r stays at least `margin` from every camera position. */
   function clear(x, y, z, r = 0.5, margin = 1.6) {

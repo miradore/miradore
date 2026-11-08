@@ -20,15 +20,30 @@ export default {
     const t0 = performance.now();
     const M = makeMaterials(ctx);
     const detail = makeDetail(ctx);
+    console.log('[town] materials+detail', Math.round(performance.now() - t0));
     const group = new THREE.Group(); group.name = 'town';
 
+    let _t = performance.now();
     const terrain = buildTerrain(ctx, M);
+    console.log('[town] terrain', Math.round(performance.now() - _t));
+    _t = performance.now();
     const distant = buildDistant(ctx, M);
+    console.log('[town] distant', Math.round(performance.now() - _t));
+    _t = performance.now();
     const canal = buildCanal(ctx, M, detail);
+    console.log('[town] canal', Math.round(performance.now() - _t));
+    _t = performance.now();
     const houses = buildHouses(ctx, M, detail);
+    console.log('[town] houses', Math.round(performance.now() - _t));
+    _t = performance.now();
     const square = buildSquare(ctx, M);
+    console.log('[town] square', Math.round(performance.now() - _t));
+    _t = performance.now();
     const hero = buildHero(ctx, M);
+    console.log('[town] hero', Math.round(performance.now() - _t));
+    _t = performance.now();
     const wall = buildWall(ctx, M, detail);
+    console.log('[town] wall', Math.round(performance.now() - _t));
     const footprints = [...houses.footprints, ...square.footprints, hero.footprint];
     const gate = buildGate(ctx, M, makeSurface(MAP, footprints));
     for (const part of [terrain, distant, canal, houses, square, hero, wall, gate]) group.add(part.group);
@@ -80,6 +95,8 @@ export default {
     const popAllowed = [...gate.popAllowed, ...wall.popAllowed, ...hero.popAllowed, ...square.popAllowed];
     let tris = 0;
     group.traverse((o) => { if (o.isMesh) { const g = o.geometry; tris += ((g.index ? g.index.count : g.attributes.position.count) / 3) * (o.isInstancedMesh ? o.count : 1); } });
+    { const list = []; group.traverse((o) => { if (o.isMesh) { const g = o.geometry; list.push([o.name, ((g.index ? g.index.count : g.attributes.position.count) / 3) * (o.isInstancedMesh ? o.count : 1)]); } });
+      list.sort((a, b) => b[1] - a[1]); console.log('[town] top meshes', list.slice(0, 30).map((l) => l[0] + ':' + Math.round(l[1])).join(' ')); }
     console.log('[town] built in', Math.round(performance.now() - t0), 'ms, triangles', Math.round(tris));
     return { group, update, colliders: { static: staticColliders, bodies: [] }, popAllowed };
   },
