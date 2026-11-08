@@ -59,7 +59,7 @@ H.264 with the AAC orchestral score. `deliverable/contact_sheet.png` shows one f
 render: no character, hand or foot inside the steps, walls, gate or another body; the camera never
 enters a mesh or goes below the surface; no camera jerks outside the deliberate shake windows;
 nothing appears or vanishes mid shot unless the department lists it (debris spawning at an impact).
-Each run writes its report to out/check_report.json.
+The final run over all 1860 frames reported zero violations (deliverable/check_report.json).
 
 ## Running
 

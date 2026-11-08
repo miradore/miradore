@@ -1,0 +1,56 @@
+# Gate of the Sun: score cues (seconds = frame / 24)
+# time        seconds   frame   cue
+00:00.000     0.000       0   Shot 1: town. D minor with F major lean, pp open fifths
+00:00.600     0.600      14   Harp arpeggio (D minor)
+00:04.000     4.000      96   Shot 2: solo flute phrase
+00:07.400     7.400     178   Shot 3: oboe answer
+00:07.900     7.900     190   Harp arpeggio (F major)
+00:08.667     8.667     208   Pebble: pizzicato pluck (frame 208)
+00:10.500    10.500     252   Soft harp note
+00:12.500    12.500     300   Shot 5: thin to contrabass drone and violin tremolo
+00:14.500    14.500     348   THE FLASH (frame 348): bass drum, timpani, anvil, crash, brass fff cluster
+00:15.100    15.100     362   Abrupt cut: cymbal and tam decay only, 6 kHz tinnitus ring
+00:17.500    17.500     420   Shots 8-9: shock wave. Bass drum roll crescendo
+00:17.600    17.600     422   Shock wave hit with cymbal wash
+00:21.000    21.000     504   Shots 10-11: ringing silence then dread
+00:21.500    21.500     516   Heartbeat begins (72 bpm, to 31.5)
+00:22.000    22.000     528   Violas: sustained minor second D3 / Eb3
+00:26.667    26.667     640   THE HAND (frame 640): brass sfz tritone D / Ab, timpani, bass drum, rumble
+00:29.500    29.500     708   Shot 13: dust. Heartbeat and a held high violin harmonic
+00:31.500    31.500     756   Shot 14: head rises. Synth choir (D minor) with cellos, horns swell from pp
+00:33.000    33.000     792   Trombones join the swell
+00:33.600    33.600     806   Choir moves to B flat minor
+00:34.000    34.000     816   Trumpets join, tuba enters
+00:35.000    35.000     840   Shot 15: THE MASK (frame 840). Peak ff chord, hold and decay
+00:37.500    37.500     900   Shots 16-17: slow strings in D minor, thinning. Violins alone by 41 s
+00:41.500    41.500     996   Shot 18: fade to near silence. Low drone
+00:42.000    42.000    1008   Heartbeat returns (42 to 44 s)
+00:44.000    44.000    1056   Shot 19: near silence. Soft steam hiss
+00:45.000    45.000    1080   One deep breath of contrabass
+00:46.333    46.333    1112   THE KICK (frame 1112): bass drum ff, timpani x3, gong, crash, anvil, low brass fff, sub boom
+00:46.500    46.500    1116   Chaos percussion begins: snare rolls, irregular timpani and bass drum, cymbal swells
+00:46.600    46.600    1118   Strings sawing: violin and viola tremolo clusters, cello repeated notes
+00:47.300    47.300    1135   Trumpet stabs (irregular, to 56 s)
+00:49.583    49.583    1190   Boulder landing (frame 1190)
+00:50.000    50.000    1200   Shots 23-24: crowd runs. Horn calls in descending minor thirds
+00:50.125    50.125    1203   Boulder landing (frame 1203)
+00:50.792    50.792    1219   Boulder landing (frame 1219)
+00:51.500    51.500    1236   Boulder landing (frame 1236) with glass shatter
+00:51.958    51.958    1247   Boulder landing (frame 1247): house facade, rumble and stone rattle
+00:52.583    52.583    1262   Boulder landing (frame 1262)
+00:53.375    53.375    1281   Boulder landing (frame 1281)
+00:54.208    54.208    1301   Boulder landing (frame 1301)
+00:55.083    55.083    1322   Boulder landing (frame 1322)
+00:55.875    55.875    1341   Boulder landing (frame 1341)
+00:57.000    57.000    1368   Shots 25-26: percussion recedes
+00:57.167    57.167    1372   Boulder landing (frame 1372)
+00:57.500    57.500    1380   Lament: cello melody in D minor begins (section samples standing in for solo)
+00:58.125    58.125    1395   Boulder landing (frame 1395)
+01:01.500    61.500    1476   Shots 27-28: giant dissolves. Distant low synth choir, contrabass pedal D, horn pp, steam fading
+01:06.500    66.500    1596   Lament: the falling minor sixth (F4 to A3)
+01:07.000    67.000    1608   Shot 29: distant metallic footsteps at 67.0, 68.2, 69.4 s
+01:10.000    70.000    1680   Shots 30-31: cello finishes the phrase
+01:12.000    72.000    1728   Violins enter: high sustained D pp
+01:14.000    74.000    1776   Resolve onto a held low D minor chord
+01:15.500    75.500    1812   Cut to black (frame 1812): chord decays naturally, reverb tail to 77.5 s
+01:17.500    77.500    1860   End
