@@ -10,23 +10,28 @@ import { buildHero } from './hero.js';
 import { buildWall } from './wall.js';
 import { buildGate } from './gate.js';
 import { makeSurface } from './physics.js';
+import { makeDetail } from './detail.js';
+import { buildDistant } from './distant.js';
 
 export default {
   name: 'town',
   async build(ctx) {
     const { MAP } = ctx;
+    const t0 = performance.now();
     const M = makeMaterials(ctx);
+    const detail = makeDetail(ctx);
     const group = new THREE.Group(); group.name = 'town';
 
     const terrain = buildTerrain(ctx, M);
-    const canal = buildCanal(ctx, M);
-    const houses = buildHouses(ctx, M);
+    const distant = buildDistant(ctx, M);
+    const canal = buildCanal(ctx, M, detail);
+    const houses = buildHouses(ctx, M, detail);
     const square = buildSquare(ctx, M);
     const hero = buildHero(ctx, M);
-    const wall = buildWall(ctx, M);
+    const wall = buildWall(ctx, M, detail);
     const footprints = [...houses.footprints, ...square.footprints, hero.footprint];
     const gate = buildGate(ctx, M, makeSurface(MAP, footprints));
-    for (const part of [terrain, canal, houses, square, hero, wall, gate]) group.add(part.group);
+    for (const part of [terrain, distant, canal, houses, square, hero, wall, gate]) group.add(part.group);
 
     group.userData.laundry = houses.laundry.map((l) => ({ mesh: l.mesh, baseQuat: l.baseQuat }));
 
@@ -62,6 +67,8 @@ export default {
           m.rotation.z = Math.sin(u * Math.PI * 2) * 0.6;
         }
       }
+      canal.update(frame);
+      distant.update(frame);
       square.update(frame);
       hero.update(frame);
       wall.update(frame);
@@ -69,8 +76,11 @@ export default {
     }
     update(0);
 
-    const staticColliders = [terrain.ground, ...canal.colliders, ...wall.colliders, ...gate.colliders, ...houses.colliders, ...square.colliders, ...hero.colliders];
+    const staticColliders = [terrain.ground, ...terrain.colliders, ...canal.colliders, ...wall.colliders, ...gate.colliders, ...houses.colliders, ...square.colliders, ...hero.colliders];
     const popAllowed = [...gate.popAllowed, ...wall.popAllowed, ...hero.popAllowed, ...square.popAllowed];
+    let tris = 0;
+    group.traverse((o) => { if (o.isMesh) { const g = o.geometry; tris += ((g.index ? g.index.count : g.attributes.position.count) / 3) * (o.isInstancedMesh ? o.count : 1); } });
+    console.log('[town] built in', Math.round(performance.now() - t0), 'ms, triangles', Math.round(tris));
     return { group, update, colliders: { static: staticColliders, bodies: [] }, popAllowed };
   },
 };

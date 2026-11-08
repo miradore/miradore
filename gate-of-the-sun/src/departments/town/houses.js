@@ -1,11 +1,12 @@
 // Hill town: rows of cubic stucco houses with roof terraces, domes, shutters, awnings, laundry,
 // bougainvillea, pots, external stairs. Streets, square, canal and hero house footprint are kept clear.
 import * as THREE from 'three';
-import { box, boxRot, cyl, sphere, merge } from './common.js';
+import { box, boxRot, cyl, sphere, merge, decalPoly } from './common.js';
+import { bougCluster, makeTree } from './flora.js';
 
 const FH = 3.4;
 
-export function buildHouses(ctx, M) {
+export function buildHouses(ctx, M, detail) {
   const { MAP, ID, LAYER, tag } = ctx;
   const group = new THREE.Group(); group.name = 'houses';
   const rng = MAP.mulberry32(4242);
@@ -78,10 +79,107 @@ export function buildHouses(ctx, M) {
     return f.axis === 'z' ? box(wu, hy, thick, u, y, cc) : box(thick, hy, wu, cc, y, u);
   };
   const facePoint = (f, u, y, out) => (f.axis === 'z' ? [u, y, f.c + f.sign * out] : [f.c + f.sign * out, y, u]);
+  // painted decal on a face: polygon in (u, y) face coordinates, `off` metres off the wall
+  const faceFrame = (f) => ({
+    O: f.axis === 'z' ? [0, 0, f.c] : [f.c, 0, 0], U: f.axis === 'z' ? [1, 0, 0] : [0, 0, 1], V: [0, 1, 0],
+    N: f.axis === 'z' ? [0, 0, f.sign] : [f.sign, 0, 0],
+  });
+  const faceDecal = (f, pts, off = 0.01) => { const F = faceFrame(f); return decalPoly(pts, F.O, F.U, F.V, F.N, off); };
+  const faceRect = (f, u0, u1, y0, y1, off = 0.01) => faceDecal(f, [[u0, y0], [u1, y0], [u1, y1], [u0, y1]], off);
+  const gyAt = (f, u) => (f.axis === 'z' ? MAP.groundY(u, f.c) : MAP.groundY(f.c, u));
+
+  // drawn detail lists (ink ids differ from the house bodies so every frame, sill and slat gets a line)
+  const ID_TRIM = ID.BG_MIN + 39, ID_SLAT = 248, ID_IRON = 249;
+  const trimG = [], slatG = [], ironG = [], glassG = [], beamG = [], terraG = [], glintG = [];
+  const decal = { stain: [], stainDark: [], patch: [], patchStone: [], damp: [] };
+  const signG = [[], [], [], []], signInkG = [];
+  const boug = { blossA: [], blossB: [], leafA: [], leafB: [] };
+  const stat = { windows: [0, 0, 0], balconies: 0, lanterns: 0, signs: 0, pots: 0, stains: 0, patches: 0, pipes: 0, vigas: 0 };
+
+  /** Long wavy streak hanging from (u, yTop): a painted run of grime under a spout or sill. */
+  const streak = (f, u, yTop, w, L, dr) => {
+    const pts = [[u - w / 2, yTop], [u + w / 2, yTop]];
+    const n = 5;
+    for (let k = 1; k <= n; k++) { const t = k / n; pts.push([u + w / 2 * (1 - t * 0.7) + (dr() - 0.5) * w * 0.2, yTop - L * t * (0.75 + dr() * 0.25)]); }
+    pts.push([u + (dr() - 0.5) * w * 0.2, yTop - L]);
+    for (let k = n; k >= 1; k--) { const t = k / n; pts.push([u - w / 2 * (1 - t * 0.7) + (dr() - 0.5) * w * 0.2, yTop - L * t * (0.7 + dr() * 0.3)]); }
+    return pts;
+  };
+  /** Irregular blob outline around (u, y). */
+  const blobPts = (u, y, ru, ry, dr, n = 9) => {
+    const pts = [];
+    for (let k = 0; k < n; k++) { const a = (k / n) * Math.PI * 2; const r = 0.7 + dr() * 0.45; pts.push([u + Math.cos(a) * ru * r, y + Math.sin(a) * ry * r]); }
+    return pts;
+  };
+
+  /** Window with frame, sill, shutters (slatted), optional balcony or hanging pot. */
+  const addWindow = (f, u, y, lvl, shutters, isFront, upper, dr) => {
+    stat.windows[lvl]++;
+    if (lvl === 0) {
+      recessG.push(faceRect(f, u - 0.5, u + 0.5, y - 0.775, y + 0.775, 0.03));
+      if (shutters) for (const s of [-1, 1]) cobaltG.push(faceRect(f, u + s * 0.9 - 0.23, u + s * 0.9 + 0.23, y - 0.8, y + 0.8, 0.06));
+      trimG.push(faceBox(f, u, y - 0.84, 1.4, 0.12, 0.26, 0.2));
+      return;
+    }
+    const p = facePoint(f, u, y, 0.4);
+    const balcony = upper && isFront && dr() < (lvl === 2 ? 0.2 : 0.12) && detail.clear(p[0], p[1] - 0.6, p[2], 1.2, 1.8);
+    const yb = balcony ? y - 0.83 : y - 0.775;            // window becomes a French door over a balcony
+    recessG.push(faceBox(f, u, (yb + y + 0.775) / 2, 1.0, y + 0.775 - yb, 0.2, 0.03));
+    if (lvl === 2 && dr() < 0.7) glintG.push(faceDecal(f, [[u - 0.36, y + 0.1], [u - 0.12, y + 0.62], [u + 0.04, y + 0.62], [u - 0.2, y + 0.1]], 0.036));
+    // frame: lintel and jambs proud of the wall, a deeper sill
+    trimG.push(faceBox(f, u, y + 0.775 + 0.09, 1.38, 0.18, 0.14, 0.11));
+    for (const s of [-1, 1]) trimG.push(faceBox(f, u + s * 0.59, (yb + y + 0.775) / 2, 0.18, y + 0.775 - yb, 0.1, 0.08));
+    if (!balcony) trimG.push(faceBox(f, u, y - 0.775 - 0.06, 1.46, 0.12, 0.32, 0.24));
+    if (shutters) {
+      const n = lvl === 2 ? 3 : 2;
+      for (const s of [-1, 1]) {
+        const us = u + s * 0.9;
+        cobaltG.push(faceBox(f, us, y, 0.46, 1.6, 0.06, 0.07));
+        const gap = 0.08, sh = (1.6 - gap * (n + 1)) / n;
+        for (let k = 0; k < n; k++) slatG.push(faceBox(f, us, y - 0.8 + gap + sh / 2 + k * (sh + gap), 0.36, sh, 0.04, 0.1));
+      }
+    }
+    if (balcony) {
+      stat.balconies++;
+      const ys = y - 0.9;
+      trimG.push(faceBox(f, u, ys, 1.9, 0.14, 0.82, 0.82));
+      for (const s of [-1, 1]) trimG.push(faceBox(f, u + s * 0.72, ys - 0.22, 0.12, 0.3, 0.45, 0.45));
+      const railY = ys + 0.07 + 0.92;
+      ironG.push(faceBox(f, u, railY, 1.86, 0.05, 0.05, 0.79), faceBox(f, u, ys + 0.16, 1.86, 0.04, 0.04, 0.79));
+      for (const s of [-1, 1]) {
+        ironG.push(faceBox(f, u + s * 0.91, railY, 0.05, 0.05, 0.76, 0.8));
+        for (const dd of [0.3, 0.55]) ironG.push(faceBox(f, u + s * 0.91, (ys + railY) / 2 + 0.03, 0.03, railY - ys - 0.07, 0.03, dd));
+      }
+      const spacing = lvl === 2 ? 0.17 : 0.3;
+      for (let x = -0.85 + spacing / 2; x < 0.86; x += spacing) ironG.push(faceBox(f, u + x, (ys + railY) / 2 + 0.03, 0.025, railY - ys - 0.07, 0.025, 0.78));
+      // a pot on the balcony
+      if (dr() < 0.6) {
+        const q = facePoint(f, u + (dr() - 0.5) * 1.0, ys + 0.07, 0.45);
+        potG.push(cyl(0.18, 0.13, 0.3, 7, q[0], q[1], q[2]));
+        bougCluster(boug, q[0], q[1] + 0.55, q[2], f.axis === 'x' ? f.sign : 0, f.axis === 'z' ? f.sign : 0, 0.42, dr, lvl);
+      }
+    } else if (lvl === 2 && !shutters && dr() < 0.3) {
+      // hanging pot on an iron bracket beside the window
+      const s = dr() < 0.5 ? -1 : 1, up = u + s * 1.25;
+      if (up > f.u0 + 0.4 && up < f.u1 - 0.4) {
+        stat.pots++;
+        ironG.push(faceBox(f, up, y + 0.45, 0.04, 0.04, 0.42, 0.42), faceBox(f, up, y + 0.35, 0.06, 0.25, 0.03, 0.03));
+        const q = facePoint(f, up, y - 0.25, 0.34);
+        ironG.push(box(0.015, 0.45, 0.015, q[0], y + 0.2, q[2]));
+        potG.push(cyl(0.17, 0.12, 0.26, 7, q[0], q[1], q[2]));
+        leafG.push(sphere(0.22, q[0], q[1] + 0.32, q[2], 7, 5));
+        boug.blossA.push(sphere(0.1, q[0] + 0.12, q[1] + 0.38, q[2], 6, 4), sphere(0.09, q[0] - 0.1, q[1] + 0.3, q[2] + 0.05, 6, 4));
+        boug.leafB.push(sphere(0.08, q[0], q[1] - 0.05, q[2], 6, 4), sphere(0.07, q[0] + 0.05, q[1] - 0.22, q[2], 6, 4));
+      }
+    }
+    // grime run under the sill
+    if (dr() < (lvl === 2 ? 0.3 : 0.18)) { stat.stains++; decal.stain.push(faceDecal(f, streak(f, u, y - 0.9, 1.2, 0.6 + dr() * 0.8, dr), 0.012)); }
+  };
 
   // ---------------------------------------------------------------- houses
   let tileCount = 0;
   lots.forEach((lot, i) => {
+    const dr = MAP.mulberry32(31000 + i * 17);     // detail randomness (separate stream: the layout stays as before)
     const w = lot.x1 - lot.x0, d = lot.z1 - lot.z0, cx = (lot.x0 + lot.x1) / 2, cz = (lot.z0 + lot.z1) / 2;
     const base = Math.min(MAP.groundY(cx, lot.z0), MAP.groundY(cx, lot.z1)) - 0.06;
     const floors = rng() < 0.72 ? 3 : 2;
@@ -113,6 +211,9 @@ export function buildHouses(ctx, M) {
     const bfaces = facesOf(bodyLot, base);
     const bfront = frontKey === 'W' ? bfaces.W : frontKey === 'E' ? bfaces.E : frontKey < 0 ? bfaces.S : bfaces.N;
     const shutters = rng() < 0.62;
+    const lvlHouse = Math.max(...['S', 'N', 'W', 'E'].map((k) => { const f = bfaces[k]; const p = facePoint(f, (f.u0 + f.u1) / 2, base + h / 2, 0); return detail.lvlAt(p[0], p[1], p[2]); }));
+    const lvlFront = (() => { const p = facePoint(bfront, (bfront.u0 + bfront.u1) / 2, base + h / 2, 0); return detail.lvlAt(p[0], p[1], p[2]); })();
+    const openFaces = [];
     // windows on every face that is not pressed against a neighbour
     for (const key of ['S', 'N', 'W', 'E']) {
       const f = bfaces[key];
@@ -120,25 +221,32 @@ export function buildHouses(ctx, M) {
       const len = f.u1 - f.u0;
       const n = Math.max(1, Math.floor((len - 1.4) / 2.7));
       const step = len / n;
+      openFaces.push({ f, n, step, key });
       for (let fl = 0; fl < floors; fl++) {
         const y = base + fl * FH + 2.05;
         for (let k = 0; k < n; k++) {
           const u = f.u0 + step * (k + 0.5);
           if (f === bfront && fl === 0 && Math.abs(u - doorU) < step * 0.5) continue;     // the door takes this bay
           if (rng() < 0.12) continue;
-          recessG.push(faceBox(f, u, y, 1.0, 1.55, 0.2, 0.03));
-          if (shutters) { cobaltG.push(faceBox(f, u - 0.74, y, 0.45, 1.55, 0.1, 0.09)); cobaltG.push(faceBox(f, u + 0.74, y, 0.45, 1.55, 0.1, 0.09)); }
-          else if (rng() < 0.5) sg.push(faceBox(f, u, y - 0.85, 1.3, 0.14, 0.3, 0.3));     // stone sill
+          if (!shutters) rng();                                                          // (kept: the old sill choice)
+          const p = facePoint(f, u, y, 0);
+          addWindow(f, u, y, detail.lvlAt(p[0], p[1], p[2]), shutters, f === bfront, fl > 0, dr);
         }
       }
     }
     // door on the front face with a stone threshold, a cobalt panel and a lintel
     const doorBottom = base + 0.06;
     cobaltG.push(faceBox(bfront, doorU, doorBottom + 1.2, 1.25, 2.4, 0.15, 0.1));
-    sg.push(faceBox(bfront, doorU, doorBottom + 2.5, 1.7, 0.25, 0.35, 0.35));
-    sg.push(faceBox(bfront, doorU, doorBottom + 0.08, 1.9, 0.16, 0.38, 0.38));
+    trimG.push(faceBox(bfront, doorU, doorBottom + 2.5, 1.7, 0.25, 0.35, 0.35));
+    trimG.push(faceBox(bfront, doorU, doorBottom + 0.08, 1.9, 0.16, 0.38, 0.38));
+    if (lvlFront >= 1) {
+      for (const s of [-1, 1]) trimG.push(faceBox(bfront, doorU + s * 0.74, doorBottom + 1.2, 0.22, 2.4, 0.2, 0.18));
+      if (lvlFront === 2) for (const s of [-1, 1]) for (const [yy, hh] of [[0.62, 0.9], [1.68, 1.0]]) slatG.push(faceBox(bfront, doorU + s * 0.29, doorBottom + yy, 0.44, hh, 0.04, 0.13));
+    }
     // awning over the door or a shop opening
+    let hasAwning = false;
     if (rng() < 0.4) {
+      hasAwning = true;
       const aw = 2.6 + rng() * 1.6, ci = Math.floor(rng() * 3);
       const au = Math.min(bfront.u1 - aw / 2 - 0.2, Math.max(bfront.u0 + aw / 2 + 0.2, doorU + (rng() - 0.5) * 2));
       const ay = doorBottom + 2.95, depth = 1.5, tilt = 0.35;
@@ -174,6 +282,110 @@ export function buildHouses(ctx, M) {
       sg.push(faceBox(bfront, uL + dir * 0.55, base + FH + 0.5, 0.12, 1.0, 1.2, 1.2));   // low rail post
       cobaltG.push(faceBox(bfront, uL, base + FH + 1.1, 1.1, 2.2, 0.12, 0.08));
     }
+    // wall lantern beside the door
+    if (lvlFront >= 1 && dr() < 0.5) {
+      const s = hasStairs ? -stairDir : (dr() < 0.5 ? -1 : 1);
+      const uL = doorU + s * 1.06, yL = doorBottom + 2.25;
+      const q = facePoint(bfront, uL, yL, 0.3);
+      if (uL > bfront.u0 + 0.3 && uL < bfront.u1 - 0.3 && detail.clear(q[0], q[1], q[2], 0.3, 1.2)) {
+        stat.lanterns++;
+        ironG.push(faceBox(bfront, uL, yL + 0.3, 0.12, 0.34, 0.04, 0.04), faceBox(bfront, uL, yL + 0.36, 0.04, 0.04, 0.3, 0.3));
+        ironG.push(faceBox(bfront, uL, yL + 0.19, 0.26, 0.06, 0.26, 0.36), faceBox(bfront, uL, yL - 0.17, 0.2, 0.05, 0.2, 0.33));
+        glassG.push(faceBox(bfront, uL, yL + 0.01, 0.18, 0.32, 0.18, 0.32));
+      }
+    }
+    // faded painted shop sign over the door (no awning there)
+    if (!hasAwning && lvlFront >= 1 && dr() < 0.35) {
+      const sw = 2.0 + dr() * 1.2;
+      const su = Math.min(bfront.u1 - sw / 2 - 0.3, Math.max(bfront.u0 + sw / 2 + 0.3, doorU));
+      if (bfront.u1 - bfront.u0 > sw + 0.8) {
+        stat.signs++;
+        const y0 = doorBottom + 2.78, y1 = y0 + 0.55;
+        const ci = Math.floor(dr() * 4);
+        signG[ci].push(faceDecal(bfront, [[su - sw / 2, y0 + 0.02], [su + sw / 2 - 0.05, y0], [su + sw / 2, y1 - 0.03], [su - sw / 2 + 0.04, y1]], 0.012));
+        // lettering: blocky painted glyphs, a little worn
+        const nG = 4 + Math.floor(dr() * 4);
+        const gw = (sw - 0.5) / nG;
+        for (let g = 0; g < nG; g++) {
+          if (dr() < 0.12) continue;
+          const gu = su - sw / 2 + 0.25 + g * gw + gw * 0.15;
+          const wg = gw * 0.62;
+          signInkG.push(faceRect(bfront, gu, gu + wg, y0 + 0.13, y0 + 0.17, 0.016), faceRect(bfront, gu, gu + wg * 0.28, y0 + 0.13, y1 - 0.13, 0.016));
+          if (dr() < 0.6) signInkG.push(faceRect(bfront, gu, gu + wg, y1 - 0.17, y1 - 0.13, 0.016));
+          if (dr() < 0.5) signInkG.push(faceRect(bfront, gu + wg * 0.72, gu + wg, y0 + 0.13, y1 - 0.13, 0.016));
+        }
+        // the plaster around the sign is a shade dirtier
+        decal.stain.push(faceDecal(bfront, blobPts(su + sw * 0.3, y0 - 0.05, 0.5, 0.25, dr, 7), 0.011));
+      }
+    }
+    // rising damp along the foot of street fronts (follows the sloping street)
+    {
+      const f = bfront, pts = [], n = Math.max(3, Math.ceil((f.u1 - f.u0) / 0.8));
+      const hd = 0.35 + dr() * 0.3;
+      for (let k = 0; k <= n; k++) { const u = f.u0 + 0.02 + (f.u1 - f.u0 - 0.04) * k / n; pts.push([u, gyAt(f, u) + hd + (dr() - 0.5) * 0.18]); }
+      for (let k = n; k >= 0; k--) { const u = f.u0 + 0.02 + (f.u1 - f.u0 - 0.04) * k / n; pts.push([u, gyAt(f, u) - 0.05]); }
+      decal.damp.push(faceDecal(f, pts, 0.01));
+    }
+    // plaster fallen off in patches, showing the rubble stone underneath
+    const nPatch = lvlHouse === 2 ? 2 : 1;
+    for (let k = 0; k < nPatch; k++) {
+      if (dr() > 0.55) continue;
+      const of = openFaces[Math.floor(dr() * openFaces.length)]; if (!of) continue;
+      const f = of.f;
+      const gi = Math.floor(dr() * (of.n + 1));
+      const u = gi === 0 ? f.u0 + 0.7 : gi === of.n ? f.u1 - 0.7 : f.u0 + of.step * gi;
+      const fl = Math.floor(dr() * floors);
+      const y = base + fl * FH + (dr() < 0.5 ? 0.5 : 3.0) + dr() * 0.2;
+      const ru = 0.45 + dr() * 0.3, ry = 0.3 + dr() * 0.25;
+      stat.patches++;
+      decal.patch.push(faceDecal(f, blobPts(u, y, ru, ry, dr, 10), 0.012));
+      const nst = 3 + Math.floor(dr() * 4);
+      for (let s = 0; s < nst; s++) {
+        const su = u + (dr() - 0.5) * ru * 1.1, sy = y + (dr() - 0.5) * ry * 1.0;
+        const sw = 0.12 + dr() * 0.14, sh = 0.08 + dr() * 0.07;
+        decal.patchStone.push(faceDecal(f, [[su - sw, sy - sh * 0.8], [su + sw * 0.9, sy - sh], [su + sw, sy + sh * 0.7], [su - sw * 0.8, sy + sh]], 0.016));
+      }
+    }
+    // spouts through the parapet and their stains; drainpipes on some houses
+    for (const of of openFaces) {
+      const f = of.f;
+      if (f !== bfront && dr() < 0.5) continue;
+      const nsp = of.n >= 3 && dr() < 0.5 ? 2 : 1;
+      for (let s = 0; s < nsp; s++) {
+        const gi = 1 + Math.floor(dr() * Math.max(1, of.n - 1));
+        const u = of.n > 1 ? f.u0 + of.step * Math.min(of.n - 1, gi) : (dr() < 0.5 ? f.u0 + 0.45 : f.u1 - 0.45);
+        const lvlS = (() => { const p = facePoint(f, u, top, 0); return detail.lvlAt(p[0], p[1], p[2]); })();
+        if (lvlS >= 1 && dr() < 0.3) {
+          // drainpipe from the parapet to the street
+          stat.pipes++;
+          const q = facePoint(f, u, base, 0.12);
+          terraG.push(cyl(0.075, 0.075, top - base + 0.05, 6, q[0], base, q[2]));
+          const qh = facePoint(f, u, top + 0.05, 0.16);
+          terraG.push(box(0.3, 0.3, 0.3, qh[0], qh[1], qh[2]));
+          decal.stainDark.push(faceDecal(f, streak(f, u, top + 0.2, 0.55, 1.0 + dr() * 1.2, dr), 0.011));
+          continue;
+        }
+        if (lvlS >= 1) terraG.push(faceBox(f, u, top + 0.12, 0.16, 0.14, 0.75, 0.62));
+        stat.stains++;
+        const L = Math.min(h - 0.8, 2.0 + dr() * 3.5);
+        decal.stainDark.push(faceDecal(f, streak(f, u, top + 0.08, 0.5 + dr() * 0.3, L, dr), 0.011));
+      }
+    }
+    // vigas: wooden beam ends poking out under the parapet
+    if (lvlFront >= 1 && dr() < 0.4) {
+      const f = bfront;
+      const yv = top - 0.32;
+      const nv = Math.floor((f.u1 - f.u0 - 0.8) / 0.9);
+      const q = facePoint(f, (f.u0 + f.u1) / 2, yv, 0.3);
+      if (nv > 1 && detail.clear(q[0], q[1], q[2], (f.u1 - f.u0) / 2, 1.0)) {
+        stat.vigas++;
+        const s0 = (f.u0 + f.u1) / 2 - ((nv - 1) * 0.9) / 2;
+        for (let k = 0; k < nv; k++) {
+          beamG.push(faceBox(f, s0 + k * 0.9, yv, 0.2, 0.2, 0.6, 0.45));
+          if (dr() < 0.5) decal.stain.push(faceDecal(f, streak(f, s0 + k * 0.9, yv - 0.1, 0.22, 0.4 + dr() * 0.5, dr), 0.011));
+        }
+      }
+    }
     // roof furniture
     const r = rng();
     if (r < 0.25 && Math.min(bw, bd) > 7.5) {
@@ -185,21 +397,25 @@ export function buildHouses(ctx, M) {
       const hw = 2.4 + rng() * 1.2, hd = 2.4 + rng() * 1.0, hh = 2.5;
       const hx = bx0 + pw + hw / 2 + rng() * Math.max(0, bw - hw - 2 * pw), hz = bz0 + pw + hd / 2 + rng() * Math.max(0, bd - hd - 2 * pw);
       sg.push(box(hw, hh, hd, hx, top + hh / 2, hz));
-      sg.push(box(hw + 0.3, 0.25, hd + 0.3, hx, top + hh + 0.12, hz));
+      trimG.push(box(hw + 0.3, 0.25, hd + 0.3, hx, top + hh + 0.12, hz));
       recessG.push(box(0.9, 1.7, 0.2, hx, top + 0.95, hz - hd / 2 - 0.02));
     }
     if (rng() < 0.5) {
       const chx = rng() < 0.5 ? bx0 + 0.9 : bx1 - 0.9, chz = rng() < 0.5 ? bz0 + 0.9 : bz1 - 0.9;
-      sg.push(box(0.7, 1.5, 0.7, chx, top + 0.75, chz), box(1.0, 0.22, 1.0, chx, top + 1.55, chz));
+      sg.push(box(0.7, 1.5, 0.7, chx, top + 0.75, chz));
+      trimG.push(box(1.0, 0.22, 1.0, chx, top + 1.55, chz));
     }
-    // bougainvillea spilling over the front parapet
+    // bougainvillea spilling over the front parapet: clusters of small blossoms, leaves and trailing strands
     if (rng() < 0.3) {
       const n = 8 + Math.floor(rng() * 5);
       const u0 = front.u0 + 1 + rng() * Math.max(0.5, front.u1 - front.u0 - 5);
+      const nx = front.axis === 'x' ? front.sign : 0, nz = front.axis === 'z' ? front.sign : 0;
       for (let k = 0; k < n; k++) {
         const rad = 0.5 + rng() * 0.65;
         const p = facePoint(front, u0 + rng() * 3.5, top + 0.9 - rng() * 3.2 - (k === 0 ? -0.4 : 0), rad * 0.45);
-        bougG.push(sphere(rad, p[0], p[1], p[2], 8, 6));
+        const lv = detail.lvlAt(p[0], p[1], p[2]);
+        if (lv === 0 && k % 2) continue;
+        bougCluster(boug, p[0], p[1], p[2], nx, nz, rad * (lv === 0 ? 1.15 : 1), dr, k < 3 ? lv : Math.min(lv, 1));
       }
     }
     // pots by the door
@@ -209,6 +425,7 @@ export function buildHouses(ctx, M) {
         const p = facePoint(bfront, doorU + s * 1.15, doorBottom, 0.5);
         potG.push(cyl(0.34, 0.26, 0.55, 8, p[0], p[1], p[2]));
         leafG.push(sphere(0.48, p[0], p[1] + 0.85, p[2], 8, 6));
+        if (lvlFront === 2) { leafG.push(sphere(0.3, p[0] + 0.25, p[1] + 1.15, p[2], 7, 5)); boug.blossB.push(sphere(0.14, p[0] - 0.2, p[1] + 1.1, p[2] + 0.1, 6, 4)); }
       }
     }
     // a loose roof tile for the shock wave on houses near the main street
@@ -221,7 +438,7 @@ export function buildHouses(ctx, M) {
       tiles.push({ mesh: tile, base: tile.position.clone(), seed: tileCount });
       tileCount++;
     }
-    const mesh = new THREE.Mesh(merge(sg), M.stucco[(i * 7 + Math.floor(rng() * 4)) % 4]);
+    const mesh = new THREE.Mesh(merge(sg), M.stucco[((i * 7 + Math.floor(rng() * 4)) % 4) + 4 * (i % 2)]);
     mesh.name = 'house' + i;
     tag(mesh, { inkId: idOf(i), layer: LAYER.BG });
     group.add(mesh); colliders.push(mesh);
@@ -231,27 +448,40 @@ export function buildHouses(ctx, M) {
 
   // ---------------------------------------------------------------- garden walls on the strip behind the hero row (z 46..51)
   const gw = [];
+  const grng = MAP.mulberry32(5150);
   for (const [x0, x1] of [[-23, -7.5], [7.5, 22]]) {
     const y = MAP.groundY((x0 + x1) / 2, 50.5);
     gw.push(box(x1 - x0, 1.7, 0.4, (x0 + x1) / 2, y + 0.85, 50.6));
+    trimG.push(box(x1 - x0 + 0.1, 0.14, 0.56, (x0 + x1) / 2, y + 1.77, 50.6));          // coping
     for (let x = x0 + 1.5; x < x1 - 1; x += 3.1 + (x1 - x0) * 0.02) {
       const rad = 0.5 + MAP.hash1(x) * 0.5;
-      bougG.push(sphere(rad, x, y + 1.9 + MAP.hash1(x + 3) * 0.3, 50.6 + (MAP.hash1(x + 9) - 0.5) * 0.6, 8, 6));
+      const py = y + 1.9 + MAP.hash1(x + 3) * 0.3, pz = 50.6 + (MAP.hash1(x + 9) - 0.5) * 0.6;
+      bougCluster(boug, x, py, pz, 0, 1, rad * 1.1, grng, detail.lvlAt(x, py, pz));
     }
+    // damp at the foot and a few stains on the town side
+    const fN = { axis: 'z', sign: 1, c: 50.8, u0: x0, u1: x1 };
+    decal.damp.push(faceDecal(fN, [[x0 + 0.05, y - 0.05], [x1 - 0.05, y - 0.05], [x1 - 0.05, y + 0.32], [(x0 + x1) / 2, y + 0.45], [x0 + 0.05, y + 0.3]], 0.01));
   }
-  // gate forecourt: low walls, a few low trees along the canal side, a trough
-  const fc = [], trunks = [], canopies = [];
+  // gate forecourt: low walls, clustered trees along the canal side, a trough
+  const fc = [], trunks = [], tree = { trunk: [], leafA: [], leafB: [], under: [] }, branches = [];
   fc.push(box(0.4, 1.1, 18, 22.4, MAP.groundY(22.4, 17) + 0.55, 17.5), box(15.6, 1.1, 0.4, 14.8, MAP.groundY(14.8, 26.8) + 0.55, 26.8));
   fc.push(box(2.4, 0.9, 1.2, 9.5, 0.45, 12), box(2.0, 0.6, 0.9, 9.5, 0.9, 12));
+  trimG.push(box(0.56, 0.12, 18.1, 22.4, MAP.groundY(22.4, 17) + 1.16, 17.5), box(15.7, 0.12, 0.56, 14.8, MAP.groundY(14.8, 26.8) + 1.16, 26.8));
+  const trng = MAP.mulberry32(6262);
   for (const [tx, tz] of [[20.6, 23.5], [20.6, 12.5], [12, 24.5]]) {
     const gy = MAP.groundY(tx, tz);
-    trunks.push(cyl(0.22, 0.3, 2.6, 7, tx, gy, tz));
-    canopies.push(sphere(2.0, tx, gy + 4.0, tz, 10, 7), sphere(1.4, tx + 1.1, gy + 4.9, tz - 0.6, 8, 6), sphere(1.3, tx - 1.0, gy + 4.7, tz + 0.8, 8, 6));
+    const before = tree.trunk.length;
+    makeTree(tree, tx, gy, tz, trng, 1.15);
+    trunks.push(tree.trunk[before]);                         // the main trunk is the collider; branches are not
+    for (let k = before + 1; k < tree.trunk.length; k++) branches.push(tree.trunk[k]);
   }
   const fcWalls = new THREE.Mesh(merge(fc), M.stone); fcWalls.name = 'forecourtWalls'; tag(fcWalls, { inkId: ID.CANAL, layer: LAYER.BG }); group.add(fcWalls); colliders.push(fcWalls);
   const fcTrunks = new THREE.Mesh(merge(trunks), M.wood); fcTrunks.name = 'forecourtTrunks'; tag(fcTrunks, { inkId: ID.PLANT, layer: LAYER.BG }); group.add(fcTrunks); colliders.push(fcTrunks);
-  const fcCanopy = new THREE.Mesh(merge(canopies), M.leaf); fcCanopy.name = 'forecourtTrees'; tag(fcCanopy, { inkId: ID.PLANT, layer: LAYER.BG }); group.add(fcCanopy);
-  const garden = new THREE.Mesh(merge(gw), M.stucco[1]); garden.name = 'gardenWalls'; tag(garden, { inkId: ID_GARDEN, layer: LAYER.BG }); group.add(garden); colliders.push(garden);
+  const fcBranch = new THREE.Mesh(merge(branches), M.wood); fcBranch.name = 'forecourtBranches'; tag(fcBranch, { inkId: ID.PLANT, layer: LAYER.BG }); group.add(fcBranch);
+  const fcUnder = new THREE.Mesh(merge(tree.under), M.treeUnder); fcUnder.name = 'forecourtTreesUnder'; tag(fcUnder, { inkId: 247, layer: LAYER.BG }); group.add(fcUnder);
+  const fcCanopy = new THREE.Mesh(merge(tree.leafA), M.treeLeaf); fcCanopy.name = 'forecourtTrees'; tag(fcCanopy, { inkId: ID.PLANT, layer: LAYER.BG }); group.add(fcCanopy);
+  const fcCanopyB = new THREE.Mesh(merge(tree.leafB), M.treeLeafB); fcCanopyB.name = 'forecourtTreesB'; tag(fcCanopyB, { inkId: 247, layer: LAYER.BG }); group.add(fcCanopyB);
+  const garden = new THREE.Mesh(merge(gw), M.stucco[5]); garden.name = 'gardenWalls'; tag(garden, { inkId: ID_GARDEN, layer: LAYER.BG }); group.add(garden); colliders.push(garden);
 
   // ---------------------------------------------------------------- laundry lines across the cross streets and the main street
   const lotAt = (x, z, pred) => lots.find((l) => x >= l.x0 && x <= l.x1 && z >= l.z0 - 0.6 && z <= l.z1 + 0.6 && pred(l));
@@ -306,14 +536,29 @@ export function buildHouses(ctx, M) {
   };
   addMerged(recessG, M.recess, 'windowRecesses', ID_RECESS, false);
   addMerged(cobaltG, M.cobalt, 'cobaltJoinery', ID_COBALT, false);
+  addMerged(slatG, M.cobaltSlat, 'shutterSlats', ID_SLAT, false);
+  addMerged(trimG, M.trim, 'stoneTrims', ID_TRIM);
+  addMerged(beamG, M.wood, 'vigas', ID_TRIM);
+  addMerged(terraG, M.pot, 'spoutsAndPipes', ID_TRIM);
+  addMerged(ironG, M.iron, 'ironwork', ID_IRON);
+  addMerged(glassG, M.glass, 'lanternGlass', ID_IRON, false);
   addMerged(drumG, M.stucco[3], 'domeDrums', ID_DOME - 1);
   addMerged(domeG, M.dome, 'domes', ID_DOME);
   awnG.forEach((g, k) => addMerged(g, M.awning[k], 'awnings' + k, ID.AWNING));
   addMerged(whiteG, M.white, 'awningStripes', ID.AWNING, false);
-  addMerged(bougG, M.bougainvillea, 'bougainvillea', ID.PLANT);
+  addMerged(boug.blossA, M.bougainvillea, 'bougainvillea', ID.PLANT);
+  addMerged(boug.blossB, M.blossomLight, 'bougainvilleaLight', 247);
+  addMerged(boug.leafA, M.leaf, 'bougainvilleaLeaves', ID.PLANT);
+  addMerged(boug.leafB, M.leafDark, 'bougainvilleaLeavesDark', 247);
   addMerged(potG, M.pot, 'pots', ID.PLANT);
   addMerged(leafG, M.leaf, 'potPlants', ID.PLANT);
   addMerged(linesG, M.wood, 'laundryLines', ID.LAUNDRY, false);
+  // painted decals: id 0 so the ink pass never outlines them
+  addMerged(glintG, M.glint, 'windowGlints', ID.NONE, false);
+  for (const k of Object.keys(decal)) addMerged(decal[k], M[k === 'damp' ? 'stainDark' : k], 'decal_' + k, ID.NONE, false);
+  signG.forEach((g, k) => addMerged(g, M.signs[k], 'shopSigns' + k, ID.NONE, false));
+  addMerged(signInkG, M.signInk, 'shopSignLetters', ID.NONE, false);
+  console.log('[town] houses', lots.length, 'windows by level', stat.windows.join('/'), JSON.stringify(stat));
 
   return { group, colliders, footprints, laundry, tiles, lots };
 }

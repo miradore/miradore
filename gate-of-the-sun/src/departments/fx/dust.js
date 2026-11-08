@@ -2,7 +2,7 @@
 // and splinters; the advancing dust wall; the hero house facade dust.
 import * as THREE from 'three';
 import * as MAP from '../../../shared/map.js';
-import { makeBillows, dustStyle, burst } from './billow.js';
+import { makeBillows, dustStyle, dustBaseStyle, burst, trail } from './billow.js';
 import { Debris, assignFlights } from './debris.js';
 
 const { T, ID, PALETTE } = MAP;
@@ -78,11 +78,29 @@ export function makeDust(ctx, reg) {
     return { f0: T.KICK + Math.floor(rng() * 3), f1: 1136 + Math.floor(rng() * 44), p0: [(rng() - 0.5) * 16, 2 + rng() * 24, 0.5], p1: [xl, MAP.groundY(xl, zl) + 0.15, zl], g: 9.8 };
   });
 
-  // ---------------- dust wall: three rows, keeping every surface at x <= 20 and z <= front
+  // ---------------- trails of dust behind the big flying gate door pieces (town's gatePieceDoor*).
+  // Town owns their flights; FX only reads the live mesh position. Approximate launch points and
+  // landing frames (measured from town's ballistics) shape the path behind the piece:
+  // position at time te = lerp(p0, P(t), te / t) + 0.5 g te (t - te) up, exact for a parabola.
+  const DOOR_P0 = { R: [[2.35, 3.43], [7.34, 3.44], [2.15, 9.84], [7.19, 9.93], [2.28, 16.09], [7.36, 15.85], [7.89, 22.76], [2.48, 25.44]],
+    L: [[-2.53, 3.08], [-7.68, 3.11], [-2.6, 9.44], [-7.75, 9.41], [-2.57, 15.53], [-7.53, 15.61], [-7.86, 22.78], [-2.49, 25.48]] };
+  const DOOR_LAND = { R: [1158, 1144, 1166, 1138, 1151, 1177, 1161, 1184], L: [1127, 1125, 1155, 1157, 1166, 1161, 1167, 1175] };
+  const doorTrails = [];
+  for (const sd of ['R', 'L']) for (let k = 0; k < 8; k++) {
+    doorTrails.push({ name: `gatePieceDoor${sd}${k}`, p0: new THREE.Vector3(DOOR_P0[sd][k][0], DOOR_P0[sd][k][1], 0.5), land: DOOR_LAND[sd][k],
+      puffs: makeBillows(ctx, reg, 3, { seed: 140 + doorTrails.length, count: 5, style, name: `pieceTrail${sd}${k}_` }), mesh: undefined });
+  }
+  const trailTmp = new THREE.Vector3(), pieceNow = new THREE.Vector3();
+  const LAUNCH = T.KICK + 1;
+
+  // ---------------- dust wall. Every surface keeps x <= 20 and z <= front (camera clearances of shots
+  // 23, 25 and 26). Layers: a front of big lobes with heavy dark bases, a second rank and a towering
+  // rank behind, smaller crest lobes rolling over the top edge, and wisps streaming off both ends.
+  const base = dustBaseStyle(ctx);
   const wallRows = [
-    { depth: 0, y: 0.75, xs: [-40, -29, -18, -7, 4], R: [13, 15] },
-    { depth: 16, y: 1.0, yOff: 8, xs: [-36, -24, -12, 0], R: [13, 16] },
-    { depth: 32, y: 0.6, yOff: 16, xs: [-30, -16, -2], R: [12, 14] },
+    { depth: 0, y: 0.75, xs: [-48, -37, -26, -15, -5, 4], R: [13, 15], count: 12, base: true },
+    { depth: 14, y: 0.9, yOff: 12, xs: [-43, -31, -19, -8, 3], R: [13, 16], count: 12, base: true },
+    { depth: 28, y: 0.6, yOff: 26, xs: [-36, -21, -6], R: [12, 14.5], count: 12, base: false },
   ];
   const wallBillows = [];
   const wallData = [];
@@ -90,16 +108,22 @@ export function makeDust(ctx, reg) {
     const h = MAP.hash1(ri * 17 + xi * 3 + 1100);
     const R = MAP.lerp(row.R[0], row.R[1], h);
     wallData.push({ x, R, depth: row.depth, yMul: row.y, yOff: row.yOff || 0, ph: h * 6.28 });
+    wallBillows.push(...makeBillows(ctx, reg, 1, { seed: 111 + ri * 13 + xi, count: row.count, style, name: `dustWall${ri}_${xi}_`, base: row.base ? base : null, flat: 0.85 }));
   }));
-  wallBillows.push(...makeBillows(ctx, reg, wallData.length, { seed: 111, count: 9, style, name: 'dustWall' }));
+  // crest: mid-size lobes along the top edge, leaning forward and rolling over
+  const crest = makeBillows(ctx, reg, 7, { seed: 117, count: 8, style, name: 'wallCrest', flat: 0.5 });
+  const crestData = crest.map((b, k) => ({ x: -50 + k * 10 + (MAP.hash1(k + 1150) - 0.5) * 4, R: 6 + 2.5 * MAP.hash1(k + 1160), up: MAP.hash1(k + 1170), ph: MAP.hash1(k + 1180) * 6.28 }));
+  // wisps: small stretched billows streaming off the west and east ends, cycling with fades at both ends
+  const wisps = makeBillows(ctx, reg, 8, { seed: 119, count: 6, style, name: 'wallWisp', flat: 0.4 });
+  const wispDir = new THREE.Vector3();
 
   // ---------------- hero house facade dust
   const facade = makeBillows(ctx, reg, 10, { seed: 121, count: 8, style, name: 'facadeDust' });
   // ---------------- small dust wisps drifting across the canal steps in shot 26 (1416..1476)
-  const wisps = makeBillows(ctx, reg, 6, { seed: 131, count: 5, style, name: 'driftDust' });
+  const drift = makeBillows(ctx, reg, 6, { seed: 131, count: 5, style, name: 'driftDust' });
 
   return {
-    update(frame, fh) {
+    update(frame, fh, info, ctx) {
       // cracks appear progressively from their own frame and stay
       for (const s of crackSegs) s.mesh.visible = frame >= s.at;
       burst(handBurst, fh, { x: 30, y: 50.5, z: 8, birth: T.HAND_IMPACT, life: 56, spread: 5, r0: 1.0, r1: 3.6, rise: 2.5, seed: 640, up: 0.25, zBias: 0.8 });
@@ -114,9 +138,24 @@ export function makeDust(ctx, reg) {
       }
       gateChips.update(frame);
       splinters.update(frame);
+      // door piece trails (frames KICK..landing, puffs fade after)
+      if (fh >= T.KICK && fh < 1200) {
+        for (const d of doorTrails) {
+          if (d.mesh === undefined) d.mesh = ctx.scene.getObjectByName(d.name) || null;
+          if (!d.mesh) { for (const b of d.puffs) b.hide(); continue; }
+          d.mesh.getWorldPosition(pieceNow);
+          const t = (Math.min(frame, d.land) - LAUNCH) / 24;
+          trail(d.puffs, fh, (e, out) => {
+            if (e < LAUNCH + 2 || e >= d.land || t <= 0) return false;
+            const te = (e - LAUNCH) / 24, s = MAP.clamp(te / t, 0, 1);
+            out.lerpVectors(d.p0, pieceNow, s); out.y += 4.9 * te * Math.max(0, t - te);
+            return true;
+          }, { every: 4, life: 12, r0: 0.7, r1: 2.4, rise: 1.2, seed: d.land, tmp: trailTmp });
+        }
+      } else for (const d of doorTrails) for (const b of d.puffs) b.hide();
       // dust wall
       const front = dustFront(fh);
-      if (front < 0 || fh >= 1600) { for (const b of wallBillows) b.hide(); }
+      if (front < 0 || fh >= 1600) { for (const b of wallBillows) b.hide(); for (const b of crest) b.hide(); for (const b of wisps) b.hide(); }
       else {
         const grow = 0.35 + 0.65 * MAP.easeOut((fh - T.DUST_WALL_START) / 70);
         const thin = MAP.smooth((fh - 1420) / 180);
@@ -128,17 +167,40 @@ export function makeDust(ctx, reg) {
           const y = MAP.groundY(d.x, zc) + d.yOff * grow + R * d.yMul + 10 * thin;
           wallBillows[k].set(d.x, y, zc, R, { t: fh * 0.05 + d.ph, opacity: 1 - thin, spin: d.ph + fh * 0.004 });
         }
+        // crest lobes ride the top edge of the front ranks and roll forward over it
+        for (let k = 0; k < crest.length; k++) {
+          const d = crestData[k];
+          const R = d.R * grow * MAP.lerp(1, 0.6, thin);
+          const zc = Math.max(front - 5 * depthK - R, 4 + R * 0.3);
+          const top = (d.up < 0.5 ? 0.75 * 14 + 14 : 12 + 0.9 * 14.5 + 14.5) * grow;
+          const y = MAP.groundY(d.x, zc) + top + R * 0.2 + 10 * thin + 1.2 * Math.sin(fh * 0.04 + d.ph);
+          crest[k].set(d.x, y, zc, R, { t: fh * 0.07 + d.ph, opacity: 1 - thin, spin: d.ph, roll: d.ph + (fh - T.DUST_WALL_START) * 0.02 });
+        }
+        // wisps: 5 off the west end (drifting west and up), 3 off the east end (rising, held inside x <= 20)
+        for (let k = 0; k < wisps.length; k++) {
+          const h1 = MAP.hash1(k + 1190), h2 = MAP.hash1(k + 1195);
+          const s = ((fh - T.DUST_WALL_START) * (0.006 + 0.004 * h1) + h2) % 1;
+          const op = MAP.smooth(s / 0.2) * (1 - MAP.smooth((s - 0.65) / 0.35)) * (1 - thin) * MAP.smooth((grow - 0.35) / 0.4);
+          if (op < 0.04) { wisps[k].hide(); continue; }
+          const R = (2.5 + 2.5 * s) * (0.8 + 0.4 * h1) * grow, st = 1.7;
+          const Rb = R * st;
+          let x, y;
+          if (k < 5) { x = -55 - 26 * s - 6 * h1; y = 8 + 14 * h2 + 18 * s; wispDir.set(-1, 0.45, 0).normalize(); }
+          else { x = 20 - Rb - 0.5 - 4 * h1; y = 16 + 8 * h2 + 26 * s; wispDir.set(0.25, 1, 0).normalize(); }
+          const zc = Math.max(front - 6 * depthK - Rb, 4 + Rb * 0.3);
+          wisps[k].set(x, MAP.groundY(x, zc) + y * grow + 10 * thin, zc, R, { t: fh * 0.1 + k, opacity: op, spin: h2 * 6, stretch: st, dir: wispDir });
+        }
       }
       // drift wisps, shot 26 only (hidden at the shot boundaries)
       if (fh >= 1416 && fh < 1476) {
-        for (let k = 0; k < wisps.length; k++) {
+        for (let k = 0; k < drift.length; k++) {
           const h1 = MAP.hash1(k + 1300), h2 = MAP.hash1(k + 1310), h3 = MAP.hash1(k + 1320);
           // low puffs sliding along the canal steps beyond the hare, 6 to 10 m from the shot 26 camera
           const x = 27 + (((fh - 1416) * (0.08 + 0.05 * h1) + h2 * 6) % 6);
           const z = 42 + h3 * 7, R = 0.4 + 0.5 * h2;
-          wisps[k].set(x, MAP.stepTopY(1, z) + 1.6 + h1 * 0.8, z, R * 0.8, { t: fh * 0.12 + k, opacity: 0.7, spin: fh * 0.01 + k, squash: 0.7 });
+          drift[k].set(x, MAP.stepTopY(1, z) + 1.6 + h1 * 0.8, z, R * 0.8, { t: fh * 0.12 + k, opacity: 0.7, spin: fh * 0.01 + k, squash: 0.7 });
         }
-      } else for (const b of wisps) b.hide();
+      } else for (const b of drift) b.hide();
       // facade dust
       burst(facade, fh, { x: -9, y: MAP.groundY(-9, 40) + 1, z: 40, birth: T.FACADE_START, life: 60, spread: 7, r0: 2, r1: 7, rise: 4, seed: 1247, up: 0.2, flat: 0.5, floor: MAP.groundY(-9, 40) });
     },

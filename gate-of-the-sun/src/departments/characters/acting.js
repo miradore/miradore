@@ -8,8 +8,12 @@ const { hold, lerp, clamp, smooth, hash1, hash2, groundY, stepTopY, KIDS, MOTHER
 const PI = Math.PI;
 const EAST = PI / 2, WEST = -PI / 2, NORTH = PI, SOUTH = 0;   // root yaw to face +x, -x, -z, +z
 const yawTo = (dx, dz) => Math.atan2(dx, dz);
+const FOX13 = { z: 47.75, lean: 0.5 };   // fox placement in the lynx close-up (shot 13)
 
 const _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
+const _zero = new THREE.Vector3(0, 0, 0), _up = new THREE.Vector3(0, 1, 0);
+// shots 30-31: hare body yaw and head look so the face points at the camera (camera bearing ~1.14 rad)
+const HARE30 = { yaw: 1.36, look: -0.2 };
 
 /** Surface height under a foot: the town's square paving sits 8 cm proud of the ground and the canal
  *  kerb (x 24.8..26) 12 cm proud. Margins cover a running stride so no foot lands inside an edge. */
@@ -26,7 +30,11 @@ function placeGait(fig, x, z, yaw, pose) { const y = surfY(x, z) + 0.012; place(
 function show(fig, v) { fig.root.visible = !!v; }
 function breath(pose, frame, seed, amp = 0.02) { const s = pose.spine || [0, 0, 0]; pose.spine = [s[0] + amp * Math.sin(frame * 0.26 + seed * 3.1), s[1], s[2]]; return pose; }
 function tremble(pose, frame, amp) { const t = P.alt2(frame) * amp; const s = pose.spine || [0, 0, 0]; pose.spine = [s[0], s[1], s[2] + t]; const h = pose.head || [0, 0, 0]; pose.head = [h[0], h[1], h[2] - t * 1.5]; return pose; }
-function brows(pose, worry, anger = 0) { pose.browL = [0, 0, worry - anger]; pose.browR = [0, 0, -worry + anger]; return pose; }
+function brows(pose, worry, anger = 0) { const t = worry - anger; const lift = -0.12 * Math.max(0, worry) + 0.05 * Math.max(0, anger); pose.browL = [lift, 0, -t]; pose.browR = [lift, 0, t]; return pose; }
+/** small open trembling mouth (fear), alternating on 2s */
+function trem(f2) { return Math.floor(f2 / 2) % 2 === 0 ? 'trem1' : 'trem2'; }
+/** trembling downturned grief mouth, alternating on 2s */
+function sadTrem(f2) { return Math.floor(f2 / 2) % 2 === 0 ? 'sadT1' : 'sadT2'; }
 function wetEyes(frame) { return Math.floor(frame / 2) % 2 === 0 ? 'wet1' : 'wet2'; }
 function blinkOr(frame, seed, def) { const b = P.blinkState(frame, seed); return b === 'open' ? def : b; }
 /** attach a child figure in front of a parent's chest (carried). Offsets in the chest frame. */
@@ -54,8 +62,8 @@ function lynxSit(fig, o = {}) { return P.sitPose(fig, { lean: -0.05, arms: 'back
 function aweLook(pose, fig, frame, o = {}) {
   P.look(pose, o.yaw ?? 1.55, o.pitch ?? -0.6, { spineShare: 0.42 });
   pose.eyes = o.eyes ?? blinkOr(frame, fig.spec.inkId, 'wide');
-  pose.mouth = o.mouth ?? 'small';
-  brows(pose, o.worry ?? 0.18);
+  pose.mouth = o.mouth ?? trem(frame);
+  brows(pose, o.worry ?? 0.32);
   return pose;
 }
 
@@ -161,7 +169,7 @@ function directKids(cast, frame, f2, lf, lt, shot, info, ctx) {
     place(fox, seatF.x, seatF.y, seatF.z, EAST); place(hare, seatH.x, seatH.y, seatH.z, EAST); place(lynx, seatL.x, seatL.y, seatL.z, EAST);
     const flinch = f2 >= T.BOLT && f2 < T.BOLT + 6;
     const after = f2 >= T.BOLT + 6;
-    const o = flinch ? { eyes: 'closed', pitch: 0.1, mouth: 'gasp', worry: 0.35 } : after ? { mouth: 'gasp', worry: 0.3, eyes: 'wide' } : {};
+    const o = flinch ? { eyes: 'squeeze', pitch: 0.1, mouth: 'grit', worry: 0.45 } : after ? { mouth: 'gasp', worry: 0.42, eyes: 'fear' } : {};
     fox.setPose(breath(aweLook(foxSit(fox, { lean: 0.1 }), fox, f2, o), f2, 1));
     hare.setPose(breath(aweLook(hareSit(hare, { lean: 0.15 }), hare, f2, o), f2, 2));
     lynx.setPose(breath(aweLook(lynxSit(lynx, { lean: -0.05 }), lynx, f2, { ...o, eyes: o.eyes ?? blinkOr(f2, 3, 'open') }), f2, 3));
@@ -172,10 +180,10 @@ function directKids(cast, frame, f2, lf, lt, shot, info, ctx) {
     const t = smooth(clamp(lf / 6, 0, 1));
     const kneel = P.kneelPose(fox, { lean: 0.6 });
     kneel.uaL = [-1.45, 0, 0.45]; kneel.uaR = [-1.45, 0, -0.45]; kneel.faL = [-0.35, 0, 0]; kneel.faR = [-0.35, 0, 0];
-    kneel.head = [0.35, 0, 0]; kneel.eyes = 'closed'; kneel.mouth = 'gasp'; kneel.earL = [0.7, 0, 0.1]; kneel.earR = [0.7, 0, -0.1]; kneel.tail = [0.3, 0.9, 0]; kneel.tail2 = [0.3, 0, 0];
-    brows(kneel, 0, 0.3);
+    kneel.head = [0.35, 0, 0]; kneel.eyes = 'squeeze'; kneel.mouth = 'grit'; kneel.earL = [0.7, 0, 0.1]; kneel.earR = [0.7, 0, -0.1]; kneel.tail = [0.3, 0.9, 0]; kneel.tail2 = [0.3, 0, 0];
+    brows(kneel, 0.45);
     if (t < 1) {
-      const sit = foxSit(fox, { lean: 0.1 }); sit.eyes = 'closed'; sit.mouth = 'gasp';
+      const sit = foxSit(fox, { lean: 0.1 }); sit.eyes = 'squeeze'; sit.mouth = 'scream'; brows(sit, 0.45);
       // root path: forward over the step edge with a hop so nothing dips into step 0
       const x = lerp(seatF.x, foxKneel.x, t), z = lerp(seatF.z, foxKneel.z, t);
       const surf = x < 28 ? stepTopY(0, z) : stepTopY(1, z);
@@ -187,24 +195,32 @@ function directKids(cast, frame, f2, lf, lt, shot, info, ctx) {
       fox.setPose(tremble(kneel, f2, 0.025));
     }
     place(hare, seatH.x, seatH.y, seatH.z, EAST);
-    const ph = hareSit(hare, { lean: 0.95 }); ph.head = [0.45, 0, 0]; ph.eyes = 'closed'; ph.mouth = 'small'; ph.earL = [0.2, 0, 0.8]; ph.earR = [0.2, 0, 0.6]; brows(ph, 0.35);
+    const ph = hareSit(hare, { lean: 0.95 }); ph.head = [0.45, 0, 0]; ph.eyes = 'squeeze'; ph.mouth = lf < 12 ? 'scream' : trem(f2); ph.earL = [0.2, 0, 0.8]; ph.earR = [0.2, 0, 0.6]; brows(ph, 0.5);
     hare.setPose(tremble(ph, f2, 0.02));
     place(lynx, seatL.x, seatL.y, seatL.z, EAST);
     const pl = lynxSit(lynx, { lean: 0.15, roll: 0.5, arms: 'back' }); pl.uaR = [0.1, 0, -1.35]; pl.faR = [-0.05, 0, 0]; pl.uaL = [-1.2, 0, 0.5]; pl.faL = [-1.4, 0, 0];
-    P.look(pl, 0.5, 0.1); pl.eyes = 'closed'; pl.mouth = 'small'; pl.earL = [0.3, 0, 0.7]; pl.earR = [0.3, 0, 0.6]; brows(pl, 0, 0.25);
+    P.look(pl, 0.5, 0.1); pl.eyes = 'squeeze'; pl.mouth = 'grit'; pl.earL = [0.3, 0, 0.7]; pl.earR = [0.3, 0, 0.6]; brows(pl, 0.4);
     lynx.setPose(tremble(pl, f2, 0.02));
   } else if (shot >= 10 && shot <= 25) {
     // ---- frozen awe on the steps through the giant's appearance; flinch at the kick
     place(fox, seatF.x, seatF.y, seatF.z, EAST); place(hare, seatH.x, seatH.y, seatH.z, EAST); place(lynx, seatL.x, seatL.y, seatL.z, EAST);
     const kick = f2 >= T.KICK && f2 < T.KICK + 8;
-    const o = kick ? { eyes: 'closed', pitch: 0.0, mouth: 'gasp', worry: 0.4 } : { mouth: f2 > T.KICK ? 'gasp' : 'small', worry: f2 > T.KICK ? 0.35 : 0.2 };
-    fox.setPose(breath(aweLook(foxSit(fox, { lean: 0.1 }), fox, f2, o), f2, 1));
+    const o = kick ? { eyes: 'squeeze', pitch: 0.0, mouth: 'grit', worry: 0.45 } : { mouth: f2 > T.KICK ? 'gasp' : trem(f2), worry: f2 > T.KICK ? 0.42 : 0.34 };
     if (shot === 13) {
-      // lynx close-up: calm, narrowed eyes; head turn toward the wall at local 20; tuft twitches
+      // the lynx close-up frames the step behind him: the fox shuffles along the step toward +z and
+      // hunches over his knees so his head sits low and clear of the lynx's head silhouette
+      const fz = FOX13.z; place(fox, seatF.x, stepTopY(0, fz), fz, EAST);
+      const pf = foxSit(fox, { lean: FOX13.lean, arms: 'hug', kneesUp: 0.85 });
+      fox.setPose(breath(aweLook(pf, fox, f2, { ...o, yaw: 1.35, pitch: -0.3 }), f2, 1));
+    } else fox.setPose(breath(aweLook(foxSit(fox, { lean: 0.1 }), fox, f2, o), f2, 1));
+    if (shot === 13) {
+      // lynx close-up: head turned toward +z so the face presents three-quarter to the lens (the face
+      // cheat does the rest), wary narrowed eyes, worried brows, trembling mouth; turns to the wall at local 20
       const pl = lynxSit(lynx, { lean: -0.05 });
-      const yaw = lf < 20 ? 0.25 : lerp(0.25, 0.8, smooth((lf - 20) / 6));
-      P.look(pl, yaw, lf < 20 ? -0.15 : lerp(-0.15, -0.4, smooth((lf - 20) / 6)), { spineShare: 0.3 });
-      pl.eyes = blinkOr(f2, 3, 'narrow'); pl.mouth = 'closed'; brows(pl, 0.0);
+      const tt = smooth((lf - 20) / 8);
+      const yaw = lf < 20 ? -0.22 : lerp(-0.22, 0.85, tt);
+      P.look(pl, yaw, lf < 20 ? -0.08 : lerp(-0.08, -0.4, tt), { spineShare: 0.3 });
+      pl.eyes = blinkOr(f2, 3, lf < 20 ? 'narrow' : 'fear'); pl.mouth = trem(f2); brows(pl, 0.34);
       if ((lf >= 8 && lf < 12) || (lf >= 30 && lf < 34)) pl.earR = [-0.3, 0, -0.15];
       if (lf >= 10 && lf < 14) pl.earL = [-0.25, 0, 0.1];
       lynx.setPose(breath(pl, f2, 3, 0.01));
@@ -269,14 +285,17 @@ function directKids(cast, frame, f2, lf, lt, shot, info, ctx) {
     const pl = P.standPose(lynx, { lean: 0.02 }); P.look(pl, 0.1, -0.2); pl.eyes = blinkOr(f2, 3, 'narrow'); pl.mouth = 'closed'; lynx.setPose(breath(pl, f2, 3));
   } else {
     // ---- shots 30-31: the hare stands at the top of the steps, face three-quarter to the camera
-    place(hare, 25.2, bank(45.4), 45.4, EAST);
+    // body three-quarter (turned 0.2 rad past the lens), head turned back so the face points at the camera;
+    // eyes slide off camera toward -z (the gate)
+    place(hare, 25.2, bank(45.4), 45.4, HARE30.yaw);
     const ph = P.standPose(hare, { lean: 0.06 });
-    P.look(ph, 0.42, -0.08, { spineShare: 0.25 });
-    let eyes = wetEyes(f2);
-    if (shot === 31) { if (lf >= 38 && lf < 40) eyes = 'half'; else if (lf >= 40 && lf < 44) eyes = 'closed'; else if (lf >= 44 && lf < 46) eyes = 'half'; }
-    else eyes = blinkOr(f2, 2, eyes);
-    ph.eyes = eyes; ph.mouth = 'small'; brows(ph, 0.32);
-    ph.glasses = [0.0, 0.02, 0.14];           // askew by 8 degrees
+    P.look(ph, HARE30.look, -0.06, { spineShare: 0.25 });
+    const gaze = Math.floor(f2 / 2) % 2 === 0 ? 'wetGaze1' : 'wetGaze2';
+    let eyes = gaze;
+    if (shot === 31) { if (lf >= 38 && lf < 40) eyes = 'wetGazeHalf'; else if (lf >= 40 && lf < 44) eyes = 'closed'; else if (lf >= 44 && lf < 46) eyes = 'wetGazeHalf'; }
+    else { const b = P.blinkState(f2, 2); eyes = b === 'open' ? gaze : b === 'half' ? 'wetGazeHalf' : 'closed'; }
+    ph.eyes = eyes; ph.mouth = sadTrem(f2); brows(ph, 0.5);
+    ph.glasses = shot === 31 ? [0.0, 0.01, 0.07] : [0.0, 0.015, 0.1];   // askew by 4 degrees in the close-up (6 in shot 30)
     ph.uaL = [0.1, 0, 0.2]; ph.uaR = [0.1, 0, -0.2]; ph.faL = [-0.15, 0, 0]; ph.faR = [-0.15, 0, 0];
     hare.setPose(breath(ph, f2, 2, 0.01));
     // tear forming at shot 31 local 20, running down the right cheek on 2s
@@ -284,10 +303,11 @@ function directKids(cast, frame, f2, lf, lt, shot, info, ctx) {
       const tear = cast.props.tear; tear.visible = true;
       const R = hare.dims.headR; const hs = hare.dims.headScale;
       const t = clamp((lf - 20) / 30, 0, 1);
-      const az = -(hare.spec.eyes.az + 0.08), el = lerp(-0.34, -0.78, t);
+      const az = -(hare.spec.eyes.az * (hare.closeUp ? 1.08 : 1) + 0.06), el = lerp(-0.36, -0.78, t);
       const sc = 1 + 0.6 * clamp((lf - 20) / 6, 0, 1);
-      tear.position.set(Math.sin(az) * Math.cos(el) * R * hs[0] * 1.03, Math.sin(el) * R * hs[1] * 1.03, Math.cos(az) * Math.cos(el) * R * hs[2] * 1.03);
-      tear.lookAt(hare.face.localToWorld(_v.copy(tear.position).multiplyScalar(2)));
+      tear.position.fromArray(hare.onSkull(az, el, 0.006));
+      // orient in the face frame (pure function of the frame: no stale world matrices)
+      _v.copy(tear.position).normalize(); _m.lookAt(_v, _zero, _up); tear.quaternion.setFromRotationMatrix(_m);
       tear.scale.set(sc * 0.8, sc, 1);
     }
     // fox beside him, partially in frame; lynx further along the bank
@@ -402,8 +422,8 @@ function crowdFrozen(fig, f2, seed, info, o = {}) {
     default: p.uaL = [-0.2, 0, 0.45]; p.uaR = [-0.2, 0, -0.45]; p.faL = [-0.5, 0, 0]; p.faR = [-0.5, 0, 0];
   }
   P.look(p, o.yaw ?? 0, o.pitch ?? -0.6, { spineShare: 0.3 });
-  p.eyes = blinkOr(f2, seed + 50, 'up'); p.mouth = o.mouth ?? (hash1(seed) < 0.6 ? 'gasp' : 'small');
-  brows(p, 0.25);
+  p.eyes = blinkOr(f2, seed + 50, hash1(seed + 5) < 0.5 ? 'fearUp' : 'up'); p.mouth = o.mouth ?? (hash1(seed) < 0.75 ? trem(f2 + seed * 2) : 'gasp');
+  brows(p, 0.4);
   if (info.earTremble) { const t = P.alt2(f2) * 0.12; p.earL = [t, 0, 0]; p.earR = [-t, 0, 0]; }
   return breath(p, f2, seed, 0.02);
 }

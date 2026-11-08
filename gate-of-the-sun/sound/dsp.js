@@ -83,8 +83,33 @@ export function reverb(inL, inR, { t60 = 2.2, preDelay = 0.02, damping = 0.35, s
   return [outL, outR];
 }
 
-// Soft-knee lookahead peak limiter. Operates in place on L and R.
-export function limiter(L, R, { ceiling = 0.95, knee = 0.25, lookahead = 0.004, release = 0.18, sr = SR } = {}) {
+// Fourth-order Butterworth high-pass (two cascaded RBJ sections, Q 0.5412 and
+// 1.3066), applied in place to each array given. Used at 60 Hz on every bus
+// except the low-end bus. Causal, so onsets keep their exact sample positions.
+export function highpass4(arrays, f = 60, sr = SR) {
+  for (const x of arrays) {
+    const a = new Biquad(), b = new Biquad();
+    a.set('hp', f, 0.5412, sr); b.set('hp', f, 1.3066, sr);
+    for (let i = 0; i < x.length; i++) x[i] = b.run(a.run(x[i]));
+  }
+}
+
+// Mean square below f (fourth-order Butterworth low-pass) of the mid signal.
+export function lowBandPower(L, R, f = 60, sr = SR) {
+  const a = new Biquad(), b = new Biquad();
+  a.set('lp', f, 0.5412, sr); b.set('lp', f, 1.3066, sr);
+  let lo = 0, all = 0;
+  for (let i = 0; i < L.length; i++) {
+    const m = 0.5 * (L[i] + R[i]);
+    const y = b.run(a.run(m));
+    lo += y * y; all += m * m;
+  }
+  return { low: lo / L.length, all: all / L.length };
+}
+
+// Soft-knee lookahead peak limiter. Operates in place on L and R. With
+// keepGain the per-sample gain curve is returned too (used to meter stems).
+export function limiter(L, R, { ceiling = 0.95, knee = 0.25, lookahead = 0.004, release = 0.18, sr = SR, keepGain = false } = {}) {
   const n = L.length;
   const la = Math.round(lookahead * sr);
   const kneeLo = ceiling * (1 - knee);
@@ -123,14 +148,16 @@ export function limiter(L, R, { ceiling = 0.95, knee = 0.25, lookahead = 0.004, 
   const relCoef = Math.exp(-1 / (release * sr));
   let env = 1;
   let minEnv = 1;
+  const kept = keepGain ? sm : null; // sm is reused to hold the applied gain
   for (let i = 0; i < n; i++) {
     const target = sm[i];
     if (target < env) env = target;
     else env = target + (env - target) * relCoef;
     if (env < minEnv) minEnv = env;
     L[i] *= env; R[i] *= env;
+    if (kept) kept[i] = env;
   }
-  return { maxReductionDb: 20 * Math.log10(minEnv) };
+  return { maxReductionDb: 20 * Math.log10(minEnv), gain: kept };
 }
 
 export function peakOf(L, R) {

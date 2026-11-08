@@ -7,6 +7,8 @@ import { foxSpec, hareSpec, lynxSpec, badgerSpec, pigletSpec, goatSpec, goatKidS
 import { makeTearTexture } from './eyes.js';
 import { makeCast, direct } from './acting.js';
 
+const CLOSE_UPS = new Set([4, 13, 30, 31]);
+
 export default {
   name: 'characters',
   async build(ctx) {
@@ -62,13 +64,21 @@ export default {
     const debug = typeof location !== 'undefined' && /chardebug/.test(location.search);
     if (debug) {
       const tri = (f) => Math.round(f.triangles());
-      console.log('[characters] triangles fox', tri(figs.fox), 'hare', tri(figs.hare), 'lynx', tri(figs.lynx), 'badger', tri(figs.badger), 'goat', tri(figs.goat), 'crowd0', tri(crowd[0]), 'crowd3', tri(crowd[3]), 'crowd4', tri(crowd[4]));
+      console.log('[characters] triangles fox', tri(figs.fox), 'hare', tri(figs.hare), 'lynx', tri(figs.lynx), 'badger', tri(figs.badger), 'goat', tri(figs.goat), 'piglet', tri(figs.piglet), 'crowd max', Math.max(...crowd.map(tri)), 'crowd', crowd.slice(0, 7).map((c) => c.spec.species + ':' + tri(c)).join(' '));
     }
 
     return {
       group,
       update(frame, info, ctx2) {
-        direct(cast, frame, info, ctx2 || ctx);
+        const c = ctx2 || ctx;
+        // close-up faces (shots 4, 13, 30, 31): 10 percent bigger eyes, spaced slightly wider
+        const close = CLOSE_UPS.has(info.shotId);
+        for (const k of ['fox', 'hare', 'lynx']) if (figs[k].closeUp !== close) figs[k].setCloseUp(close);
+        direct(cast, frame, info, c);
+        // anime face cheat: every face turns toward this frame's lens (anchors are final at this point)
+        const cam = c.cameraState(frame).pos;
+        for (const k of Object.keys(figs)) figs[k].updateCheat(cam);
+        for (const f of crowd) f.updateCheat(cam);
         if (debug) {
           const a = MAP.ANCHORS; const d = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]).toFixed(3);
           const fh = figs.fox.headWorld(), hh = figs.hare.headWorld(), lh = figs.lynx.headWorld();

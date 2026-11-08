@@ -16,10 +16,10 @@ function flatMesh(ctx, geo, color, { opacity = 1, side = THREE.FrontSide, name, 
   return m;
 }
 
-/** A jagged bolt from (x0, 600, z) down to (0, 0, z): chain of thin boxes with kinks and three forks. */
-function buildBolt(ctx, seed, color, widthMul, z, name) {
+/** A jagged bolt from (x0, 600, z) down to (0, 0, z): chain of thin boxes with kinks, three forks and three thin secondary forks. */
+function buildBolt(ctx, seed, color, widthMul, z, name, { opacity = 1, inkId = ID.BOLT } = {}) {
   const g = new THREE.Group(); g.name = name;
-  const mat = ctx.makeFlat({ color });
+  const mat = ctx.makeFlat({ color, opacity });
   const box = new THREE.BoxGeometry(1, 1, 1);
   const rng = MAP.mulberry32(seed);
   // kinks are dense in the band the shot 6 camera sees above the wall (y 80..160) and alternate sides
@@ -54,7 +54,26 @@ function buildBolt(ctx, seed, color, widthMul, z, name) {
     const w = MAP.lerp(3, 8, Math.pow(1 - a.y / 600, 1.5)) * widthMul * 0.45;
     seg(a, b, w); seg(b, c, w * 0.7);
   }
-  ctx.tag(g, { inkId: ID.BOLT, layer: ctx.LAYER.FG, castShadow: false, receiveShadow: false });
+  // thin secondary forks: long jagged hairlines leaving the upper kinks, each with a short twig.
+  // They use their own generator so the main channel and the first forks keep their exact shapes.
+  const rng2 = MAP.mulberry32(seed + 4049);
+  [3, 6, 9].forEach((i, k) => {
+    let a = pts[i].clone();
+    const fs = (k % 2 === 0 ? 1 : -1) * (pts[i].x >= 0 ? 1 : -1);
+    const w0 = MAP.lerp(3, 8, Math.pow(1 - a.y / 600, 1.5)) * widthMul * 0.2;
+    const n = 4 + Math.floor(rng2() * 2);
+    for (let j = 0; j < n; j++) {
+      const b = a.clone().add(new THREE.Vector3(fs * (7 + rng2() * 11) * (j % 2 ? 0.45 : 1), -(9 + rng2() * 13), 0));
+      const w = w0 * (1 - j / (n + 1));
+      seg(a, b, w);
+      if (j === 1) {
+        const c = b.clone().add(new THREE.Vector3(-fs * (5 + rng2() * 6), -(8 + rng2() * 8), 0));
+        seg(b, c, w * 0.6);
+      }
+      a = b;
+    }
+  });
+  ctx.tag(g, { inkId, layer: ctx.LAYER.FG, castShadow: false, receiveShadow: false });
   return g;
 }
 
@@ -63,6 +82,8 @@ export function makeLight(ctx, reg) {
   // ---- bolt: two variants, each with a wide cyan back bolt and a pale core
   const bolts = [0, 1].map((v) => {
     const grp = new THREE.Group(); grp.name = 'bolt_v' + v;
+    // soft outer glow band: a much wider flat copy of the same path at lower (dithered) opacity, no ink
+    grp.add(buildBolt(ctx, 900 + v * 17, 0x8FF0FF, 5.2, -66, 'boltGlow' + v, { opacity: 0.4, inkId: ID.GLOW }));
     grp.add(buildBolt(ctx, 900 + v * 17, 0x4FE0FF, 2.1, -63, 'boltBack' + v));
     grp.add(buildBolt(ctx, 900 + v * 17, 0xBFFFFF, 1.0, -60, 'boltCore' + v));
     grp.visible = false; reg.add(grp); return grp;
@@ -125,10 +146,11 @@ export function makeLight(ctx, reg) {
   return {
     update(frame, fh, info, ctx, cam) {
       // ---------------- bolt + flash
+      // short white flash so the bolt reads against a clear sky (the core adds a diffusion glow)
       let flash = 0;
       if (frame >= T.BOLT && frame <= T.BOLT + 1) flash = 1.0;
-      else if (frame === T.BOLT + 2) flash = 0.6;
-      else if (frame > T.BOLT + 2 && frame < T.BOLT + 14) flash = 0.6 * (1 - (frame - (T.BOLT + 2)) / 12);
+      else if (frame === T.BOLT + 2) flash = 0.35;
+      else if (frame === T.BOLT + 3) flash = 0.12;
       const boltOn = frame >= T.BOLT && frame <= T.BOLT + 9;
       const variant = Math.floor((frame - T.BOLT) / 2) % 2;
       bolts[0].visible = boltOn && variant === 0;
@@ -179,8 +201,8 @@ export function makeLight(ctx, reg) {
         }
       } else streaks.visible = false;
       // ---------------- kick star 1112..1115 and impact flash
+      // the core holds a two-frame impact negative at 1113..1114, so the flash is a single frame
       if (frame === T.KICK) flash = Math.max(flash, 0.7);
-      if (frame === T.KICK + 1) flash = Math.max(flash, 0.35);
       if (frame >= T.KICK && frame <= T.KICK + 3) {
         const Rs = [10, 16, 13, 18][frame - T.KICK];
         star.visible = true; star.scale.setScalar(Rs); star.rotation.z = (frame - T.KICK) * 0.2;

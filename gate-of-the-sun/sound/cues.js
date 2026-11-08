@@ -2,8 +2,11 @@
 // Times are seconds; F(n) converts a frame number to seconds.
 // buildScore(S) places every event through the small API in render.js:
 //   S.note(inst, t, opts)       sampled note
-//   S.add(t, signal, opts)      synthesised mono or [L, R] signal
+//   S.add(t, signal, opts)      synthesised mono or [L, R] signal (opts.bus:
+//                               'hp' default, 'low' for sub content, 'amb')
 //   S.cue(t, label)             named cue for out/score_cues.txt
+//   S.hit(frame, label)         a picture-locked impact: cue plus hit list
+//   S.atFrame(frame)            exact sample offset of a frame (frame * 2000)
 // Gains are linear, applied to peak-normalised samples. Rough map:
 // pp 0.04, p 0.07, mp 0.1, mf 0.18, f 0.3, ff 0.5, fff 0.8 and above.
 
@@ -16,49 +19,89 @@ export const LENGTH = 77.5;
 
 // Instrument folders relative to the VSCO root. Timpani files carry no pitch
 // in their names, so roots were measured by autocorrelation (F#1 to F#2).
+// lowEnd: true routes an instrument to the bus that skips the 60 Hz high-pass
+// (bass drums, timpani, tuba, contrabass). Struck and plucked instruments use
+// the 3 ms click-safe minimum attack (they used to inherit a 20 ms linear
+// fade-in that blunted every hit).
+const LOW = { lowEnd: true };
+const HIT = { attack: 0.003 };
 const TIMP_ROOTS = { Timpani1: 30, Timpani2: 34, Timpani3: 37, Timpani4: 40, Timpani5: 42 };
 export const INSTRUMENTS = [
   ['vln_sus', 'Strings/Violin Section/susVib', { loop: true, attack: 0.08, release: 1.3, send: 0.32 }],
   ['vln_trem', 'Strings/Violin Section/Trem', { loop: true, attack: 0.06, release: 0.9, send: 0.3 }],
-  ['vln_pizz', 'Strings/Violin Section/Pizz', { release: 0.4, send: 0.28 }],
+  ['vln_pizz', 'Strings/Violin Section/Pizz', { ...HIT, release: 0.4, send: 0.28 }],
   ['vla_sus', 'Strings/Viola Section/susvib', { loop: true, attack: 0.08, release: 1.3, send: 0.32 }],
   ['vla_trem', 'Strings/Viola Section/trem', { loop: true, attack: 0.06, release: 0.9, send: 0.3 }],
   ['vc_sus', 'Strings/Cello Section/susvib', { loop: true, attack: 0.07, release: 1.2, send: 0.3 }],
   ['vc_trem', 'Strings/Cello Section/trem', { loop: true, attack: 0.06, release: 0.9, send: 0.28 }],
-  ['vc_pizz', 'Strings/Cello Section/pizzT', { release: 0.5, send: 0.25 }],
-  ['cb_sus', 'Strings/Solo Contrabass/SusVib', { loop: true, attack: 0.1, release: 1.2, send: 0.25 }],
-  ['cb_trem', 'Strings/Solo Contrabass/Trem', { loop: true, attack: 0.08, release: 0.9, send: 0.25 }],
-  ['cb_pizz', 'Strings/Solo Contrabass/Pizz', { release: 0.6, send: 0.2 }],
-  ['harp', 'Strings/Harp', { release: 1.5, send: 0.35 }],
+  ['vc_pizz', 'Strings/Cello Section/pizzT', { ...HIT, release: 0.5, send: 0.25 }],
+  ['cb_sus', 'Strings/Solo Contrabass/SusVib', { ...LOW, loop: true, attack: 0.1, release: 1.2, send: 0.25 }],
+  ['cb_trem', 'Strings/Solo Contrabass/Trem', { ...LOW, loop: true, attack: 0.08, release: 0.9, send: 0.25 }],
+  ['cb_pizz', 'Strings/Solo Contrabass/Pizz', { ...LOW, ...HIT, release: 0.6, send: 0.2 }],
+  ['harp', 'Strings/Harp', { ...HIT, release: 1.5, send: 0.35 }],
   ['hn_sus', 'Brass/F Horn/sus', { loop: true, attack: 0.04, release: 0.8, send: 0.33 }],
-  ['hn_stac', 'Brass/F Horn/stac', { release: 0.5, send: 0.3 }],
+  ['hn_stac', 'Brass/F Horn/stac', { ...HIT, release: 0.5, send: 0.3 }],
   ['tpt_sus', 'Brass/Trumpet/sus', { loop: true, attack: 0.03, release: 0.7, send: 0.3 }],
-  ['tpt_stac', 'Brass/Trumpet/stac', { release: 0.45, send: 0.3 }],
+  ['tpt_stac', 'Brass/Trumpet/stac', { ...HIT, release: 0.45, send: 0.3 }],
   ['tbn_sus', 'Brass/Tenor Trombone/sus', { loop: true, attack: 0.04, release: 0.8, send: 0.3 }],
-  ['tbn_stac', 'Brass/Tenor Trombone/stac', { release: 0.5, send: 0.3 }],
-  ['tuba_sus', 'Brass/Tuba/sus', { loop: true, attack: 0.05, release: 0.8, send: 0.28 }],
-  ['tuba_stac', 'Brass/Tuba/stac', { release: 0.5, send: 0.28 }],
+  ['tbn_stac', 'Brass/Tenor Trombone/stac', { ...HIT, release: 0.5, send: 0.3 }],
+  ['tuba_sus', 'Brass/Tuba/sus', { ...LOW, loop: true, attack: 0.05, release: 0.8, send: 0.28 }],
+  ['tuba_stac', 'Brass/Tuba/stac', { ...LOW, ...HIT, release: 0.5, send: 0.28 }],
   ['flute', 'Woodwinds/Flute/susvib', { loop: true, attack: 0.05, release: 0.6, send: 0.33 }],
   ['oboe', 'Woodwinds/Oboe/Sus', { loop: true, attack: 0.04, release: 0.6, send: 0.33 }],
   ['clarinet', 'Woodwinds/Clarinet/susLong', { loop: true, attack: 0.05, release: 0.6, send: 0.33 }],
   ['bassoon', 'Woodwinds/Bassoon/sus', { loop: true, attack: 0.05, release: 0.6, send: 0.3 }],
-  ['timp', 'Percussion/Timpani', { filter: /_Hit_/, roots: TIMP_ROOTS, release: 1.6, send: 0.14 }],
-  ['timp_roll', 'Percussion/Timpani/Rolls', { filter: /_Roll_/, roots: TIMP_ROOTS, loop: true, attack: 0.05, release: 1.4, send: 0.14 }],
-  ['bdrum', 'Percussion', { filter: /^BDrumNewhit/, defaultRoot: 36, release: 1.5, send: 0.1 }],
-  ['bdrum1', 'VSCO 1 Percussion/drums/bass', { filter: /^bdrum_(ppp|pp|p|mp|mf|f|ff|fff)_\d\.wav$/, defaultRoot: 36, release: 1.5, send: 0.1 }],
-  ['bdrum_roll', 'VSCO 1 Percussion/drums/bass', { filter: /^bdrum_roll1\.wav$/, defaultRoot: 36, release: 0.8, send: 0.1 }],
+  ['timp', 'Percussion/Timpani', { ...LOW, ...HIT, filter: /_Hit_/, roots: TIMP_ROOTS, release: 1.6, send: 0.14 }],
+  ['timp_roll', 'Percussion/Timpani/Rolls', { ...LOW, filter: /_Roll_/, roots: TIMP_ROOTS, loop: true, attack: 0.05, release: 1.4, send: 0.14 }],
+  ['bdrum', 'Percussion', { ...LOW, ...HIT, filter: /^BDrumNewhit/, defaultRoot: 36, release: 1.5, send: 0.1 }],
+  ['bdrum1', 'VSCO 1 Percussion/drums/bass', { ...LOW, ...HIT, filter: /^bdrum_(ppp|pp|p|mp|mf|f|ff|fff)_\d\.wav$/, defaultRoot: 36, release: 1.5, send: 0.1 }],
+  ['bdrum_roll', 'VSCO 1 Percussion/drums/bass', { ...LOW, filter: /^bdrum_roll1\.wav$/, defaultRoot: 36, release: 0.8, send: 0.1 }],
   ['snare_roll', 'Percussion', { filter: /^Snare2-rollSN/, defaultRoot: 60, release: 0.4, send: 0.12 }],
-  ['snare_hit', 'Percussion', { filter: /^Snare2-HitSN/, defaultRoot: 60, release: 0.4, send: 0.12 }],
-  ['anvil', 'Percussion', { filter: /^Anvil/, defaultRoot: 60, release: 0.8, send: 0.15 }],
-  ['crash', 'VSCO 1 Percussion/varMetal/Cymbals/clash', { filter: /^crash_hit/, defaultRoot: 60, release: 2.5, send: 0.15 }],
+  ['snare_hit', 'Percussion', { ...HIT, filter: /^Snare2-HitSN/, defaultRoot: 60, release: 0.4, send: 0.12 }],
+  ['anvil', 'Percussion', { ...HIT, filter: /^Anvil/, defaultRoot: 60, release: 0.8, send: 0.15 }],
+  ['crash', 'VSCO 1 Percussion/varMetal/Cymbals/clash', { ...HIT, filter: /^crash_hit/, defaultRoot: 60, release: 2.5, send: 0.15 }],
   ['susp_roll', 'VSCO 1 Percussion/varMetal/Cymbals/susp', { filter: /roll/, defaultRoot: 60, release: 1.5, send: 0.15 }],
-  ['susp_hit', 'VSCO 1 Percussion/varMetal/Cymbals/susp', { filter: /^susp_hit_(softmall|hardmall)_(p|mp|mf|f|ff|fff)\.wav$/, defaultRoot: 60, release: 2.0, send: 0.15 }],
-  ['gong', 'VSCO 1 Percussion/varMetal/Gong', { filter: /^gong_hit_/, defaultRoot: 60, release: 4.0, send: 0.12 }],
+  ['susp_hit', 'VSCO 1 Percussion/varMetal/Cymbals/susp', { ...HIT, filter: /^susp_hit_(softmall|hardmall)_(p|mp|mf|f|ff|fff)\.wav$/, defaultRoot: 60, release: 2.0, send: 0.15 }],
+  ['gong', 'VSCO 1 Percussion/varMetal/Gong', { ...HIT, filter: /^gong_hit_/, defaultRoot: 60, release: 4.0, send: 0.12 }],
 ];
+
+// Pre-impact suction: 40 ms = 1920 samples at 48 kHz, ending on the frame.
+const SUCTION_N = 1920;
+const SUCTION_GAIN = 0.32;
+
+// Diegetic ambience bed under the calm opening, on its own bus ('amb', high
+// passed at 60 Hz, own distant reverb, metered as a stem in render.js). All of
+// it stops at the flash. Levels were set so that the stem stays below -30 dBFS
+// RMS in every 1 s window of the delivered file.
+function ambience(S) {
+  const tF = F(348);
+  const A = { bus: 'amb' };
+  S.cue(0, 'Ambience bed: soft wind, distant swallows, bells, water in shot 3 (stem below -30 dBFS RMS)');
+  // Wind: fades in, steady through the town shots, thins out in shot 5
+  // ("silence creeping in"), cut at the flash.
+  S.add(0, syn.wind({ dur: tF, gain: 0.16, seed: 51, env: [[0, 0], [1.5, 0.85], [6, 1], [10, 0.9], [12.5, 0.75], [14.3, 0.22], [tF, 0.2]] }), { ...A, send: 0.15, name: 'amb wind' });
+  // Bell towers: left tower (x = -22) strikes at 1.5 s, right tower (x = 22)
+  // at 4.5 s. Synthesised bells on D3 and A2, low and wet.
+  S.cue(F(36), 'Bell toll, left tower (D)');
+  S.add(F(36), syn.bell({ f0: 146.83, dur: tF - F(36), gain: 0.02, seed: 81 }), { ...A, pan: -0.45, send: 0.8, name: 'amb bell' });
+  S.cue(F(108), 'Bell toll, right tower (A)');
+  S.add(F(108), syn.bell({ f0: 110.0, dur: tF - F(108), gain: 0.02, seed: 82 }), { ...A, pan: 0.45, send: 0.8, name: 'amb bell' });
+  // Swallows: sparse, distant, panned across the sky; none after shot 4.
+  S.cue(0.9, 'Distant swallow chirps (sparse, to 11 s)');
+  const r = syn.rng(611);
+  [0.9, 2.4, 3.2, 5.7, 6.6, 8.9, 10.8].forEach((t, k) => {
+    const pan = (k % 2 ? 1 : -1) * (0.35 + 0.4 * r());
+    S.add(t, syn.swallowCall({ gain: 0.032 + 0.016 * r(), seed: 61 + k }), { ...A, pan, send: 0.35, name: 'amb swallows' });
+  });
+  // Water lapping at the canal steps, shot 3 (7.0 s) to 12.5 s.
+  S.cue(7.0, 'Water lapping at the canal steps (7.0 to 12.5 s)');
+  S.add(7.0, syn.waterLaps({ dur: 5.5, gain: 0.14, seed: 71, fadeIn: 0.6, fadeOut: 1.2 }), { ...A, pan: 0.15, send: 0.2, name: 'amb water' });
+}
 
 export function buildScore(S) {
   const r = syn.rng(2024);
   const PAD = { vel: 0.1 };
+  ambience(S);
 
   // -------------------------------------------------------------------------
   // 0.0 to 14.5  Shots 1 to 5: calm, slightly uneasy town. D minor leaning to F major.
@@ -98,7 +141,7 @@ export function buildScore(S) {
   S.note('oboe', 8.6, { vel: 0.2, midi: N('F4'), dur: 0.9, gain: 0.075, pan: -0.25 });
   S.note('oboe', 9.5, { vel: 0.2, midi: N('E4'), dur: 1.1, gain: 0.07, pan: -0.25, release: 0.9 });
   // pebble pluck exactly on frame 208
-  S.cue(F(208), 'Pebble: pizzicato pluck (frame 208)');
+  S.hit(208, 'Pebble: pizzicato pluck (frame 208)');
   S.note('vln_pizz', F(208), { vel: 0.5, midi: N('G4'), gain: 0.16, pan: 0.35 });
   S.note('vc_pizz', F(208) + 0.012, { vel: 0.3, midi: N('G3'), gain: 0.06, pan: 0.3 });
   S.cue(10.5, 'Soft harp note');
@@ -111,7 +154,7 @@ export function buildScore(S) {
   // -------------------------------------------------------------------------
   // 14.5  THE FLASH (frame 348)
   const tF = F(348);
-  S.cue(tF, 'THE FLASH (frame 348): bass drum, timpani, anvil, crash, brass fff cluster');
+  S.hit(348, 'THE FLASH (frame 348): bass drum, timpani, anvil, crash, brass fff cluster. Ambience bed cut');
   S.note('bdrum1', tF, { vel: 1, gain: 0.62, dur: 0.55, release: 0.12, rr: 1 });
   S.note('bdrum', tF, { vel: 1, gain: 0.465, dur: 0.55, release: 0.12, pan: 0.1 });
   S.note('timp', tF, { vel: 1, midi: 28, gain: 0.527, dur: 0.6, release: 0.15, pan: -0.15 });
@@ -134,18 +177,20 @@ export function buildScore(S) {
   // 17.5 to 21.0  Shock wave (frames 420 to 480)
   S.cue(17.5, 'Shots 8-9: shock wave. Bass drum roll crescendo');
   S.note('bdrum_roll', 17.5, { gain: 0.56, dur: 2.4, release: 0.8, offset: 0.4, env: [[0, 0.15], [0.1, 1], [0.7, 0.75], [2.4, 0.0]] });
-  S.cue(17.6, 'Shock wave hit with cymbal wash');
-  S.note('bdrum1', 17.6, { vel: 0.9, gain: 0.595, rr: 2 });
-  S.note('bdrum', 17.6, { vel: 1, gain: 0.42, pan: -0.1 });
+  // The hit was at 17.6 s (frame 422.4); it now sits exactly on frame 422.
+  const tS = F(422);
+  S.hit(422, 'Shock wave hit with cymbal wash (frame 422)');
+  S.note('bdrum1', tS, { vel: 0.9, gain: 0.595, rr: 2 });
+  S.note('bdrum', tS, { vel: 1, gain: 0.42, pan: -0.1 });
   S.note('susp_roll', 17.55, { gain: 0.35, dur: 2.2, release: 1.2, offset: 2.5, env: [[0, 0.6], [0.2, 1], [2.2, 0.3]] });
-  S.note('crash', 17.6, { vel: 0.7, gain: 0.315, pan: -0.2 });
-  S.add(17.6, syn.noiseBand({ dur: 3.4, f0: 2400, f1: 120, q: 1.0, env: [[0, 0], [0.08, 1], [1.2, 0.6], [3.4, 0]], gain: 0.6, seed: 3 }), { send: 0.3 });
+  S.note('crash', tS, { vel: 0.7, gain: 0.315, pan: -0.2 });
+  S.add(tS, syn.noiseBand({ dur: 3.4, f0: 2400, f1: 120, q: 1.0, env: [[0, 0], [0.08, 1], [1.2, 0.6], [3.4, 0]], gain: 0.6, seed: 3 }), { send: 0.3 });
 
   // -------------------------------------------------------------------------
   // 21.0 to 26.5  Shots 10-11: ringing silence, then dread
   S.cue(21.0, 'Shots 10-11: ringing silence then dread');
   S.cue(21.5, 'Heartbeat begins (72 bpm, to 31.5)');
-  S.add(21.5, syn.heartbeat({ dur: 10.0, bpm: 72, gain: 0.16 }), { send: 0.06 });
+  S.add(21.5, syn.heartbeat({ dur: 10.0, bpm: 72, gain: 0.16 }), { send: 0.06, bus: 'low', name: 'heartbeat' });
   S.note('cb_trem', 22.0, { vel: 0.2, midi: N('D1'), dur: 7.4, gain: 0.07, attack: 1.0, release: 1.0, env: [[0, 0.3], [4.5, 1], [7.4, 0.5]] });
   S.note('vc_trem', 22.5, { vel: 0.2, midi: N('D2'), dur: 7.0, gain: 0.055, attack: 1.0, release: 1.0, pan: 0.2, env: [[0, 0.2], [4, 1], [7, 0.4]] });
   S.cue(22.0, 'Violas: sustained minor second D3 / Eb3');
@@ -155,7 +200,9 @@ export function buildScore(S) {
   // -------------------------------------------------------------------------
   // 26.667  THE HAND (frame 640): stinger
   const tH = F(640);
-  S.cue(tH, 'THE HAND (frame 640): brass sfz tritone D / Ab, timpani, bass drum, rumble');
+  S.cue(tH - 0.04, 'Pre-impact suction: 40 ms reverse-swelled noise ending on frame 640');
+  S.add(0, syn.suction({ dur: 0.04, gain: SUCTION_GAIN * 0.7, seed: 92 }), { atSample: S.atFrame(640) - SUCTION_N, send: 0.08, name: 'suction', edgeEnd: 0.001 });
+  S.hit(640, 'THE HAND (frame 640): brass sfz tritone D / Ab, timpani, bass drum, rumble');
   const STING = { vel: 1, attack: 0.006, dur: 1.3, release: 1.0, send: 0.25 };
   S.note('hn_sus', tH, { ...STING, midi: N('D2'), gain: 0.35, pan: -0.25 });
   S.note('hn_sus', tH, { ...STING, midi: N('G#2'), gain: 0.336, pan: 0.2 });
@@ -163,7 +210,7 @@ export function buildScore(S) {
   S.note('tbn_sus', tH, { ...STING, midi: N('G#1'), gain: 0.35, pan: -0.1 });
   S.note('timp', tH, { vel: 1, midi: 34, gain: 0.49, pan: -0.1 });
   S.note('bdrum1', tH, { vel: 0.9, gain: 0.49, rr: 3 });
-  S.add(tH + 0.02, syn.rumble({ dur: 3.0, gain: 0.35, seed: 7 }), { send: 0.1 });
+  S.add(tH + 0.02, syn.rumble({ dur: 3.0, gain: 0.35, seed: 7 }), { send: 0.1, bus: 'low', name: 'rumble' });
   S.note('cb_trem', tH, { vel: 1, midi: N('D1'), dur: 0.8, gain: 0.14, attack: 0.01, release: 2.2 });
 
   // -------------------------------------------------------------------------
@@ -203,10 +250,11 @@ export function buildScore(S) {
 
   // -------------------------------------------------------------------------
   // 35.0 to 37.5  Shot 15: the mask. Peak, hold, slow decay with timpani roll beneath
-  S.cue(F(840), 'Shot 15: THE MASK (frame 840). Peak ff chord, hold and decay');
-  S.note('bdrum1', 35.0, { vel: 1, gain: 0.45, rr: 4 });
-  S.note('timp', 35.0, { vel: 1, midi: 30, gain: 0.34, pan: -0.1 });
-  S.note('crash', 35.0, { vel: 0.8, gain: 0.28, pan: 0.2 });
+  const tM = F(840);
+  S.hit(840, 'Shot 15: THE MASK (frame 840). Peak ff chord, hold and decay');
+  S.note('bdrum1', tM, { vel: 1, gain: 0.45, rr: 4 });
+  S.note('timp', tM, { vel: 1, midi: 30, gain: 0.34, pan: -0.1 });
+  S.note('crash', tM, { vel: 0.8, gain: 0.28, pan: 0.2 });
 
   // -------------------------------------------------------------------------
   // 37.5 to 41.5  Shots 16-17: hold, slow minor strings thinning out
@@ -223,7 +271,7 @@ export function buildScore(S) {
   S.cue(41.5, 'Shot 18: fade to near silence. Low drone');
   S.note('cb_sus', 41.5, { vel: 0, midi: N('D1'), dur: 2.3, gain: 0.05, attack: 0.8, release: 0.5, env: [[0, 0.6], [2.3, 0.1]] });
   S.cue(42.0, 'Heartbeat returns (42 to 44 s)');
-  S.add(42.0, syn.heartbeat({ dur: 2.0, bpm: 72, gain: 0.14 }), { send: 0.06 });
+  S.add(42.0, syn.heartbeat({ dur: 2.0, bpm: 72, gain: 0.14 }), { send: 0.06, bus: 'low', name: 'heartbeat' });
 
   // -------------------------------------------------------------------------
   // 44.0 to 46.0  Shot 19: the leg lifts. Steam hiss and one low breath
@@ -235,7 +283,9 @@ export function buildScore(S) {
   // -------------------------------------------------------------------------
   // 46.333  THE KICK (frame 1112): impact
   const tK = F(1112);
-  S.cue(tK, 'THE KICK (frame 1112): bass drum ff, timpani x3, gong, crash, anvil, low brass fff, sub boom');
+  S.cue(tK - 0.04, 'Pre-impact suction: 40 ms reverse-swelled noise ending on frame 1112');
+  S.add(0, syn.suction({ dur: 0.04, gain: SUCTION_GAIN * 1.15, seed: 93 }), { atSample: S.atFrame(1112) - SUCTION_N, send: 0.08, name: 'suction', edgeEnd: 0.001 });
+  S.hit(1112, 'THE KICK (frame 1112): bass drum ff, timpani x3, gong, crash, anvil, low brass fff, sub boom');
   S.note('bdrum1', tK, { vel: 1, gain: 0.6, rr: 2 });
   S.note('bdrum', tK, { vel: 1, gain: 0.48, pan: 0.1 });
   S.note('timp', tK, { vel: 1, midi: 30, gain: 0.51, pan: -0.15 });
@@ -253,7 +303,7 @@ export function buildScore(S) {
   S.note('tbn_sus', tK, { ...KICK, midi: N('D#2'), gain: 0.36, pan: 0.35 });
   S.note('tuba_sus', tK, { ...KICK, midi: N('D1'), gain: 0.42, pan: 0.05 });
   S.note('tuba_sus', tK, { ...KICK, midi: N('G#0'), gain: 0.36, pan: -0.05 });
-  S.add(tK, syn.subBoom({ f0: 44, f1: 29, dur: 2.6, gain: 0.54 }), { send: 0.05 });
+  S.add(tK, syn.subBoom({ f0: 44, f1: 29, dur: 2.6, gain: 0.54 }), { send: 0.05, bus: 'low', name: 'subBoom' });
 
   // -------------------------------------------------------------------------
   // 46.5 to 57.0  Chaos: percussion pattern, sawing strings, trumpet stabs, horn calls
@@ -291,7 +341,7 @@ export function buildScore(S) {
     const accent = k % 3 === 0;
     const midi = (k % 7 === 3 || k % 7 === 6) ? N('D#2') : N('D2');
     S.note('vc_sus', t + (r() - 0.5) * 0.01, { vel: 1, midi, dur: 0.085, attack: 0.004, release: 0.1, gain: accent ? 0.17 : 0.12, pan: 0.15, send: 0.15 });
-    if (k % 4 === 0) S.note('cb_pizz', t, { vel: 1, midi: N('D1'), gain: 0.225, pan: -0.1 });
+    if (k % 4 === 0) S.note('cb_pizz', t, { vel: 1, midi: N('D1'), gain: 0.225, pan: 0.15 });
   }
   S.cue(47.3, 'Trumpet stabs (irregular, to 56 s)');
   for (const [t, n, pan] of [[47.3, 'A#4', -0.3], [47.5, 'A4', 0.3], [48.9, 'E5', 0.0], [50.7, 'A#4', -0.3], [50.9, 'B4', 0.3], [52.6, 'A4', -0.2], [52.6, 'A#4', 0.2], [54.2, 'E5', 0.1], [54.4, 'D#5', -0.1], [56.1, 'A#4', 0.0]]) {
@@ -299,9 +349,9 @@ export function buildScore(S) {
   }
   S.cue(50.0, 'Shots 23-24: crowd runs. Horn calls in descending minor thirds');
   for (const [t, a, b] of [[50.4, 'F3', 'D3'], [52.4, 'D#3', 'C3'], [54.4, 'D3', 'B2'], [56.4, 'C3', 'A2']]) {
-    S.note('hn_sus', t, { vel: 0.9, midi: N(a), dur: 0.45, attack: 0.03, release: 0.3, gain: 0.255, pan: -0.2 });
-    S.note('hn_sus', t + 0.5, { vel: 0.9, midi: N(b), dur: 1.0, attack: 0.03, release: 0.7, gain: 0.255, pan: -0.2 });
-    S.note('hn_sus', t + 0.5, { vel: 0.9, midi: N(b) - 12, dur: 1.0, attack: 0.03, release: 0.7, gain: 0.2, pan: 0.1 });
+    S.note('hn_sus', t, { vel: 0.9, midi: N(a), dur: 0.45, attack: 0.03, release: 0.3, gain: 0.255, pan: 0.05 });
+    S.note('hn_sus', t + 0.5, { vel: 0.9, midi: N(b), dur: 1.0, attack: 0.03, release: 0.7, gain: 0.255, pan: 0.05 });
+    S.note('hn_sus', t + 0.5, { vel: 0.9, midi: N(b) - 12, dur: 1.0, attack: 0.03, release: 0.7, gain: 0.2, pan: 0.3 });
   }
 
   // boulder landings, exactly on picture
@@ -310,7 +360,7 @@ export function buildScore(S) {
   boulders.forEach((frame, i) => {
     const t = F(frame);
     const big = frame === 1247;
-    S.cue(t, `Boulder landing (frame ${frame})${frame === 1236 ? ' with glass shatter' : ''}${big ? ': house facade, rumble and stone rattle' : ''}`);
+    S.hit(frame, `Boulder landing (frame ${frame})${frame === 1236 ? ' with glass shatter' : ''}${big ? ': house facade, rumble and stone rattle' : ''}`);
     S.note('bdrum1', t, { vel: 0.95, gain: big ? 0.55 : 0.45, rr: i });
     S.note('bdrum', t, { vel: 1, gain: big ? 0.42 : 0.33, pan: 0.1, rr: i + 3 });
     S.note('timp', t, { vel: 1, midi: 30 + timpOffsets[i] + 4, gain: 0.455, pan: (i % 2 ? 0.2 : -0.2) });
@@ -321,7 +371,7 @@ export function buildScore(S) {
       cluster.forEach((n, k) => S.note('harp', t + k * 0.022, { vel: 1, midi: N(n), gain: 0.07, dur: 0.25, release: 1.0, pan: -0.3 + k * 0.05 }));
     }
     if (big) {
-      S.add(t + 0.03, syn.rumble({ dur: 2.6, gain: 0.2, seed: 13 }), { send: 0.1 });
+      S.add(t + 0.03, syn.rumble({ dur: 2.6, gain: 0.2, seed: 13 }), { send: 0.1, bus: 'low', name: 'rumble' });
       S.note('timp', t + 0.01, { vel: 1, midi: 28, gain: 0.3, pan: 0 });
       let tt = t + 0.12;
       for (let k = 0; k < 15; k++) {
@@ -336,12 +386,61 @@ export function buildScore(S) {
   // 57.0 to 61.5  Shots 25-26: percussion recedes, low lament begins
   S.cue(57.0, 'Shots 25-26: percussion recedes');
   S.cue(57.5, 'Lament: cello melody in D minor begins (section samples standing in for solo)');
-  const CELLO = { vel: 0.4, gain: 0.15, attack: 0.14, release: 1.0, pan: 0.1, send: 0.35 };
-  const melody = [[57.5, 'A3', 2.4], [59.9, 'G3', 1.0], [60.9, 'F3', 1.1], [62.0, 'E3', 2.0], [64.0, 'D3', 2.5], [66.5, 'F4', 2.4], [68.9, 'A3', 1.6], [70.5, 'G3', 1.0], [71.5, 'E3', 2.5], [74.0, 'D3', 1.5]];
-  melody.forEach(([t, n, d], i) => S.note('vc_sus', t, { ...CELLO, midi: N(n), dur: d - 0.05, release: i === melody.length - 1 ? 1.9 : 1.0 }));
-  S.cue(66.5, 'Lament: the falling minor sixth (F4 to A3)');
+  // Legato line: each note holds until the next onset, then the two cross over
+  // 120 ms with equal-power curves (cosine out, sine in). Connected notes start
+  // 0.8 s into their sample, past the slow bow onset of the soft layer (which
+  // the crossfade replaces), and every note is level-matched on its sustain so
+  // changing sample does not change level. Phrase starts keep their onset.
+  // Rubato on the falling minor sixth: the F4 leans in 60 ms late, the A3
+  // arrives 220 ms late and the time is given back before the G3, which is on
+  // the beat again at 70.5 s.
+  const XF = 0.12;
+  const legatoLine = (inst, base, line) => {
+    line.forEach(([t, n, flag, extra = {}], i) => {
+      const next = line[i + 1];
+      const connectedIn = i > 0 && !line[i - 1][2]?.includes('breath');
+      const connectedOut = next && !(flag || '').includes('breath') && !(flag || '').includes('end');
+      const opts = { ...base, midi: N(n), matchSustain: true, ...extra };
+      if (connectedIn) Object.assign(opts, { attack: XF, legatoIn: true, offset: 0.8 });
+      if (connectedOut) Object.assign(opts, { dur: next[0] - t, release: XF, legatoOut: true });
+      S.note(inst, t, opts);
+    });
+  };
+  const CELLO = { vel: 0.4, gain: 0.15, attack: 0.14, release: 1.0, pan: -0.12, send: 0.35 };
+  // messa di voce on the long notes: a slight swell to the middle and back
+  const swell = (d, a = 0.92, b = 1.08, c = 0.94) => [[0, a], [d * 0.45, b], [d, c]];
+  legatoLine('vc_sus', CELLO, [
+    [57.5, 'A3', '', { attack: 0.5, env: swell(2.4, 0.85) }],
+    [59.9, 'G3', '', { env: swell(1.0) }],
+    [60.9, 'F3', '', { env: swell(1.1) }],
+    [62.0, 'E3', '', { env: swell(2.0) }],
+    // breath (bow change) before the leap up
+    [64.0, 'D3', 'breath', { dur: 2.32, release: 0.5, env: swell(2.32, 0.94, 1.05, 0.85) }],
+    // the falling minor sixth F4 to A3, with rubato and a lean on the F4
+    [66.56, 'F4', '', { attack: 0.32, offset: 0.12, env: [[0, 0.78], [0.9, 1.16], [1.9, 1.06], [2.56, 0.98]] }],
+    [69.12, 'A3', '', { env: [[0, 1.0], [1.38, 0.86]] }],
+    [70.5, 'G3', '', { env: swell(1.0, 0.9, 1.0, 0.92) }],
+    [71.5, 'E3', '', { env: swell(2.5) }],
+    [74.0, 'D3', 'end', { dur: 1.45, release: 1.9, env: [[0, 1.0], [1.45, 0.9]] }],
+  ]);
+  S.cue(66.56, 'Lament: the falling minor sixth (F4 to A3), with rubato: F4 60 ms late, A3 220 ms late');
   S.note('vla_sus', 57.5, { ...PAD, midi: N('D3'), dur: 9.5, gain: 0.04, attack: 2.0, release: 1.5, pan: -0.25 });
   S.note('vla_sus', 58.0, { ...PAD, midi: N('A3'), dur: 9.0, gain: 0.035, attack: 2.0, release: 1.5, pan: 0.25 });
+  // Viola counter line from 65 s, pp, panned left against the cello: a 9-8
+  // suspension (E4 to D4) as the cello leaps up, then C#4 under the landing of
+  // the sixth (A over the D pedal), B flat and A under G3 and E3, and the
+  // leading note C#4 rising to D4 on the final chord. Same legato crossfades.
+  S.cue(65.0, 'Lament: quiet viola counter line enters (E4 to D4 suspension)');
+  const VLA = { vel: 0.2, gain: 0.042, attack: 0.9, release: 1.2, pan: -0.32, send: 0.42 };
+  legatoLine('vla_sus', VLA, [
+    [65.0, 'E4', '', { env: [[0, 0.7], [1.2, 1.0], [1.56, 1.0]] }],
+    [66.56, 'D4', '', { env: swell(2.56, 1.0, 1.1, 0.95) }],
+    [69.12, 'C#4', '', { env: swell(1.38) }],
+    [70.5, 'A#3', '', { env: swell(1.0) }],
+    [71.5, 'A3', '', { env: swell(1.3) }],
+    [72.8, 'C#4', '', { env: [[0, 0.9], [1.2, 1.05]] }],
+    [74.0, 'D4', 'end', { dur: 1.45, release: 1.9, env: [[0, 1.0], [1.45, 0.85]] }],
+  ]);
 
   // -------------------------------------------------------------------------
   // 61.5 to 67.0  Shots 27-28: the giant dissolves. Distant low choir, pedal D, horn pp
@@ -353,10 +452,12 @@ export function buildScore(S) {
 
   // -------------------------------------------------------------------------
   // 67.0 to 70.0  Shot 29: distant slow metallic footsteps
-  S.cue(67.0, 'Shot 29: distant metallic footsteps at 67.0, 68.2, 69.4 s');
-  S.add(67.0, syn.footstep({ gain: 0.06, seed: 41 }), { pan: -0.3, send: 0.4 });
-  S.add(68.2, syn.footstep({ gain: 0.06, seed: 42 }), { pan: 0.3, send: 0.4 });
-  S.add(69.4, syn.footstep({ gain: 0.06, seed: 43 }), { pan: -0.3, send: 0.4 });
+  // Footsteps on frames 1608, 1637 and 1666 (67.0, 68.208, 69.417 s; they were
+  // at 67.0, 68.2 and 69.4 s, between frames).
+  S.cue(F(1608), 'Shot 29: distant metallic footsteps on frames 1608, 1637, 1666');
+  [[1608, -0.3, 41], [1637, 0.3, 42], [1666, -0.3, 43]].forEach(([fr, pan, seed]) => {
+    S.add(0, syn.footstep({ gain: 0.06, seed }), { atSample: S.atFrame(fr), pan, send: 0.4, name: 'footstep' });
+  });
 
   // -------------------------------------------------------------------------
   // 70.0 to 75.5  Shots 30-31: the lament closes

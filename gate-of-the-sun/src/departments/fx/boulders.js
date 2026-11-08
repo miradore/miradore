@@ -1,7 +1,7 @@
 // Boulders launched by the kick, their landings (dust burst and chips) and the shattered turquoise dome.
 import * as THREE from 'three';
 import * as MAP from '../../../shared/map.js';
-import { makeBillows, dustStyle, burst } from './billow.js';
+import { makeBillows, dustStyle, burst, trail } from './billow.js';
 import { Debris, assignFlights, CAMERA_POINTS } from './debris.js';
 
 const { T, ID, PALETTE } = MAP;
@@ -34,6 +34,9 @@ export function makeBoulders(ctx, reg) {
   }
   ctx.tag(rocks, { inkId: undefined, layer: ctx.LAYER.FG, castShadow: true, receiveShadow: true });
   reg.add(rocks);
+  // ---------------- a short trail of four dust puffs behind each boulder in flight
+  const trails = boulders.map((d, i) => makeBillows(ctx, reg, 4, { seed: 1550 + i, count: 4, style, name: `boulderTrail${i}_` }));
+  const trailTmp = new THREE.Vector3();
 
   // ---------------- landing bursts and chips
   const landBursts = LAND.map((p, i) => makeBillows(ctx, reg, 10, { seed: 1600 + i, count: 7, style, name: `landDust${i}_` }));
@@ -61,6 +64,13 @@ export function makeBoulders(ctx, reg) {
   return {
     update(frame, fh) {
       for (const b of boulders) b.update(frame);
+      for (let i = 0; i < boulders.length; i++) {
+        const d = boulders[i], p = d.pieces[0];
+        if (fh < p.f0 || fh > p.f1 + 16) { for (const b of trails[i]) b.hide(); continue; }
+        const k = p.size / 3;
+        trail(trails[i], fh, (e, out) => { if (e < p.f0 + 2 || e >= p.f1) return false; d.posAt(0, e, out); return true; },
+          { every: 4, life: 16, r0: 0.7 * k + 0.3, r1: 2.2 * k + 0.6, rise: 1.0, seed: 1560 + i, tmp: trailTmp });
+      }
       for (let i = 0; i < LAND.length; i++) {
         const [lx, lz] = LAND[i];
         const ly = MAP.groundY(lx, lz) + (ROOF.has(i) ? 10.5 : 0.5);

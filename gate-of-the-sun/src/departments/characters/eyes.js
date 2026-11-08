@@ -52,6 +52,18 @@ export function drawEye(opts = {}) {
     return toTex(c);
   }
 
+  if (opts.squeeze) {
+    // squeezed shut in fear: a bold chevron (">" "<") pointing to the nose, with two little stress ticks
+    g.strokeStyle = ink; g.lineWidth = lw * 1.35; g.lineCap = 'round'; g.lineJoin = 'round';
+    const ix = -ox;                                   // inner side
+    g.beginPath(); g.moveTo(cx - ix * rx * 0.75, cy - ryTopFull * 0.62); g.quadraticCurveTo(cx + ix * rx * 0.05, cy - ryTopFull * 0.18, cx + ix * rx * 0.62, cy + S * 0.01);
+    g.quadraticCurveTo(cx + ix * rx * 0.05, cy + ryBot * 0.35, cx - ix * rx * 0.7, cy + ryBot * 0.82); g.stroke();
+    g.lineWidth = lw * 0.55;
+    g.beginPath(); g.moveTo(cx - ix * rx * 0.95, cy - ryTopFull * 0.2); g.lineTo(cx - ix * rx * 1.12, cy - ryTopFull * 0.32); g.stroke();
+    g.beginPath(); g.moveTo(cx - ix * rx * 0.95, cy + ryBot * 0.3); g.lineTo(cx - ix * rx * 1.12, cy + ryBot * 0.42); g.stroke();
+    return toTex(c);
+  }
+
   // eye opening
   g.save();
   g.beginPath(); upperPath(); lowerPath(); g.closePath();
@@ -74,7 +86,7 @@ export function drawEye(opts = {}) {
   // lower crescent glow
   g.fillStyle = withAlpha(opts.irisBot ?? '#e6a53a', 0.55, 1.25); g.beginPath(); g.ellipse(ix, iy + irRy * 0.45, irR * 0.55, irRy * 0.32, 0, 0, Math.PI * 2); g.fill();
   // pupil
-  const pr = irR * (opts.wet ? 0.5 : 0.46);
+  const pr = irR * (opts.pupil ?? (opts.wet ? 0.5 : 0.46));
   g.fillStyle = '#15100e'; g.beginPath(); g.ellipse(ix, iy + irRy * 0.04, pr, pr * 1.18, 0, 0, Math.PI * 2); g.fill();
   // lid shadow across the top of the opening
   const sh = g.createLinearGradient(0, cy - ryTop, 0, cy - ryTop * 0.35); sh.addColorStop(0, 'rgba(70,35,50,0.5)'); sh.addColorStop(1, 'rgba(70,35,50,0)');
@@ -125,26 +137,77 @@ export function makeEyeFrames(style, side) {
   f.narrow = drawEye({ ...base, open: 0.62, flat: true, lookY: 0.05 });
   f.wide = drawEye({ ...base, open: Math.min(1, (style.baseOpen ?? 1) * 1.1), irisScale: 0.52, lookY: -0.3 });
   f.side = drawEye({ ...base, lookX: side === 'L' ? 0.6 : -0.6, lookY: -0.2 });
+  // fear and grief (polish pass)
+  f.squeeze = drawEye({ ...base, squeeze: true });
+  f.fear = drawEye({ ...base, open: Math.min(1, (style.baseOpen ?? 1) * 1.12), irisScale: 0.44, pupil: 0.32, lookY: -0.15 });
+  f.fearUp = drawEye({ ...base, open: Math.min(1, (style.baseOpen ?? 1) * 1.12), irisScale: 0.44, pupil: 0.32, lookY: -0.7 });
+  f.fearWet1 = drawEye({ ...base, open: Math.min(1, (style.baseOpen ?? 1) * 1.08), irisScale: 0.5, pupil: 0.36, lookY: -0.45, wet: 1 });
+  f.fearWet2 = drawEye({ ...base, open: Math.min(1, (style.baseOpen ?? 1) * 1.08), irisScale: 0.5, pupil: 0.36, lookY: -0.45, wet: 2 });
+  f.wetGaze1 = drawEye({ ...base, wet: 1, lookX: 0.42, lookY: 0.08, open: (style.baseOpen ?? 1) * 0.9 });
+  f.wetGaze2 = drawEye({ ...base, wet: 2, lookX: 0.42, lookY: 0.08, open: (style.baseOpen ?? 1) * 0.9 });
+  f.wetGazeHalf = drawEye({ ...base, wet: 1, lookX: 0.35, lookY: 0.2, open: (style.baseOpen ?? 1) * 0.45 });
   return f;
 }
 
-/** Mouth frames drawn on a small canvas: closed (line), small (small open), gasp (wide open), smile. */
+/** Mouth frames drawn on a small canvas (viewer space, mirrored for the plane mapping).
+ *  closed (soft cat "w"), smile, sad, small, gasp, trem1/trem2 (fear, small open trembling), sadT1/sadT2
+ *  (grief: trembling downturned line, no tongue), grit (clenched teeth), scream (wide open, corners down). */
 export function makeMouthFrames(opts = {}) {
-  const S = opts.size ?? 128; const ink = '#2b1a16';
-  function base() { const c = newCanvas(S, S); const g = c.getContext('2d'); g.clearRect(0, 0, S, S); g.translate(S, 0); g.scale(-1, 1); return [c, g]; }
+  const S = opts.size ?? 128; const ink = '#2b1a16'; const inside = '#5a1e24'; const lw = S * 0.06;
+  function base() { const c = newCanvas(S, S); const g = c.getContext('2d'); g.clearRect(0, 0, S, S); g.translate(S, 0); g.scale(-1, 1); g.lineCap = 'round'; g.lineJoin = 'round'; return [c, g]; }
+  const P = (v) => v * S;
   const out = {};
-  { const [c, g] = base(); g.strokeStyle = ink; g.lineWidth = S * 0.07; g.lineCap = 'round';
-    g.beginPath(); g.moveTo(S * 0.28, S * 0.46); g.quadraticCurveTo(S * 0.5, S * 0.62, S * 0.72, S * 0.46); g.stroke(); out.closed = toTex(c); }
-  { const [c, g] = base(); g.strokeStyle = ink; g.lineWidth = S * 0.07; g.lineCap = 'round';
-    g.beginPath(); g.moveTo(S * 0.26, S * 0.56); g.quadraticCurveTo(S * 0.5, S * 0.36, S * 0.74, S * 0.56); g.stroke(); out.sad = toTex(c); }
-  { const [c, g] = base(); g.fillStyle = ink; g.beginPath(); g.ellipse(S * 0.5, S * 0.52, S * 0.17, S * 0.15, 0, 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#d9607a'; g.beginPath(); g.ellipse(S * 0.5, S * 0.62, S * 0.10, S * 0.06, 0, 0, Math.PI * 2); g.fill(); out.small = toTex(c); }
-  { const [c, g] = base(); g.fillStyle = ink; g.beginPath(); g.ellipse(S * 0.5, S * 0.52, S * 0.30, S * 0.34, 0, 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#d9607a'; g.beginPath(); g.ellipse(S * 0.5, S * 0.74, S * 0.17, S * 0.10, 0, 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#fff'; g.fillRect(S * 0.3, S * 0.22, S * 0.4, S * 0.06); out.gasp = toTex(c); }
-  { const [c, g] = base(); g.strokeStyle = ink; g.lineWidth = S * 0.07; g.lineCap = 'round';
-    g.beginPath(); g.moveTo(S * 0.22, S * 0.42); g.quadraticCurveTo(S * 0.5, S * 0.78, S * 0.78, S * 0.42); g.stroke(); out.smile = toTex(c); }
+  { const [c, g] = base(); g.strokeStyle = ink; g.lineWidth = lw;
+    g.beginPath(); g.moveTo(P(0.3), P(0.45)); g.quadraticCurveTo(P(0.4), P(0.6), P(0.5), P(0.47)); g.quadraticCurveTo(P(0.6), P(0.6), P(0.7), P(0.45)); g.stroke(); out.closed = toTex(c); }
+  { const [c, g] = base(); g.strokeStyle = ink; g.lineWidth = lw;
+    g.beginPath(); g.moveTo(P(0.3), P(0.58)); g.quadraticCurveTo(P(0.5), P(0.4), P(0.7), P(0.58)); g.stroke(); out.sad = toTex(c); }
+  { const [c, g] = base(); g.fillStyle = ink; g.beginPath(); g.ellipse(P(0.5), P(0.53), P(0.13), P(0.11), 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = inside; g.beginPath(); g.ellipse(P(0.5), P(0.545), P(0.085), P(0.07), 0, 0, Math.PI * 2); g.fill(); out.small = toTex(c); }
+  { const [c, g] = base(); g.fillStyle = ink; g.beginPath(); g.ellipse(P(0.5), P(0.52), P(0.27), P(0.31), 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = inside; g.beginPath(); g.ellipse(P(0.5), P(0.54), P(0.22), P(0.26), 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#d9607a'; g.beginPath(); g.ellipse(P(0.5), P(0.72), P(0.14), P(0.08), 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#fff'; g.beginPath(); g.ellipse(P(0.5), P(0.3), P(0.17), P(0.045), 0, 0, Math.PI * 2); g.fill(); out.gasp = toTex(c); }
+  { const [c, g] = base(); g.strokeStyle = ink; g.lineWidth = lw;
+    g.beginPath(); g.moveTo(P(0.24), P(0.42)); g.quadraticCurveTo(P(0.37), P(0.66), P(0.5), P(0.48)); g.quadraticCurveTo(P(0.63), P(0.66), P(0.76), P(0.42)); g.stroke(); out.smile = toTex(c); }
+  // fear: small open mouth, wavy upper lip, corners pulled down; two phases alternate on 2s
+  for (const [k, ph] of [['trem1', 0], ['trem2', 1]]) {
+    const [c, g] = base(); const j = ph ? 0.018 : -0.018;
+    g.fillStyle = ink; g.beginPath();
+    g.moveTo(P(0.33), P(0.58)); g.quadraticCurveTo(P(0.38), P(0.46 + j), P(0.44), P(0.5 - j)); g.quadraticCurveTo(P(0.5), P(0.44 + j), P(0.56), P(0.5 - j)); g.quadraticCurveTo(P(0.62), P(0.46 + j), P(0.67), P(0.58));
+    g.quadraticCurveTo(P(0.5), P(0.68), P(0.33), P(0.58)); g.closePath(); g.fill();
+    g.fillStyle = inside; g.beginPath(); g.ellipse(P(0.5), P(0.57), P(0.1), P(0.04), 0, 0, Math.PI * 2); g.fill();
+    out[k] = toTex(c);
+  }
+  // grief: trembling downturned line with a tiny dark opening at the centre, no tongue, no smile
+  for (const [k, ph] of [['sadT1', 0], ['sadT2', 1]]) {
+    const [c, g] = base(); const j = ph ? 0.016 : -0.016;
+    g.strokeStyle = ink; g.lineWidth = lw * 0.95;
+    g.beginPath(); g.moveTo(P(0.29), P(0.62)); g.quadraticCurveTo(P(0.34), P(0.5 + j), P(0.41), P(0.5 - j)); g.quadraticCurveTo(P(0.5), P(0.46 + j), P(0.59), P(0.5 - j)); g.quadraticCurveTo(P(0.66), P(0.5 + j), P(0.71), P(0.62)); g.stroke();
+    g.fillStyle = ink; g.beginPath(); g.ellipse(P(0.5), P(0.53), P(0.07), P(0.045), 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = inside; g.beginPath(); g.ellipse(P(0.5), P(0.54), P(0.04), P(0.022), 0, 0, Math.PI * 2); g.fill();
+    out[k] = toTex(c);
+  }
+  // clenched teeth (bracing): white teeth band, ink outline, tooth lines, corners pulled down
+  { const [c, g] = base(); g.fillStyle = '#ffffff'; g.strokeStyle = ink; g.lineWidth = lw * 0.8;
+    g.beginPath(); g.moveTo(P(0.24), P(0.5)); g.quadraticCurveTo(P(0.5), P(0.4), P(0.76), P(0.5)); g.lineTo(P(0.72), P(0.64)); g.quadraticCurveTo(P(0.5), P(0.6), P(0.28), P(0.64)); g.closePath(); g.fill(); g.stroke();
+    g.lineWidth = lw * 0.5; g.beginPath(); g.moveTo(P(0.26), P(0.56)); g.quadraticCurveTo(P(0.5), P(0.5), P(0.74), P(0.56)); g.stroke();
+    for (const x of [0.38, 0.5, 0.62]) { g.beginPath(); g.moveTo(P(x), P(0.46)); g.lineTo(P(x), P(0.62)); g.stroke(); }
+    out.grit = toTex(c); }
+  // scream: wide open, corners down, upper teeth band, no smile
+  { const [c, g] = base(); g.fillStyle = ink; g.beginPath();
+    g.moveTo(P(0.26), P(0.62)); g.quadraticCurveTo(P(0.3), P(0.36), P(0.5), P(0.36)); g.quadraticCurveTo(P(0.7), P(0.36), P(0.74), P(0.62)); g.quadraticCurveTo(P(0.5), P(0.82), P(0.26), P(0.62)); g.closePath(); g.fill();
+    g.fillStyle = inside; g.beginPath(); g.ellipse(P(0.5), P(0.6), P(0.17), P(0.14), 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#fff'; g.beginPath(); g.ellipse(P(0.5), P(0.415), P(0.15), P(0.035), 0, 0, Math.PI * 2); g.fill(); out.scream = toTex(c); }
   return out;
+}
+
+/** Cheek blush: three short hatched pink strokes (anime), transparent elsewhere. */
+export function makeBlushTexture() {
+  const S = 128; const c = newCanvas(S, S); const g = c.getContext('2d'); g.clearRect(0, 0, S, S);
+  g.fillStyle = 'rgba(240,150,160,0.75)'; g.beginPath(); g.ellipse(S * 0.5, S * 0.5, S * 0.36, S * 0.2, 0, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#e0727f'; g.lineWidth = S * 0.045; g.lineCap = 'round';
+  for (const x of [0.36, 0.5, 0.64]) { g.beginPath(); g.moveTo(S * (x + 0.05), S * 0.36); g.lineTo(S * (x - 0.05), S * 0.62); g.stroke(); }
+  return toTex(c);
 }
 
 /** Elongated tear drop texture (cyan-white). */

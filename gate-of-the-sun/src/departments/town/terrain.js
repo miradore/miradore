@@ -11,18 +11,32 @@ export function buildTerrain(ctx, M) {
   // ---------------------------------------------------------------- ground
   const xs = [];
   for (let x = -260; x <= 260 + 1e-6; x += 4) xs.push(x);
-  for (const x of [C.xBankTop - EPS, C.xBankTop, C.xEast + 2, C.xEast + 2 + EPS]) xs.push(x);
+  for (const x of [C.xBankTop - EPS, C.xBankTop, C.xEast + 2, C.xEast + 2 + EPS, -6, 6, 22.5]) xs.push(x);
   xs.sort((a, b) => a - b);
+  for (let i = xs.length - 1; i > 0; i--) if (xs[i] - xs[i - 1] < 1e-9) xs.splice(i, 1);
   const zs = [];
   for (let z = -320; z <= 180 + 1e-6; z += 4) zs.push(z);
-  for (const z of [C.zMin - EPS, C.zMin, C.zMax, C.zMax + EPS, 8, -6]) zs.push(z);
+  for (const z of [C.zMin - EPS, C.zMin, C.zMax, C.zMax + EPS, 8, -6, 6, 152, ...MAP.CROSS_STREETS_Z.flatMap((c) => [c - MAP.CROSS_STREET_HALF, c + MAP.CROSS_STREET_HALF])]) zs.push(z);
   zs.sort((a, b) => a - b);
+  for (let i = zs.length - 1; i > 0; i--) if (zs[i] - zs[i - 1] < 1e-9) zs.splice(i, 1);
   const inCanal = (x, z) => x >= C.xBankTop - 1e-9 && x <= C.xEast + 2 + 1e-9 && z >= C.zMin - 1e-9 && z <= C.zMax + 1e-9;
   const hFn = (x, z) => (inCanal(x, z) ? MAP.groundY(C.xBankTop, z) - 3.0 : MAP.groundY(x, z));
-  const ground = new THREE.Mesh(heightGrid(xs, zs, hFn), M.sand);
+  // paved: the main street, the cross streets, the gate plaza and the quay path along the canal
+  const paved = (x, z) => {
+    if (inCanal(x, z)) return false;
+    if (Math.abs(x) < 6 && z > 6 && z < 171) return true;
+    if (z > 6 && z < 8 && Math.abs(x) < 120) return true;
+    if (x > 22.5 && x < C.xBankTop && z > 8 && z < 152) return true;
+    return z > 6 && MAP.CROSS_STREETS_Z.some((c) => Math.abs(z - c) < MAP.CROSS_STREET_HALF) && Math.abs(x) < 120;
+  };
+  const ground = new THREE.Mesh(heightGrid(xs, zs, hFn, (x, z) => !paved(x, z)), M.sand);
   ground.name = 'ground';
   tag(ground, { inkId: ID.TERRAIN, layer: LAYER.BG });
   group.add(ground);
+  const streets = new THREE.Mesh(heightGrid(xs, zs, hFn, paved), M.street);
+  streets.name = 'streets';
+  tag(streets, { inkId: ID.TERRAIN, layer: LAYER.BG });
+  group.add(streets);
 
   // ---------------------------------------------------------------- fields (z < -6)
   const rng = MAP.mulberry32(1101);
@@ -104,5 +118,5 @@ export function buildTerrain(ctx, M) {
   const near = new THREE.Mesh(merge(nearG), M.mountain); near.name = 'mountainsNear'; tag(near, { inkId: ID.MOUNTAIN, layer: LAYER.BG, castShadow: false, receiveShadow: false }); group.add(near);
   const far = new THREE.Mesh(merge(farG), M.mountainFar); far.name = 'mountainsFar'; tag(far, { inkId: ID.MOUNTAIN, layer: LAYER.BG, castShadow: false, receiveShadow: false }); group.add(far);
 
-  return { group, ground };
+  return { group, ground, colliders: [streets] };
 }

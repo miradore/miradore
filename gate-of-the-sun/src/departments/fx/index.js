@@ -8,6 +8,7 @@ import { makeSteam } from './steam.js';
 import { makeDust } from './dust.js';
 import { makeBoulders } from './boulders.js';
 import { makeAmbient } from './ambient.js';
+import { setCamera } from './billow.js';
 
 export default {
   name: 'fx',
@@ -23,7 +24,7 @@ export default {
       },
     };
     const modules = [makeLight(ctx, reg), makeSteam(ctx, reg), makeDust(ctx, reg), makeBoulders(ctx, reg), makeAmbient(ctx, reg)];
-    let sphereCount = 0; group.traverse((o) => { if (o.isMesh && o.geometry.type === 'SphereGeometry') sphereCount++; });
+    let sphereCount = 0; group.traverse((o) => { if (o.isMesh && /_s\d+$/.test(o.name)) sphereCount++; });
     console.log('[fx] built: meshes', popAllowed.length, 'billow spheres', sphereCount);
 
     const camPos = new THREE.Vector3();
@@ -33,6 +34,7 @@ export default {
         const fh = MAP.hold(frame, 2);
         const st = ctx.cameraState(frame);
         camPos.copy(st.pos);
+        setCamera(camPos);   // billow clearance guard for this frame
         let flash = 0;
         for (const m of modules) {
           const f = m.update(frame, fh, info, ctx, camPos);
