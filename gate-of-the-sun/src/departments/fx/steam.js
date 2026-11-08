@@ -36,7 +36,7 @@ export function makeSteam(ctx, reg) {
     return { level, j, u, theta, ring: (36 + 28 * h3) * bulge, br: (15 + 8 * h1 + 9 * u) * (0.9 + 0.2 * bulge), hb: u * 200 * 0.6, roll: (h2 - 0.5) * 0.5 };
   });
   // ---------------- curl tails: small spheres spiralling off the two sides of the column
-  const TAILS = 6, TAIL_N = 8;
+  const TAILS = 6, TAIL_N = 12;
   const tails = [];
   for (let i = 0; i < TAILS; i++) {
     const c = new Chain(ctx, { count: TAIL_N, style, name: 'steamCurl' + i });
@@ -116,13 +116,13 @@ export function makeSteam(ctx, reg) {
           const swirl = tl.ph + fh * 0.012;
           for (let i = 0; i < TAIL_N; i++) {
             const s = i / (TAIL_N - 1);
-            const ang = -0.3 + s * 4.2 + 0.35 * Math.sin(swirl + s * 2);
-            const rad = A * (1.05 - 0.75 * s);
+            const ang = -0.2 + s * 3.6 + 0.3 * Math.sin(swirl + s * 2);
+            const rad = A * (1.0 - 0.68 * s);
             const cx = ax + tl.side * A * 0.95, cy = ay + A * 0.35;
             tailPts[i][0] = cx - tl.side * Math.cos(ang) * rad;
             tailPts[i][1] = cy + Math.sin(ang) * rad;
             tailPts[i][2] = az + 0.15 * A * Math.sin(swirl + i);
-            tailPts[i][3] = A * (0.34 - 0.24 * s) * (1 + 0.06 * Math.sin(swirl * 2 + i));
+            tailPts[i][3] = A * (0.36 - 0.24 * s) * (1 + 0.06 * Math.sin(swirl * 2 + i));
           }
           tl.chain.set(tailPts, fade);
         }

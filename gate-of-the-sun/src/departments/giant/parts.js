@@ -166,6 +166,13 @@ export function slabGeo(surf, { thick = 0.5, bump = () => 0, su = 8, sv = 4, v0 
   return mergeList(parts);
 }
 
+/** Inner (inward facing) face of a slab, for plates whose underside is seen. */
+export function innerGeo(surf, { thick = 0.5, su = 8, sv = 4, v0 = 0, v1 = 1, vmax = null }) {
+  const U = (i) => i / su, Vt = (i) => (vmax ? Math.min(v1, vmax(U(i))) : v1);
+  const Vv = (i, j) => v0 + (Vt(i) - v0) * j / sv;
+  return gridSurface(su, sv, (i, j) => surf.P(U(i), Vv(i, j), -thick), (i, j) => surf.N(U(i), Vv(i, j)).negate());
+}
+
 /** Single sided surface patch at a constant offset (slit, halo, decals). */
 export function patchGeo(surf, { off = 0, su = 4, sv = 4, u0 = 0, u1 = 1, v0 = 0, v1 = 1 }) {
   const U = (i) => u0 + (u1 - u0) * i / su, Vv = (j) => v0 + (v1 - v0) * j / sv;
@@ -330,6 +337,8 @@ export function forgedPlate(pt, surf, o) {
     drips = 0, seed = 1, hash, vmax = null, sideBands = 0, dripLen = 0.55 } = o;
   const bump = pillow(bu, bv);
   pt.add('verd', slabGeo(surf, { thick, bump, su, sv, vmax }));
+  // underside of plates seen from below (pauldron lames, tassets): a dark inner face
+  if (o.innerMat) pt.add(o.innerMat, innerGeo(surf, { thick, su, sv, vmax }));
   const bv0 = band / surf.dv, tb = topBand / surf.dv;
   const bandBump = (u, v) => bump(u, v) + bandRaise;
   if (band > 0) pt.add('gold', slabGeo(surf, { thick: thick + 0.06, bump: bandBump, su, sv: 1, v0: -0.01, v1: bv0 }));

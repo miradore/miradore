@@ -1,10 +1,11 @@
 // The great wall: body, crenellations, course grooves, buttresses, round towers, and the crack zone
 // around the hand impact whose top is built from separate blocks (five drop at T.HAND_IMPACT).
 import * as THREE from 'three';
-import { box, cyl, cone, sphere, merge } from './common.js';
+import { box, cyl, cone, sphere, merge, decalPoly } from './common.js';
+import { tuft } from './flora.js';
 import { G, landTime } from './physics.js';
 
-export function buildWall(ctx, M) {
+export function buildWall(ctx, M, detail) {
   const { MAP, ID, LAYER, tag } = ctx;
   const W = MAP.WALL, Gt = MAP.GATE;
   const group = new THREE.Group(); group.name = 'wall';
@@ -20,12 +21,30 @@ export function buildWall(ctx, M) {
   g.push(box(crack.x0 - gx, h, W.thickness - 0.6, gx + (crack.x0 - gx) / 2, h / 2, -0.3));
   g.push(box(crack.x1 - crack.x0, crack.yTop, W.thickness - 0.6, (crack.x0 + crack.x1) / 2, crack.yTop / 2, -0.3));
   g.push(box(half - crack.x1, h, W.thickness - 0.6, crack.x1 + (half - crack.x1) / 2, h / 2, -0.3));
-  // town face built as courses: 2.5 m tall slabs with 0.5 m deep grooves between them (ink picks the insets)
+  // town face built as courses: 2.5 m tall rows with 0.4 m deep grooves between them, each row cut into
+  // blocks of 3 to 4 m staggered per course. Neighbouring blocks alternate ink ids so every joint is drawn;
+  // a few blocks are repairs in a different, greyer stone.
   const courseH = 2.5;
-  for (let y = 0; y < h - 0.01; y += courseH) {
+  const crng = MAP.mulberry32(7300);
+  const blkG = [[], []], repairG = [];
+  let ci = 0;
+  for (let y = 0; y < h - 0.01; y += courseH, ci++) {
     const sh = courseH - 0.4;
     const yc = y + sh / 2 + 0.05;
-    const pushCourse = (x0, x1) => { if (x1 > x0) g.push(box(x1 - x0, sh, 0.6, (x0 + x1) / 2, yc, hz - 0.3)); };
+    const pushCourse = (x0, x1) => {
+      if (x1 <= x0) return;
+      let x = x0 - (ci % 2 ? 1.7 : 0) - crng() * 0.8;
+      let k = ci % 2;
+      while (x < x1) {
+        const L = 3 + crng() * 1.0;
+        const a = Math.max(x0, x), b = Math.min(x1, x + L - 0.09);
+        if (b - a > 0.2) {
+          const g = box(b - a, sh, 0.6, (a + b) / 2, yc, hz - 0.3);
+          if (crng() < 0.045) repairG.push(g); else blkG[k % 2].push(g);
+        }
+        x += L; k++;
+      }
+    };
     pushCourse(-half, -gx);
     if (y + courseH <= crack.yTop + 0.01) pushCourse(gx, half); else { pushCourse(gx, crack.x0); pushCourse(crack.x1, half); }
   }
@@ -53,6 +72,46 @@ export function buildWall(ctx, M) {
   { const gx = MAP.GATE.width / 2 + 0.6; g.push(box(half - gx, 1.6, 1.0, -(gx + (half - gx) / 2), 0.8, hz + 0.5)); g.push(box(half - gx, 1.6, 1.0, gx + (half - gx) / 2, 0.8, hz + 0.5)); }
   const wall = new THREE.Mesh(merge(g), M.sandstone); wall.name = 'wall';
   tag(wall, { inkId: ID.WALL, layer: LAYER.BG }); group.add(wall); colliders.push(wall);
+  const courseMeshes = [[blkG[0], M.sandstone, 'wallCoursesA', ID.WALL], [blkG[1], M.sandstoneAlt, 'wallCoursesB', 247], [repairG, M.sandstoneRepair, 'wallRepairs', 248]];
+  for (const [list, mat, name, inkId] of courseMeshes) {
+    const m = new THREE.Mesh(merge(list), mat); m.name = name; tag(m, { inkId, layer: LAYER.BG }); group.add(m); colliders.push(m);
+  }
+
+  // ---------------------------------------------------------------- weathering on the town face (painted, id 0)
+  const streakG = [], streakDarkG = [], tuftG = [];
+  const wr = MAP.mulberry32(7400);
+  const FACE = [0, 0, hz], U = [1, 0, 0], V = [0, 1, 0], N = [0, 0, 1];
+  const buttressNear = (x) => [-225, -165, -105, -45, -15, 15, 45, 105, 165, 225].some((b) => Math.abs(x - b) < 3.2);
+  // streaks run down from under the merlons, clipped to the course faces so they never float over a groove
+  for (let x = -half + 3; x < half - 3; x += 2.2 + wr() * 3.4) {
+    if (Math.abs(x) < gx + 2 || (x > crack.x0 - 2 && x < crack.x1 + 2) || buttressNear(x)) continue;
+    const w = 0.5 + wr() * 1.1, L = 3 + wr() * (wr() < 0.3 ? 14 : 6);
+    const yTop = h - 0.35, dark = wr() < 0.35;
+    for (let c = 19; c >= 0; c--) {
+      const y0 = c * courseH + 0.05, y1 = y0 + courseH - 0.4;
+      if (y1 < yTop - L) break;
+      const a = Math.max(y0, yTop - L), b = Math.min(y1, yTop);
+      if (b - a < 0.05) continue;
+      const wa = w * (0.25 + 0.75 * (1 - (yTop - a) / L)), wb = w * (0.25 + 0.75 * (1 - (yTop - b) / L));
+      const j = (wr() - 0.5) * 0.1;
+      (dark ? streakDarkG : streakG).push(decalPoly([[x - wa / 2 + j, a], [x + wa / 2 + j, a], [x + wb / 2, b], [x - wb / 2, b]], FACE, U, V, N, 0.012));
+    }
+  }
+  // tufts on the ledges: buttress caps, the plinth and a few course grooves near the shots' cameras
+  for (const bx of [-225, -165, -105, -45, -15, 15, 45, 105, 165, 225]) {
+    const nT = 1 + Math.floor(wr() * 3);
+    for (let k = 0; k < nT; k++) tuft(tuftG, bx + (wr() - 0.5) * 4, 39.2, hz + 0.3 + wr() * 3.4, 0.45 + wr() * 0.3, wr);
+  }
+  for (let k = 0; k < 70; k++) {
+    const x = (wr() < 0.5 ? -1 : 1) * (gx + 1 + wr() * (half - gx - 2));
+    if (x > crack.x0 - 1 && x < crack.x1 + 1) continue;
+    if (k < 30) tuft(tuftG, x, 1.6, hz + 0.25 + wr() * 0.6, 0.3 + wr() * 0.25, wr);
+    else { const c = 1 + Math.floor(wr() * 18); tuft(tuftG, x, c * courseH + 0.05 - 0.4 + 0.0, hz - 0.18, 0.25 + wr() * 0.2, wr); }
+  }
+  const addW = (list, mat, name, inkId, cast = false) => { const g = merge(list); if (!g) return; const m = new THREE.Mesh(g, mat); m.name = name; tag(m, { inkId, layer: LAYER.BG, castShadow: cast }); group.add(m); };
+  addW(streakG, M.wallStreak, 'wallStreaks', ID.NONE);
+  addW(streakDarkG, M.stainDark, 'wallStreaksDark', ID.NONE);
+  addW(tuftG, M.moss, 'wallTufts', ID.PLANT, true);
 
   // crack zone: top course blocks and merlons as separate meshes
   const dropSet = new Set([1, 3, 14, 15, 17]);   // chosen clear of the hand (fingers span x 26..34)         // indices of the blocks that fall
@@ -99,20 +158,38 @@ export function buildWall(ctx, M) {
   for (let k = 0; k < 10; k++) jag.push(box(0.9 + jr() * 1.4, 0.4 + jr() * 0.6, 0.9 + jr() * 1.4, crack.x0 + 1 + jr() * 18, h + 0.4 + jr() * 0.3, (jr() - 0.5) * 8));
   const jagM = new THREE.Mesh(merge(jag), M.sandstoneDark); jagM.name = 'wallRubbleTop'; tag(jagM, { inkId: ID.WALL + 0, layer: LAYER.BG }); group.add(jagM);
 
-  // round towers
-  const tg = [], roofG = [], slitG = [];
+  // round towers: coursed shafts (alternate rings slightly proud, alternate ink ids), arrow slits framed in
+  // darker stone, string course, machicolation ring, merlons and turquoise roofs
+  const tg = [], roofG = [], slitG = [], frameG = [], bandG = [];
+  const rAt = (y) => W.towerRadius + 0.6 * (1 - y / W.towerHeight);
+  const slitAt = (tx, a, y, list, wu, hy, proud, thick) => {
+    const g = new THREE.BoxGeometry(wu, hy, thick);
+    g.translate(0, 0, rAt(y) + proud - thick / 2);
+    g.rotateY(a);
+    g.translate(tx, y, 0);
+    list.push(g);
+  };
   for (const tx of W.towerXs) {
     tg.push(cyl(W.towerRadius, W.towerRadius + 0.6, W.towerHeight, 18, tx, 0, 0));
+    for (let y = 2.5; y < W.towerHeight - 3; y += 5) bandG.push(cyl(rAt(y + 2.5) + 0.06, rAt(y) + 0.06, 2.5 - 0.02, 18, tx, y + 0.01, 0));
     tg.push(cyl(W.towerRadius + 0.7, W.towerRadius + 0.7, 0.8, 18, tx, W.towerHeight - 2.2, 0));     // string course
     tg.push(cyl(W.towerRadius + 0.9, W.towerRadius + 0.6, 1.2, 18, tx, W.towerHeight - 0.4, 0));      // machicolation ring
     for (let k = 0; k < 14; k++) { const a = (k / 14) * Math.PI * 2; tg.push(box(1.6, 1.8, 1.6, tx + Math.cos(a) * (W.towerRadius + 0.3), W.towerHeight + 1.7, Math.sin(a) * (W.towerRadius + 0.3)).rotateY(0)); }
     roofG.push(cone(W.towerRadius + 1.0, 9, 12, tx, W.towerHeight + 2.4, 0));
     roofG.push(sphere(0.6, tx, W.towerHeight + 11.9, 0, 8, 6), cyl(0.12, 0.12, 1.2, 6, tx, W.towerHeight + 11.2, 0));
-    for (const y of [16, 28, 40]) for (const a of [0.3, -0.3, Math.PI / 2]) slitG.push(box(0.35, 2.2, 0.6, tx + Math.cos(a + Math.PI / 2) * (W.towerRadius + 0.05), y, Math.sin(a + Math.PI / 2) * (W.towerRadius + 0.05)));
+    // slits face the town (+z) and the fields (-z), clear of the wall body; the angle is measured from +z about y
+    for (const y of [16, 28, 40]) for (const a of [0, 0.55, -0.55, Math.PI, Math.PI - 0.55, Math.PI + 0.55]) {
+      slitAt(tx, a, y, slitG, 0.32, 2.1, 0.12, 0.3);
+      slitAt(tx, a, y + 1.2, frameG, 0.95, 0.3, 0.16, 0.36);      // head stone
+      slitAt(tx, a, y - 1.2, frameG, 1.1, 0.3, 0.2, 0.42);        // sill
+      for (const s of [-1, 1]) { const g = new THREE.BoxGeometry(0.3, 2.1, 0.32); g.translate(s * 0.31, 0, rAt(y) + 0.14 - 0.16); g.rotateY(a); g.translate(tx, y, 0); frameG.push(g); }
+    }
   }
   const towers = new THREE.Mesh(merge(tg), M.sandstoneDark); towers.name = 'towers'; tag(towers, { inkId: ID.TOWER, layer: LAYER.BG }); group.add(towers); colliders.push(towers);
+  const bands = new THREE.Mesh(merge(bandG), M.sandstone); bands.name = 'towerCourses'; tag(bands, { inkId: 247, layer: LAYER.BG }); group.add(bands); colliders.push(bands);
   const roofs = new THREE.Mesh(merge(roofG), M.dome); roofs.name = 'towerRoofs'; tag(roofs, { inkId: ID.TOWER + 0, layer: LAYER.BG }); group.add(roofs);
   const slits = new THREE.Mesh(merge(slitG), M.recess); slits.name = 'arrowSlits'; tag(slits, { inkId: ID.BG_MIN + 38, layer: LAYER.BG, castShadow: false }); group.add(slits);
+  const frames = new THREE.Mesh(merge(frameG), M.sandstoneFrame); frames.name = 'arrowSlitFrames'; tag(frames, { inkId: 248, layer: LAYER.BG }); group.add(frames);
 
   const _ax = new THREE.Vector3(), _q = new THREE.Quaternion();
   function update(frame) {

@@ -2,7 +2,7 @@
 // and splinters; the advancing dust wall; the hero house facade dust.
 import * as THREE from 'three';
 import * as MAP from '../../../shared/map.js';
-import { makeBillows, dustStyle, dustBaseStyle, burst, trail } from './billow.js';
+import { makeBillows, dustStyle, dustBaseStyle, burst, trail as trailPuffs } from './billow.js';
 import { Debris, assignFlights } from './debris.js';
 
 const { T, ID, PALETTE } = MAP;
@@ -145,7 +145,7 @@ export function makeDust(ctx, reg) {
           if (!d.mesh) { for (const b of d.puffs) b.hide(); continue; }
           d.mesh.getWorldPosition(pieceNow);
           const t = (Math.min(frame, d.land) - LAUNCH) / 24;
-          trail(d.puffs, fh, (e, out) => {
+          trailPuffs(d.puffs, fh, (e, out) => {
             if (e < LAUNCH + 2 || e >= d.land || t <= 0) return false;
             const te = (e - LAUNCH) / 24, s = MAP.clamp(te / t, 0, 1);
             out.lerpVectors(d.p0, pieceNow, s); out.y += 4.9 * te * Math.max(0, t - te);

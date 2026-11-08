@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import {
   makeMaterials, makeInk, mesh, part, ring, ball, vent, countTriangles, finish, mergeList,
-  cylSurf, sphSurf, mapSurf, slabGeo, patchGeo, ribbonGeo, rivetGeo, forgedPlate, pillow, volute, localMetric, wrapGeo,
+  cylSurf, sphSurf, mapSurf, slabGeo, innerGeo, patchGeo, dripGeo, ribbonGeo, rivetGeo, forgedPlate, pillow, volute, localMetric, wrapGeo,
   SLIT_LIT, SLIT_DARK, HALO_LIT, HALO_DARK,
 } from './parts.js';
 import { applyTwoBone, makeIkTemps } from './ik.js';
@@ -54,7 +54,7 @@ export function buildGiant(ctx) {
     lames.forEach(([y0, h, rTop, rBot, w], k) => {
       const surf = mapSurf(cylSurf({ rTop, rBot, h, t0: tc - w / 2, len: w, y0 }), T);
       const pt = part(bc, g, 'tasset', { drift: V(Math.sin(tc), -0.2, Math.cos(tc)) });
-      const bump = forgedPlate(pt, surf, { thick: 0.5, bu: 0.3, bv: 0.12, su: 6, sv: 3, band: 0.55, bandRaise: 0.18, rivetR: 0.24, rivetSpacing: 1.6, drips: k === 0 ? 0.5 : 0.3, dripLen: 0.5, hash: H, seed: seed++ });
+      const bump = forgedPlate(pt, surf, { innerMat: 'dark', thick: 0.5, bu: 0.3, bv: 0.12, su: 6, sv: 3, band: 0.55, bandRaise: 0.18, rivetR: 0.24, rivetSpacing: 1.6, drips: k === 0 ? 0.5 : 0.3, dripLen: 0.5, hash: H, seed: seed++ });
       if (k === 2) volute(pt, surf, 0.5, 0.52, { size: 1.0, width: 0.2, bump });
       pt.end();
     });
@@ -76,35 +76,41 @@ export function buildGiant(ctx) {
   R(torso, { y: 22.2, h: 2.6, rTop: 8.6, rBot: 10.6, n: 8, phase: 0.2, band: 0.5, drips: 0.2, rivetSpacing: 1.5 });
   R(torso, { y: 24.2, h: 2.3, rTop: 7.2, rBot: 8.9, n: 8, phase: 0.6, band: 0.45, drips: 0, rivetSpacing: 1.4 });
   R(torso, { y: 25.9, h: 2.0, rTop: 6.2, rBot: 7.5, n: 8, phase: 0.0, band: 0.4, drips: 0, rivetSpacing: 1.3 });
-  // the sun emblem on the breast: medallion, 12 wedge disc, 12 rays (echoes the gate's sun)
+  // the sun emblem on the breast: a heavy boss sunk into the chest, 12 wedge disc and 12 rays in raised
+  // gold (echoes the gate's sun). Built flat (x, y, z = height) and wrapped onto a vertical cylinder.
   {
-    const s = cylSurf({ rTop: 13.0, rBot: 11.7, h: 6.8, t0: -Math.PI / 2, len: Math.PI, y0: 11.6 });
+    const s = cylSurf({ rTop: 13.6, rBot: 13.6, h: 20, t0: -Math.PI / 2, len: Math.PI, y0: 5 });
     const pt = part(bc, torso, 'emblem', { drift: V(0, 0, 1) });
-    const lift = () => 0.62;
-    const flat = [];
+    const circle = (r, segs) => { const p = new THREE.Path(); p.absarc(0, 0, r, 0, TAU, false); return p; };
     const disc = (r0, r1, a0, a1, z0, z1, segs = 6) => {
-      const shp = new THREE.Shape();
-      shp.moveTo(Math.cos(a0) * r0, Math.sin(a0) * r0);
-      for (let k = 0; k <= segs; k++) { const a = a0 + (a1 - a0) * k / segs; shp.lineTo(Math.cos(a) * r1, Math.sin(a) * r1); }
-      for (let k = segs; k >= 0; k--) { const a = a0 + (a1 - a0) * k / segs; shp.lineTo(Math.cos(a) * r0, Math.sin(a) * r0); }
-      return new THREE.ExtrudeGeometry(shp, { depth: z1 - z0, bevelEnabled: false }).translate(0, 0, z0);
+      let shp;
+      if (a1 - a0 >= TAU - 1e-6) {
+        shp = new THREE.Shape(); shp.absarc(0, 0, r1, 0, TAU, false);
+        if (r0 > 0) shp.holes.push(circle(r0));
+      } else {
+        shp = new THREE.Shape();
+        shp.moveTo(Math.cos(a0) * r0, Math.sin(a0) * r0);
+        for (let k = 0; k <= segs; k++) { const a = a0 + (a1 - a0) * k / segs; shp.lineTo(Math.cos(a) * r1, Math.sin(a) * r1); }
+        for (let k = segs; k >= 0; k--) { const a = a0 + (a1 - a0) * k / segs; shp.lineTo(Math.cos(a) * r0, Math.sin(a) * r0); }
+      }
+      return new THREE.ExtrudeGeometry(shp, { depth: z1 - z0, bevelEnabled: false, curveSegments: Math.max(6, Math.round(segs / 2)) }).translate(0, 0, z0);
     };
-    pt.add('verd', wrapGeo(disc(0, 6.3, 0, TAU, -0.3, 0.25, 48), s, 0.5, 0.5, lift));
-    pt.add('gold', wrapGeo(disc(5.9, 6.6, 0, TAU, -0.2, 0.5, 48), s, 0.5, 0.5, lift));
+    const W = (g) => wrapGeo(g, s, 0.5, 0.5);
+    pt.add('verd', W(disc(0, 5.5, 0, TAU, -3.0, 0.3, 48)));
+    pt.add('gold', W(disc(5.15, 5.85, 0, TAU, -1.2, 0.65, 48)));
     for (let k = 0; k < 12; k++) {
-      const a0 = k * Math.PI / 6 + 0.03, a1 = (k + 1) * Math.PI / 6 - 0.03;
-      pt.add('gold', wrapGeo(disc(0.35, 2.7, a0, a1, 0.2, 0.75, 3), s, 0.5, 0.5, lift));
+      const a0 = k * Math.PI / 6 + 0.035, a1 = (k + 1) * Math.PI / 6 - 0.035;
+      pt.add('gold', W(disc(0.3, 2.35, a0, a1, 0.25, 0.8, 3)));
       const a = 15 * Math.PI / 180 + k * Math.PI / 6, c = Math.cos(a), sn = Math.sin(a);
-      const long = k % 2 === 0;
       const P = (rr, t) => new THREE.Vector2(c * rr - sn * t, sn * rr + c * t);
-      const tri = new THREE.Shape([P(3.05, -0.75), P(long ? 5.6 : 4.9, 0), P(3.05, 0.75)]);
-      pt.add('gold', wrapGeo(new THREE.ExtrudeGeometry(tri, { depth: 0.45, bevelEnabled: false }).translate(0, 0, 0.2), s, 0.5, 0.5, lift));
+      const tri = new THREE.Shape([P(2.75, -0.62), P(k % 2 === 0 ? 4.95 : 4.35, 0), P(2.75, 0.62)]);
+      pt.add('gold', W(new THREE.ExtrudeGeometry(tri, { depth: 0.42, bevelEnabled: false }).translate(0, 0, 0.25)));
     }
-    pt.add('gold', wrapGeo(disc(2.85, 3.1, 0, TAU, 0.2, 0.6, 36), s, 0.5, 0.5, lift));
-    for (let k = 0; k < 24; k++) { const a = k * TAU / 24; const x = Math.cos(a) * 6.25, y = Math.sin(a) * 6.25; const u = 0.5 + x / s.du, v = 0.5 + y / s.dv; pt.add('gold', rivetGeo(s.P(u, v, 0.62 + 0.5), s.N(u, v), 0.22, 5)); }
+    pt.add('gold', W(disc(2.5, 2.72, 0, TAU, 0.25, 0.62, 36)));
+    for (let k = 0; k < 24; k++) { const a = k * TAU / 24; const u = 0.5 + Math.cos(a) * 5.5 / s.du, v = 0.5 + Math.sin(a) * 5.5 / s.dv; pt.add('dark', rivetGeo(s.P(u, v, 0.62), s.N(u, v), 0.2, 5)); }
     pt.end();
   }
-  for (const s of [-1, 1]) vent(bc, torso, { pos: [s * 3.6, 25.3, -7.3], dir: [s * 0.35, 0.6, -1], r: 1.0, len: 2.0, joint: 'neck', side: s > 0 ? 'L' : 'R' });
+  for (const s of [-1, 1]) vent(bc, torso, { pos: [s * 3.8, 25.3, -7.85], dir: [s * 0.35, 0.6, -1], r: 1.0, len: 2.0, joint: 'neck', side: s > 0 ? 'L' : 'R' });
 
   // ------------------------------------------------------------------ neck and head
   const neck1 = new THREE.Group(); neck1.position.y = G.neckBase; torso.add(neck1);
@@ -122,7 +128,7 @@ export function buildGiant(ctx) {
     const pauld = new THREE.Group(); pauld.name = 'giant.pauldron' + key; pauld.position.set(side * G.shoulderX, G.shoulderY, 0); pauld.rotation.z = -side * 0.35; torso.add(pauld);
     buildPauldron(pauld, side);
     const vd = V(side * 0.3, 1.0, -0.4).normalize();
-    vent(bc, pauld, { pos: V(side * 1.4, 0.8, 0).addScaledVector(vd, 7.75).toArray(), dir: [vd.x, vd.y, vd.z], r: 1.0, len: 2.0, joint: 'shoulder', side: key });
+    vent(bc, pauld, { pos: V(side * 1.4, 0.8, 0).addScaledVector(vd, 7.95).toArray(), dir: [vd.x, vd.y, vd.z], r: 1.0, len: 2.0, joint: 'shoulder', side: key });
 
     const upper = new THREE.Group(); upper.name = 'giant.upperArm' + key; upper.position.set(side * G.shoulderX, G.shoulderY, 0); torso.add(upper);
     ball(bc, upper, 4.1, [0, 0, 0], 20);
@@ -150,7 +156,7 @@ export function buildGiant(ctx) {
     R(thigh, { y: -11.0, h: 8.6, rTop: 5.1, rBot: 4.7, n: 5, phase: 0.2, rivetSpacing: 1.6, su: 6 });
     R(thigh, { y: -19.0, h: 7.4, rTop: 4.8, rBot: 4.3, n: 5, phase: 0.75, rivetSpacing: 1.6, su: 6 });
     const tcore = mesh(bc, finish(new THREE.CylinderGeometry(3.9, 3.6, 18, 12)), mats.dark, 'legcore'); tcore.position.y = -10.5; tcore.userData.drift = V(0, 0, 0); thigh.add(tcore);
-    vent(bc, thigh, { pos: [side * 4.9, -2.0, -0.6], dir: [side * 1, 0.35, -0.2], r: 0.9, len: 1.8, joint: 'hip', side: key });
+    vent(bc, thigh, { pos: [side * 4.9, -1.6, -0.6], dir: [side * 1, 0.35, -0.2], r: 0.9, len: 1.8, joint: 'hip', side: key });
     const shin = new THREE.Group(); shin.name = 'giant.shin' + key; shin.position.y = -G.thigh; thigh.add(shin);
     ball(bc, shin, 3.7, [0, 0, 0], 18);
     buildKnee(shin);
@@ -245,6 +251,7 @@ export function buildGiant(ctx) {
     const cap = sphSurf({ R: 7.6, phi0: 0, phiLen: TAU, thLo: 0.84, thHi: 0.02, centre: c });
     const pt = part(bc, pauld, 'pauldron', { drift: V(side * 0.6, 1, 0) });
     pt.add('verd', slabGeo(cap, { thick: 0.6, bump: pillow(0, 0.2), su: 32, sv: 5 }));
+    pt.add('dark', innerGeo(cap, { thick: 0.6, su: 32, sv: 5 }));
     pt.add('gold', slabGeo(cap, { thick: 0.7, bump: () => 0.2, su: 32, sv: 1, v0: -0.01, v1: 0.09 }));
     for (let k = 0; k < 22; k++) { const u = (k + 0.5) / 22; pt.add('gold', rivetGeo(cap.P(u, 0.16, 0.12), cap.N(u, 0.16), 0.24, 5)); }
     const uo = ((out % TAU) + TAU) % TAU / TAU;
@@ -257,7 +264,7 @@ export function buildGiant(ctx) {
       const w = wf * Math.PI;
       const s = sphSurf({ R: Rl, phi0: out - w / 2, phiLen: w, thLo: th1, thHi: th0, centre: c });
       const lp = part(bc, pauld, 'pauldron', { drift: V(side, 0.4 - k * 0.3, 0) });
-      const bump = forgedPlate(lp, s, { thick: 0.55, bu: 0.15, bv: 0.22, su: 18, sv: 3, band: 0.6, bandRaise: 0.2, rivetR: 0.24, rivetSpacing: 1.7, drips: 0.45, dripLen: 0.5, hash: H, seed: seed++ });
+      const bump = forgedPlate(lp, s, { innerMat: 'dark', thick: 0.55, bu: 0.15, bv: 0.22, su: 18, sv: 3, band: 0.6, bandRaise: 0.2, rivetR: 0.24, rivetSpacing: 1.7, drips: 0.45, dripLen: 0.5, hash: H, seed: seed++ });
       if (k === 1) for (const du of [-0.24, 0.24]) volute(lp, s, 0.5 + du, 0.55, { size: 0.75, width: 0.16, height: 0.12, bump, rot: du > 0 ? 0 : Math.PI });
       lp.end();
     });
@@ -268,7 +275,7 @@ export function buildGiant(ctx) {
     const Q = new THREE.Quaternion().setFromUnitVectors(V(0, 1, 0), V(0, 0, 1));
     const s = sphSurf({ R: 4.15, phi0: 0, phiLen: TAU, thLo: 0.95, thHi: 0.0, quat: Q });
     const pt = part(bc, fore, 'couter', { drift: V(0, 0, 1) });
-    forgedPlate(pt, s, { thick: 0.5, bu: 0, bv: 0.25, su: 20, sv: 3, band: 0.5, rivets: false, drips: 0 });
+    forgedPlate(pt, s, { innerMat: 'dark', thick: 0.5, bu: 0, bv: 0.25, su: 20, sv: 3, band: 0.5, rivets: false, drips: 0 });
     for (let k = 0; k < 12; k++) { const u = (k + 0.5) / 12; pt.add('gold', rivetGeo(s.P(u, 0.18, 0.1), s.N(u, 0.18), 0.2, 5)); }
     volute(pt, s, 0.25, 0.5, { size: 0.7, width: 0.15, height: 0.12, rot: Math.PI / 2 });
     pt.end();
@@ -279,7 +286,7 @@ export function buildGiant(ctx) {
     const Q = new THREE.Quaternion().setFromUnitVectors(V(0, 1, 0), V(0, 0, 1));
     const s = sphSurf({ R: 3.95, phi0: 0, phiLen: TAU, thLo: 0.9, thHi: 0.0, quat: Q, centre: V(0, -0.6, 0) });
     const pt = part(bc, shin, 'poleyn', { drift: V(0, 0, 1) });
-    forgedPlate(pt, s, { thick: 0.5, bu: 0, bv: 0.2, su: 20, sv: 3, band: 0.45, rivets: false, drips: 0 });
+    forgedPlate(pt, s, { innerMat: 'dark', thick: 0.5, bu: 0, bv: 0.2, su: 20, sv: 3, band: 0.45, rivets: false, drips: 0 });
     for (let k = 0; k < 10; k++) { const u = (k + 0.5) / 10; pt.add('gold', rivetGeo(s.P(u, 0.2, 0.1), s.N(u, 0.2), 0.18, 5)); }
     pt.end();
   }
@@ -288,10 +295,11 @@ export function buildGiant(ctx) {
     R(shin, { y: -10.6, h: 7.8, rTop: 4.5, rBot: 4.15, n: 5, phase: 0.0, rivetSpacing: 1.5, su: 6, drips: 0.45 });
     R(shin, { y: -16.6, h: 6.4, rTop: 4.2, rBot: 4.55, n: 5, phase: 0.63, rivetSpacing: 1.5, su: 6, drips: 0.35 });
     const score = mesh(bc, finish(new THREE.CylinderGeometry(3.5, 3.3, 15, 12)), mats.dark, 'legcore'); score.position.y = -9; score.userData.drift = V(0, 0, 0); shin.add(score);
-    // a gold ridge down the front of the greave
-    const s = cylSurf({ rTop: 4.5 + 0.38, rBot: 4.55 + 0.3, h: 13.4, t0: -0.2, len: 0.4, y0: -16.4 });
+    // a gold ridge down the front of the greave, following the two plate rings
+    const rAt = (y) => (y > -10.4 ? 4.15 + 0.35 * (y + 10.6) / 7.8 : 4.55 - 0.35 * (y + 16.6) / 6.4) + 0.12;
+    const s = { P(u, v, off = 0) { const y = -16.3 + v * 13.3, r = rAt(y) + off; return V(0, y, r); }, N() { return V(0, 0, 1); }, du: 1, dv: 13.3 };
     const pt = part(bc, shin, 'greave', { drift: V(0, 0, 1) });
-    pt.add('gold', ribbonGeo(s, (t) => [0.5, 0.06 + 0.88 * t], { n: 6, width: 0.5, height: 0.35 }));
+    pt.add('gold', ribbonGeo(s, (t) => [0.5, 0.02 + 0.96 * t], { n: 8, width: 0.55, height: 0.4 }));
     pt.end();
   }
 
@@ -302,15 +310,17 @@ export function buildGiant(ctx) {
     sole.userData.drift = V(0, 1, 0); foot.add(sole);
     // swap y and z: cylinder axis along +z (toe direction), theta 0 = up
     const swap = (z0) => new THREE.Matrix4().set(1, 0, 0, 0, 0, 0, 1, -4.25, 0, 1, 0, z0, 0, 0, 0, 1);
-    const lames = [[-4.3, 4.4, 3.95, 3.95], [-0.4, 4.0, 4.05, 4.0], [3.2, 3.6, 3.75, 3.7], [6.4, 3.0, 3.35, 3.2], [8.9, 2.0, 2.85, 2.55]];
+    const lames = [[-4.3, 4.6, 4.1, 4.15], [-0.1, 3.9, 3.95, 3.85], [3.3, 3.4, 3.7, 3.5], [6.2, 2.9, 3.35, 3.1], [8.6, 2.2, 2.95, 2.4]];
     lames.forEach(([z0, len, rBack, rFront], k) => {
       const s = mapSurf(cylSurf({ rTop: rFront, rBot: rBack, h: len, t0: -Math.PI / 2, len: Math.PI, y0: 0 }), swap(z0));
       const pt = part(bc, foot, 'sabaton', { drift: V(0, 0.6, 0.6) });
-      forgedPlate(pt, s, { thick: 0.5, bu: 0.25, bv: 0.12, su: 10, sv: 2, band: 0.5, bandRaise: 0.16, topBand: 0, rivetR: 0.22, rivetSpacing: 1.5, drips: k < 3 ? 0.4 : 0, dripLen: 0.4, hash: H, seed: seed++, rivets: k < 4 });
+      forgedPlate(pt, s, { thick: 0.5, bu: 0.25, bv: 0.12, su: 10, sv: 2, band: 0, topBand: 0.5, bandRaise: 0.16, rivetR: 0.22, rivetSpacing: 1.5, drips: 0, hash: H, seed: seed++, rivets: k < 4 });
       pt.end();
     });
+    const last = mesh(bc, finish(new THREE.CylinderGeometry(3.7, 2.2, 15.0, 12, 1, false, -Math.PI / 2, Math.PI).rotateX(-Math.PI / 2).translate(0, -4.25, 3.3)), mats.dark, 'last');
+    last.userData.drift = V(0, 0.6, 0.6); foot.add(last);
     R(foot, { y: -1.7, h: 2.6, rTop: 3.55, rBot: 4.05, n: 4, phase: 0.4, band: 0.45, drips: 0, rivetSpacing: 1.2, su: 6, core: false });
-    vent(bc, foot, { pos: [0, -0.4, -3.95], dir: [0, 0.35, -1], r: 0.8, len: 1.6, joint: 'ankle', side: side > 0 ? 'L' : 'R' });
+    vent(bc, foot, { pos: [0, -0.4, -4.5], dir: [0, 0.35, -1], r: 0.8, len: 1.6, joint: 'ankle', side: side > 0 ? 'L' : 'R' });
   }
 
   function buildHand(hand, side) {
@@ -319,7 +329,12 @@ export function buildGiant(ctx) {
     // to the town edge and the other two hang down the town face clear of it (see HAND).
     ball(bc, hand, 2.7, [0, 0, 0], 16);
     const palm = part(bc, hand, 'palm', { drift: V(0, 0.3, 1) });
-    palm.add('dark', finish(new THREE.BoxGeometry(10.4, 10.6, 3.0).translate(0, -5.9, -4.25)));
+    palm.add('dark', finish(new THREE.BoxGeometry(9.6, 10.4, 2.6).translate(0, -5.9, -4.3)));
+    // palm and edge plates (seen whenever the hand hangs): verdigris with a gold seam
+    palm.add('verd', finish(new THREE.BoxGeometry(10.4, 10.6, 0.5).translate(0, -5.9, -5.5)));
+    for (const sx of [-1, 1]) palm.add('verd', finish(new THREE.BoxGeometry(0.5, 10.6, 3.0).translate(sx * 4.95, -5.9, -4.25)));
+    palm.add('gold', finish(new THREE.BoxGeometry(10.6, 0.5, 3.1).translate(0, -1.0, -4.25)));
+    for (const sx of [-1, 1]) for (let k = 0; k < 4; k++) palm.add('gold', rivetGeo(V(sx * 5.2, -2.6 - k * 2.4, -4.25), V(sx, 0, 0), 0.22, 5));
     // three back-of-hand lames (cylinder about the hand's long axis), each overlapping the next
     const axisM = (zc) => new THREE.Matrix4().set(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, zc, 0, 0, 0, 1);
     [[-0.5, 3.9, 9.45], [-3.9, 3.8, 9.3], [-7.2, 3.9, 9.15]].forEach(([yTop, h, Rr], k) => {
@@ -329,7 +344,7 @@ export function buildGiant(ctx) {
     // knuckle plates over each finger root
     const Qk = new THREE.Quaternion().setFromUnitVectors(V(0, 1, 0), V(0, 0, 1));
     for (const x of HAND.xs) {
-      const s = sphSurf({ R: 1.45, phi0: 0, phiLen: TAU, thLo: 1.0, thHi: 0.0, quat: Qk, centre: V(side * x, HAND.knuckleY + 0.2, -3.25) });
+      const s = sphSurf({ R: 1.5, phi0: 0, phiLen: TAU, thLo: 1.05, thHi: 0.0, quat: Qk, centre: V(side * x, HAND.knuckleY + 0.25, -4.0) });
       palm.add('gold', slabGeo(s, { thick: 0.3, su: 12, sv: 2 }));
     }
     palm.end();
@@ -367,8 +382,10 @@ export function buildGiant(ctx) {
     pt.add('gold', slabGeo(s, { thick: 0.28, bump: () => 0.13, su: 8, sv: 1, v0: -0.01, v1: 0.16 }));
     pt.add('gold', rivetGeo(s.P(0.5, 0.62, 0.12), s.N(0.5, 0.62), 0.2, 5));
     if (tip) {
-      pt.add('dark', finish(new THREE.SphereGeometry(rad * 0.95, 10, 5, 0, TAU, 0, Math.PI / 2).rotateX(Math.PI).translate(0, -L, 0)));
-      pt.add('gold', finish(new THREE.ConeGeometry(rad * 0.8, 0.9, 8).rotateX(Math.PI).translate(0, -L - 0.6, 0.15)));
+      pt.add('verd', finish(new THREE.SphereGeometry(rad * 1.12, 10, 5, 0, TAU, 0, Math.PI / 2).rotateX(Math.PI).translate(0, -L * 0.93, 0)));
+      // nail: a gold shield on the back of the tip
+      const ns = cylSurf({ rTop: rad * 1.2, rBot: rad * 1.05, h: L * 0.5, t0: -0.9, len: 1.8, y0: -L * 0.93 - rad * 0.55 });
+      pt.add('gold', slabGeo(ns, { thick: 0.2, bump: pillow(0.12, 0.05), su: 5, sv: 2 }));
     }
     pt.end();
   }
@@ -427,18 +444,23 @@ export function buildGiant(ctx) {
         const fwd = Math.atan2(_d.z, -_d.y);
         const lift = t.front ? Math.max(0, fwd - 0.18) * 0.92 : Math.max(0, -fwd - 0.05) * 0.9;
         const sway = 0.035 * Math.sin(fh * 0.23 + t.phase) + 0.02 * Math.sin(fh * 0.61 + t.phase * 2);
-        t.g.quaternion.setFromAxisAngle(t.axis, (t.front ? -1 : 1) * (lift + sway));
+        t.g.quaternion.setFromAxisAngle(t.axis, -(lift + sway));   // negative swings the hem outward
       }
       // slit glow
       const s = pose.slit, pulse = pose.pulse || 0;
       halo.material.color.lerpColors(darkB, litB, s * (0.75 + 0.25 * pulse));
       slit.material.color.lerpColors(darkA, litA, s * (0.82 + 0.18 * pulse));
-      // dissolve drift
+      // dissolve drift: outward along each plate's normal (never downward) and up, both in world terms
       const t = pose.drift || 0;
+      if (t > 0) root.updateMatrixWorld(true);
       for (const o of drifters) {
         if (t <= 0) { o.position.copy(o.userData.rest); continue; }
         const k = o.userData.seed;
-        o.position.copy(o.userData.rest).addScaledVector(o.userData.drift, 3 * t * (0.5 + k)).addScaledVector(_up, 6 * t * (0.4 + 0.6 * MAP.hash1(k * 91)));
+        _q.setFromRotationMatrix(o.parent.matrixWorld);
+        _d.copy(o.userData.drift).applyQuaternion(_q).multiplyScalar(3 * t * (0.5 + k));
+        if (_d.y < 0) _d.y = 0;
+        _d.addScaledVector(_up, 6 * t * (0.4 + 0.6 * MAP.hash1(k * 91)));
+        o.position.copy(o.userData.rest).add(_d.applyQuaternion(_q.invert()));
       }
       root.updateMatrixWorld(true);
     },

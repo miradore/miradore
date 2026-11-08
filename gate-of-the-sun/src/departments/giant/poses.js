@@ -35,9 +35,15 @@ function base() {
       L: { ankle: V(FEET[0] + G.hipX, G.ankleH, FEET[2]), pole: V(0, 0.05, 1), footQuat: Q_ID },
       R: { ankle: V(FEET[0] - G.hipX, G.ankleH, FEET[2]), pole: V(0, 0.05, 1), footQuat: Q_ID },
     },
-    slit: 1, pulse: 0, opacity: 1, drift: 0,
+    slit: 1, pulse: 0, opacity: 1, drift: 0, fh: 0,
+    grip: { L: GRIP.relaxed.slice(), R: GRIP.relaxed.slice() },
   };
 }
+
+// finger curls [knuckle, middle, tip] in radians. wall: first phalanx flat on the merlons, the rest hooked
+// straight down the town face (the clearance in giant.js HAND depends on exactly this shape).
+export const GRIP = { relaxed: [0.5, 0.7, 0.5], open: [0.0, 0.25, 0.1], knee: [0.15, 1.0, 0.35], tense: [0.75, 1.0, 0.8], wall: [0, Math.PI / 2, 0] };
+const mixGrip = (a, b, t) => a.map((v, i) => lerp(v, b[i], t));
 
 function pulseAt(fh) { return 0.5 + 0.5 * Math.sin((fh / 24) * Math.PI * 2 * 0.9); }
 function breathe(p, fh, amp = 1) {
@@ -63,6 +69,7 @@ function crouchArms(p, u) {
     const pole = V(side * 1, 0.2, -0.4).lerp(V(side * STAND_POLE[0], 0, -1), u);
     const q = HAND_FLAT.clone().slerp(HANG[key], u);
     p.arms[key] = armAbs(side, wrist, [pole.x * side, pole.y, pole.z], q);
+    p.grip[key] = mixGrip(GRIP.knee, GRIP.relaxed, u);
   }
 }
 
@@ -102,6 +109,7 @@ function applyKick(p, k) {
   p.torso.pitch = tp; p.torso.roll = tr;
   p.arms.L = armRel(1, lx, ly, lz, [0.8, 0.2, -0.6]);
   p.arms.R = armRel(-1, -rx, ry, rz, [0.8, 0.2, -0.6]);
+  p.grip.L = GRIP.tense.slice(); p.grip.R = GRIP.tense.slice();
   p.head.pitch = 0.436; p.head.yaw = 0.08;
 }
 
@@ -111,7 +119,7 @@ export function giantPose(frame, info) {
   const shot = info.shotId;
   const lf = fh - info.shot.start;
   const p = base();
-  p.pulse = pulseAt(fh);
+  p.pulse = pulseAt(fh); p.fh = fh;
 
   switch (shot) {
     case 12: {
@@ -127,6 +135,8 @@ export function giantPose(frame, info) {
       const pole = V(-0.2, 1, -0.3 - 0.25 * settle).normalize();
       const q = new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), -0.5 * (1 - u)).multiply(HAND_FLAT);   // fingers raised, then slapped flat
       p.arms.L = { ik: { wrist, pole, handQuat: q } };
+      // fingers open on the way down, slap flat, then hook over the town edge (fully hooked from local f6)
+      p.grip.L = lf < 2 ? GRIP.open.slice() : lf < 4 ? [0, 0.45, 0.15] : lf < 6 ? [0, 1.2, 0.05] : GRIP.wall.slice();
       p.hips.y -= 0.5 * (lf === 4 ? 1 : lf === 6 ? 0.5 : 0);
       p.slit = 0;
       return p;
@@ -168,6 +178,7 @@ export function giantPose(frame, info) {
       const pl = V(...STAND_POLE).lerp(V(0.8, 0.2, -0.6), ub);
       p.arms.L = armRel(1, aL.x, aL.y, aL.z, [pl.x, pl.y, pl.z]);
       p.arms.R = armRel(-1, -aR.x, aR.y, aR.z, [pl.x, pl.y, pl.z]);
+      p.grip.L = mixGrip(GRIP.relaxed, GRIP.tense, ub); p.grip.R = p.grip.L.slice();
       return p;
     }
     case 20: { applyKick(p, key(KICK, lf)); return p; }

@@ -47,6 +47,9 @@ function celFrom(ctx, s) {
 function assignIds(parts, idMin, idMax, start) {
   const N = idMax - idMin + 1;
   for (let i = 0; i < parts.length; i++) {
+    // small rim bubbles take their lobe's id so they read as bumps on its outline, not as balls;
+    // the bigger ones keep their own id and add a curl line where they overlap the lobe
+    if (parts[i].parent && parts[i].r < 0.22) { parts[i].id = parts[i].parent.id; continue; }
     const used = new Set();
     for (let j = 0; j < i; j++) {
       const a = parts[i], b = parts[j];
@@ -69,7 +72,7 @@ function layout(seed, count, flat) {
     let L = p.off.length();
     if (L + p.r > BOUND) { p.r = Math.min(p.r, BOUND * 0.6); L = p.off.length(); if (L + p.r > BOUND) p.off.multiplyScalar((BOUND - p.r) / L); }
     const lift = p.off.y - plane;
-    p.ys = MAP.clamp(lift / p.r, 0.45, 1);
+    p.ys = MAP.clamp(lift / p.r, 0.6, 1);
     if (p.off.y - p.r * p.ys < plane) p.off.y = plane + p.r * p.ys;
     L = p.off.length();
     if (L + p.r > BOUND) { const h = Math.hypot(p.off.x, p.off.z), need = Math.sqrt(Math.max(0, (BOUND - p.r) ** 2 - p.off.y ** 2)); if (h > need && h > 1e-6) { p.off.x *= need / h; p.off.z *= need / h; } }
@@ -99,13 +102,13 @@ function layout(seed, count, flat) {
     const out = new THREE.Vector3(L.off.x, 0, L.off.z);
     if (out.lengthSq() > 1e-6) dir.addScaledVector(out.normalize(), 0.5).normalize();
     const r = 0.13 + Math.pow(rng(), 1.6) * 0.17;
-    parts.push(fit({ off: L.off.clone().addScaledVector(dir, L.r * 0.88), r, big: false }));
+    parts.push(fit({ off: L.off.clone().addScaledVector(dir, L.r * 0.88), r, big: false, parent: L }));
   }
   return parts;
 }
 
 export class Billow {
-  constructor(ctx, { seed, count = 12, style, name = 'billow', flat = 0.75, base = null }) {
+  constructor(ctx, { seed, count = 12, style, name = 'billow', flat = 0.6, base = null }) {
     this.ctx = ctx;
     this.clear = style.clear ?? 1.0;
     this.group = new THREE.Group();
@@ -175,7 +178,7 @@ export class Chain {
       this.group.add(m); this.parts.push(m);
     }
     ctx.tag(this.group, { layer: ctx.LAYER.FG, castShadow: true, receiveShadow: true });
-    this.parts.forEach((m, i) => { m.userData.inkId = style.idMin + ((i * 4 + 1) % N); });
+    this.parts.forEach((m, i) => { m.userData.inkId = style.idMin + ((Math.floor(i / 3) * 4 + 1) % N); });
     this.group.visible = false; this._op = -1;
   }
   hide() { this.group.visible = false; }
