@@ -16,7 +16,7 @@ export async function createApp({ canvas, departments, scale = 1 }) {
   renderer.setSize(W, H, false);
   renderer.setPixelRatio(1);
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.BasicShadowMap;       // hard cel shadows
+  renderer.shadowMap.type = THREE.PCFShadowMap;         // filtered map, thresholded hard in the cel shader (smooth contour, no stair steps)
   renderer.shadowMap.autoUpdate = false;
   renderer.autoClear = false;
   renderer.outputColorSpace = THREE.SRGBColorSpace;

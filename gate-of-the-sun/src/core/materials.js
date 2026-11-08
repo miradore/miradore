@@ -23,7 +23,7 @@ void RE_Direct_Toon( const in IncidentLight directLight, const in vec3 geometryP
   // hand-drawn terminator: wobble the band edge with low frequency world noise
   dotNL += (celNoise(vCelWorld * 1.7) - 0.5) * uWobble;
   float lum = max(directLight.color.r, max(directLight.color.g, directLight.color.b));
-  float lit = step(0.45, lum);                 // hard shadow map -> flat shadow shape
+  float lit = smoothstep(0.42, 0.58, lum);     // thresholded filtered shadow -> flat shape with a clean edge
   float band = smoothstep(uBandEdge - uBandSoft, uBandEdge + uBandSoft, dotNL) * lit;
   vec3 shadeMul = uShadeMul;
   #ifdef CEL_SHADE2
