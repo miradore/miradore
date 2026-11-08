@@ -101,8 +101,10 @@ export async function createApp({ canvas, departments, scale = 1 }) {
   function onBeforeData(renderer, scene, camera, geometry, material) {
     const u = material.uniforms;
     u.uId.value = this.userData.inkId ?? 0;
-    u.uOpacity.value = this.userData.opacity ?? 1;
     const bm = this.userData._beautyMat;
+    // opacity may be set per mesh (setOpacity) or directly on the material's dither uniform
+    const mo = bm && !Array.isArray(bm) && bm.userData && bm.userData.uniforms && bm.userData.uniforms.uOpacity ? bm.userData.uniforms.uOpacity.value : 1;
+    u.uOpacity.value = Math.min(this.userData.opacity ?? 1, mo);
     const map = bm && !Array.isArray(bm) && bm.map && bm.alphaTest > 0 ? bm.map : null;
     u.map.value = map; u.uUseMap.value = map ? 1 : 0; u.uAlphaTest.value = bm && bm.alphaTest ? bm.alphaTest : 0.5;
     material.uniformsNeedUpdate = true;

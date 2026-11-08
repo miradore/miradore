@@ -132,6 +132,19 @@ export function makeComposite(width, height) {
         bool useFg = fg.a > 0.5 && zF < zB;
         vec3 col = useFg ? fg.rgb : bg;
         float z = useFg ? zF : zB;
+        // translucent surfaces are drawn with an ordered dither; resolve it into a flat tone by averaging
+        // the layer colours over the dither cell wherever the nearest surface is partly transparent
+        float opNear = texture2D(tAux, vUv).r;
+        if (opNear < 0.995 && texture2D(tData, vUv).a > 0.5/255.0) {
+          vec3 acc = vec3(0.0);
+          for (int j = -1; j <= 2; j++) for (int i = -1; i <= 2; i++) {
+            vec2 o = vec2(float(i), float(j)) * px;
+            vec4 f2 = texture2D(tFg, vUv + o); float zf2 = lin(texture2D(tFgDepth, vUv + o).x);
+            float zb2 = lin(texture2D(tBgDepth, vUv + o).x);
+            acc += (f2.a > 0.5 && zf2 < zb2) ? f2.rgb : texture2D(tBg, vUv + o).rgb;
+          }
+          col = acc / 16.0;
+        }
         bool isSky = z > uFar * 0.9;
         if (!isSky) {
           float aer = 1.0 - exp(-z * 0.0009);

@@ -21,9 +21,21 @@ export function makeDust(ctx, reg) {
   const style = dustStyle(ctx);
   const { LAYER } = ctx;
 
-  // ---------------- hand impact cracks: 12 jagged polylines on the town face of the wall (z = 6.15)
-  const crackMat = ctx.makeCel({ color: 0x3A2418, shade: 0x241410 });
-  const crackBox = new THREE.BoxGeometry(1, 1, 0.3);
+  // ---------------- hand impact cracks: jagged polylines drawn on the town face of the wall (z = 6).
+  // A crack is itself a drawn line: very dark flat quads with no ink id (so the ink pass does not
+  // outline them), tapering toward the tips, each with a thin lighter lip just below it so it reads as
+  // cut into the stone. Same seed, segment layout and growth frames as before.
+  const crackMat = ctx.makeFlat({ color: 0x2A160F });
+  const lipMat = ctx.makeFlat({ color: 0xF4D3B2 });             // PALETTE.sandstone lightened
+  const taperQuad = (w0, w1) => {
+    // unit-length strip along local +y from -0.5 (width w0) to +0.5 (width w1), facing +z
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute([-w0 / 2, -0.5, 0, w0 / 2, -0.5, 0, w1 / 2, 0.5, 0, -w1 / 2, 0.5, 0], 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1], 3));
+    g.setIndex([0, 1, 2, 0, 2, 3]);
+    return g;
+  };
+  const LIP = taperQuad(0.03, 0.03);
   const cracks = new THREE.Group(); cracks.name = 'cracks';
   const crackSegs = [];
   {
@@ -35,23 +47,31 @@ export function makeDust(ctx, reg) {
         ang += (rng() - 0.5) * 1.6; ang = MAP.clamp(ang, -1.45, 1.45);
         const nx = x + Math.sin(ang) * len, ny = y - Math.cos(ang) * len;
         if (ny < 30 || nx < 14 || nx > 46) break;
-        const m = new THREE.Mesh(crackBox, crackMat); m.name = `crack${crackSegs.length}`;
-        m.position.set((x + nx) / 2, (y + ny) / 2, 6.12);
-        m.rotation.z = Math.atan2(-(nx - x), ny - y);
-        const thick = MAP.lerp(t0, t1, j / n);
-        m.scale.set(thick, len + thick, 1);
-        m.visible = false;
-        cracks.add(m);
-        crackSegs.push({ mesh: m, at: start + Math.round(j * 2.2) });
-        if (j > 0 && j < n - 1 && rng() < 0.45) addCrack(nx, ny, ang + (rng() < 0.5 ? -1 : 1) * (0.7 + rng() * 0.6), 2 + Math.floor(rng() * 3), start + Math.round(j * 2.2) + 2, thick * 0.6, 0.03);
+        const w0 = MAP.lerp(t0, t1, j / n), w1 = MAP.lerp(t0, t1, (j + 1) / n);
+        const seg = new THREE.Group(); seg.name = `crackSeg${crackSegs.length}`;
+        seg.position.set((x + nx) / 2, (y + ny) / 2, 6.06);
+        seg.rotation.z = Math.atan2(-(nx - x), ny - y);
+        const m = new THREE.Mesh(taperQuad(w0, w1), crackMat); m.name = `crack${crackSegs.length}`;
+        m.scale.set(1, len + w0 * 0.5, 1);
+        seg.add(m);
+        // lighter lip 0.05 m below the line (world down, expressed in the segment's rotated frame)
+        const lip = new THREE.Mesh(LIP, lipMat); lip.name = `crackLip${crackSegs.length}`;
+        const c = Math.cos(seg.rotation.z), sn = Math.sin(seg.rotation.z);
+        lip.position.set(-0.05 * sn, -0.05 * c, -0.01);
+        lip.scale.set(MAP.lerp(1, 0.5, j / n), len, 1);
+        seg.add(lip);
+        seg.visible = false;
+        cracks.add(seg);
+        crackSegs.push({ mesh: seg, at: start + Math.round(j * 2.2) });
+        if (j > 0 && j < n - 1 && rng() < 0.45) addCrack(nx, ny, ang + (rng() < 0.5 ? -1 : 1) * (0.7 + rng() * 0.6), 2 + Math.floor(rng() * 3), start + Math.round(j * 2.2) + 2, 0.025, 0.01);
         x = nx; y = ny;
       }
     };
     for (let i = 0; i < 6; i++) {
       const x = 27 + (rng() - 0.5) * 8 + i * 1.2, y = 49.7;
-      addCrack(x, y, (i / 5 - 0.5) * 2.4 + (rng() - 0.5) * 0.4, 6 + Math.floor(rng() * 4), T.HAND_IMPACT + Math.floor(rng() * 4), 0.09, 0.025);
+      addCrack(x, y, (i / 5 - 0.5) * 2.4 + (rng() - 0.5) * 0.4, 6 + Math.floor(rng() * 4), T.HAND_IMPACT + Math.floor(rng() * 4), 0.06, 0.015);
     }
-    ctx.tag(cracks, { inkId: ID.DEBRIS_MIN, layer: LAYER.FG, castShadow: false, receiveShadow: false });
+    ctx.tag(cracks, { inkId: ID.NONE, layer: LAYER.FG, castShadow: false, receiveShadow: false });
     reg.add(cracks);
   }
   const handBurst = makeBillows(ctx, reg, 12, { seed: 91, count: 8, style, name: 'handDust' });
