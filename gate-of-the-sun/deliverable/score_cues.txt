@@ -1,20 +1,26 @@
-# Gate of the Sun: score cues (seconds = frame / 24)
+# Gate of the Sun: score cues (seconds = frame / 24; sample = frame * 2000 at 48 kHz)
 # time        seconds   frame   cue
+00:00.000     0.000       0   Ambience bed: soft wind, distant swallows, bells, water in shot 3 (stem below -30 dBFS RMS)
 00:00.000     0.000       0   Shot 1: town. D minor with F major lean, pp open fifths
 00:00.600     0.600      14   Harp arpeggio (D minor)
+00:00.900     0.900      22   Distant swallow chirps (sparse, to 11 s)
+00:01.500     1.500      36   Bell toll, left tower (D)
 00:04.000     4.000      96   Shot 2: solo flute phrase
+00:04.500     4.500     108   Bell toll, right tower (A)
+00:07.000     7.000     168   Water lapping at the canal steps (7.0 to 12.5 s)
 00:07.400     7.400     178   Shot 3: oboe answer
 00:07.900     7.900     190   Harp arpeggio (F major)
 00:08.667     8.667     208   Pebble: pizzicato pluck (frame 208)
 00:10.500    10.500     252   Soft harp note
 00:12.500    12.500     300   Shot 5: thin to contrabass drone and violin tremolo
-00:14.500    14.500     348   THE FLASH (frame 348): bass drum, timpani, anvil, crash, brass fff cluster
+00:14.500    14.500     348   THE FLASH (frame 348): bass drum, timpani, anvil, crash, brass fff cluster. Ambience bed cut
 00:15.100    15.100     362   Abrupt cut: cymbal and tam decay only, 6 kHz tinnitus ring
 00:17.500    17.500     420   Shots 8-9: shock wave. Bass drum roll crescendo
-00:17.600    17.600     422   Shock wave hit with cymbal wash
+00:17.583    17.583     422   Shock wave hit with cymbal wash (frame 422)
 00:21.000    21.000     504   Shots 10-11: ringing silence then dread
 00:21.500    21.500     516   Heartbeat begins (72 bpm, to 31.5)
 00:22.000    22.000     528   Violas: sustained minor second D3 / Eb3
+00:26.627    26.627     639   Pre-impact suction: 40 ms reverse-swelled noise ending on frame 640
 00:26.667    26.667     640   THE HAND (frame 640): brass sfz tritone D / Ab, timpani, bass drum, rumble
 00:29.500    29.500     708   Shot 13: dust. Heartbeat and a held high violin harmonic
 00:31.500    31.500     756   Shot 14: head rises. Synth choir (D minor) with cellos, horns swell from pp
@@ -27,6 +33,7 @@
 00:42.000    42.000    1008   Heartbeat returns (42 to 44 s)
 00:44.000    44.000    1056   Shot 19: near silence. Soft steam hiss
 00:45.000    45.000    1080   One deep breath of contrabass
+00:46.293    46.293    1111   Pre-impact suction: 40 ms reverse-swelled noise ending on frame 1112
 00:46.333    46.333    1112   THE KICK (frame 1112): bass drum ff, timpani x3, gong, crash, anvil, low brass fff, sub boom
 00:46.500    46.500    1116   Chaos percussion begins: snare rolls, irregular timpani and bass drum, cymbal swells
 00:46.600    46.600    1118   Strings sawing: violin and viola tremolo clusters, cello repeated notes
@@ -47,10 +54,31 @@
 00:57.500    57.500    1380   Lament: cello melody in D minor begins (section samples standing in for solo)
 00:58.125    58.125    1395   Boulder landing (frame 1395)
 01:01.500    61.500    1476   Shots 27-28: giant dissolves. Distant low synth choir, contrabass pedal D, horn pp, steam fading
-01:06.500    66.500    1596   Lament: the falling minor sixth (F4 to A3)
-01:07.000    67.000    1608   Shot 29: distant metallic footsteps at 67.0, 68.2, 69.4 s
+01:05.000    65.000    1560   Lament: quiet viola counter line enters (E4 to D4 suspension)
+01:06.560    66.560    1597   Lament: the falling minor sixth (F4 to A3), with rubato: F4 60 ms late, A3 220 ms late
+01:07.000    67.000    1608   Shot 29: distant metallic footsteps on frames 1608, 1637, 1666
 01:10.000    70.000    1680   Shots 30-31: cello finishes the phrase
 01:12.000    72.000    1728   Violins enter: high sustained D pp
 01:14.000    74.000    1776   Resolve onto a held low D minor chord
 01:15.500    75.500    1812   Cut to black (frame 1812): chord decays naturally, reverb tail to 77.5 s
 01:17.500    77.500    1860   End
+
+# Impact hits (picture-locked): frame, seconds, sample offset
+#   frame  208     8.6667 s   sample  416000   Pebble: pizzicato pluck (frame 208)
+#   frame  348    14.5000 s   sample  696000   THE FLASH (frame 348): bass drum, timpani, anvil, crash, brass fff cluster. Ambience bed cut
+#   frame  422    17.5833 s   sample  844000   Shock wave hit with cymbal wash (frame 422)
+#   frame  640    26.6667 s   sample 1280000   THE HAND (frame 640): brass sfz tritone D / Ab, timpani, bass drum, rumble
+#   frame  840    35.0000 s   sample 1680000   Shot 15: THE MASK (frame 840). Peak ff chord, hold and decay
+#   frame 1112    46.3333 s   sample 2224000   THE KICK (frame 1112): bass drum ff, timpani x3, gong, crash, anvil, low brass fff, sub boom
+#   frame 1190    49.5833 s   sample 2380000   Boulder landing (frame 1190)
+#   frame 1203    50.1250 s   sample 2406000   Boulder landing (frame 1203)
+#   frame 1219    50.7917 s   sample 2438000   Boulder landing (frame 1219)
+#   frame 1236    51.5000 s   sample 2472000   Boulder landing (frame 1236) with glass shatter
+#   frame 1247    51.9583 s   sample 2494000   Boulder landing (frame 1247): house facade, rumble and stone rattle
+#   frame 1262    52.5833 s   sample 2524000   Boulder landing (frame 1262)
+#   frame 1281    53.3750 s   sample 2562000   Boulder landing (frame 1281)
+#   frame 1301    54.2083 s   sample 2602000   Boulder landing (frame 1301)
+#   frame 1322    55.0833 s   sample 2644000   Boulder landing (frame 1322)
+#   frame 1341    55.8750 s   sample 2682000   Boulder landing (frame 1341)
+#   frame 1372    57.1667 s   sample 2744000   Boulder landing (frame 1372)
+#   frame 1395    58.1250 s   sample 2790000   Boulder landing (frame 1395)
