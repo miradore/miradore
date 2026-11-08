@@ -67,7 +67,8 @@ export function taperLimb(r1, r2, len, rs = 12, cap = 4, bulge = 0) {
     const mid = 5;
     for (let i = 1; i < mid; i++) { const t = i / mid; const b = bulge * Math.sin(Math.PI * t) * (r1 + r2) * 0.5; pts.push(new THREE.Vector2(r2 + (r1 - r2) * t + b, -len * (1 - t))); }
     for (let i = 0; i <= cap; i++) { const a = (i / cap) * Math.PI / 2; pts.push(new THREE.Vector2(Math.cos(a) * r1, Math.sin(a) * r1)); }
-    pts[pts.length - 1].x = 0; pts[0].x = 0;
+    // tiny pole caps instead of zero radius: zero-area pole triangles upset the BVH triangle tests
+    pts[pts.length - 1].x = r1 * 0.03; pts[0].x = r2 * 0.03;
     return new THREE.LatheGeometry(pts, rs);
   });
 }

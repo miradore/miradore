@@ -10,8 +10,8 @@ const EAST = PI / 2, WEST = -PI / 2, NORTH = PI, SOUTH = 0;   // root yaw to fac
 const yawTo = (dx, dz) => Math.atan2(dx, dz);
 const FOX13 = { z: 47.75, lean: 0.5 };   // fox placement in the lynx close-up (shot 13)
 // shot 9: the fox kneels on the wall side of the hare and folds over him (root, lean, left arm; the right mirrors)
-const HUG9 = { x: 29.3, z: 44.97, yaw: 0, lean: 0.45, head: [0.5, 0.15, 0], neck: [0.15, 0, 0], handL: [-0.6, 0, -0.2],
-  wristL: [29.35, 1.27, 45.24], wristR: [29.12, 1.24, 45.33], poleL: [0.8, 0.8, -0.4], poleR: [-0.8, 0.8, -0.4] };
+const HUG9 = { x: 29.22, z: 44.97, yaw: 0, lean: 0.45, head: [0.4, 0.2, 0], neck: [0.15, 0, 0], handL: [-0.6, 0, -0.2],
+  wristL: [29.29, 1.29, 45.2], wristR: [29.06, 1.25, 45.3], poleL: [0.8, 0.8, -0.4], poleR: [-0.8, 0.8, -0.4] };
 
 const _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
 const _zero = new THREE.Vector3(0, 0, 0), _up = new THREE.Vector3(0, 1, 0);
