@@ -50,6 +50,17 @@ tools/
 Characters and effects animate on 2s (12 drawings per second), the camera on 1s, in the manner of
 hand-drawn production.
 
+## Deliverable
+`deliverable/gate_of_the_sun.mp4` is the finished film: 1920x1080, 24 fps, 1860 frames, 77.5 s,
+H.264 with the AAC orchestral score. `deliverable/contact_sheet.png` shows one frame per shot.
+
+## Checks
+`tools/check.js` runs on the real meshes with three-mesh-bvh for every frame before the final
+render: no character, hand or foot inside the steps, walls, gate or another body; the camera never
+enters a mesh or goes below the surface; no camera jerks outside the deliberate shake windows;
+nothing appears or vanishes mid shot unless the department lists it (debris spawning at an impact).
+Each run writes its report to out/check_report.json.
+
 ## Running
 
 ```
