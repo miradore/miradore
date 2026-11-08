@@ -55,6 +55,22 @@ export function buildGate(ctx, M, surfFn) {
         }
       }
     });
+    // the reveals of the opening (inner faces of the piers) in smaller courses; decoration only
+    const rg = [[], []];
+    for (let r = 0, y = 0.05; y < Gt.height - R + 0.4; y += 1.25, r++) {
+      for (const sx of [-1, 1]) {
+        let z = -thick / 2 - 0.4 - (r % 2) * 0.9, k = r % 2;
+        while (z < thick / 2 + 0.4) {
+          const L = 1.6 + cr() * 0.8;
+          const a = Math.max(-thick / 2 - 0.4, z), b = Math.min(thick / 2 + 0.4, z + L - 0.07);
+          // leave a rebate where the door leaves sit (|z| < 0.75)
+          for (const [p, q] of [[a, Math.min(b, -0.75)], [Math.max(a, 0.75), b]]) if (q - p > 0.2) rg[k % 2].push(box(0.1, 1.18, q - p, sx * (hx - 0.03), y + 0.59, (p + q) / 2));
+          z += L; k++;
+        }
+      }
+    }
+    const ra = new THREE.Mesh(merge(rg[0]), M.sandstone); ra.name = 'gateRevealA'; tag(ra, { inkId: ID.GATE, layer: LAYER.BG }); group.add(ra);
+    const rb = new THREE.Mesh(merge(rg[1]), M.sandstoneAlt); rb.name = 'gateRevealB'; tag(rb, { inkId: 247, layer: LAYER.BG }); group.add(rb);
     const ca = new THREE.Mesh(merge(cg[0]), M.sandstone); ca.name = 'gateCoursesA'; tag(ca, { inkId: ID.GATE, layer: LAYER.BG }); group.add(ca); colliders.push(ca);
     const cb = new THREE.Mesh(merge(cg[1]), M.sandstoneAlt); cb.name = 'gateCoursesB'; tag(cb, { inkId: 247, layer: LAYER.BG }); group.add(cb); colliders.push(cb);
   }

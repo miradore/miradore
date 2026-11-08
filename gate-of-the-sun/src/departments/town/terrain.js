@@ -21,6 +21,7 @@ export function buildTerrain(ctx, M) {
   for (let i = zs.length - 1; i > 0; i--) if (zs[i] - zs[i - 1] < 1e-9) zs.splice(i, 1);
   const inCanal = (x, z) => x >= C.xBankTop - 1e-9 && x <= C.xEast + 2 + 1e-9 && z >= C.zMin - 1e-9 && z <= C.zMax + 1e-9;
   const hFn = (x, z) => (inCanal(x, z) ? MAP.groundY(C.xBankTop, z) - 3.0 : MAP.groundY(x, z));
+  // the field boxes and the road cover the ground outside the wall, so no ground is built under them.
   // paved: the main street, the cross streets, the gate plaza and the quay path along the canal
   const paved = (x, z) => {
     if (inCanal(x, z)) return false;
@@ -29,7 +30,7 @@ export function buildTerrain(ctx, M) {
     if (x > 22.5 && x < C.xBankTop && z > 8 && z < 152) return true;
     return z > 6 && MAP.CROSS_STREETS_Z.some((c) => Math.abs(z - c) < MAP.CROSS_STREET_HALF) && Math.abs(x) < 120;
   };
-  const ground = new THREE.Mesh(heightGrid(xs, zs, hFn, (x, z) => !paved(x, z)), M.sand);
+  const ground = new THREE.Mesh(heightGrid(xs, zs, hFn, (x, z) => !paved(x, z) && (z > -6 || Math.abs(x) > 255)), M.sand);
   ground.name = 'ground';
   tag(ground, { inkId: ID.TERRAIN, layer: LAYER.BG });
   group.add(ground);
