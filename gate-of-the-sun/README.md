@@ -31,7 +31,8 @@ tools/
   preview.js         render chosen frames to PNG for review
   render.js          parallel headless render of all frames
   check.js           per frame checks: intersections, camera inside mesh / below ground, jerks, pops
-  encode.sh          ffmpeg mux of frames and score
+  encode.sh          ffmpeg mux of frames and score (CRF 16 master)
+  encode_delivery.sh two-pass delivery encode under 100 MB
 ```
 
 ### How a frame is drawn
@@ -53,6 +54,9 @@ hand-drawn production.
 ## Deliverable
 `deliverable/gate_of_the_sun.mp4` is the finished film: 1920x1080, 24 fps, 1860 frames, 77.5 s,
 H.264 with the AAC orchestral score. `deliverable/contact_sheet.png` shows one frame per shot.
+The committed file is the two-pass delivery encode (`tools/encode_delivery.sh`, about 9 Mb/s) so it
+fits under GitHub's 100 MB file limit; `tools/encode.sh` makes the CRF 16 master (about 157 MB,
+the film grain is expensive) for archiving outside git.
 
 ## Checks
 `tools/check.js` runs on the real meshes with three-mesh-bvh for every frame before the final
@@ -69,7 +73,8 @@ node tools/preview.js out/preview 20 270 800 1113      # look at frames
 node tools/check.js                                    # geometry checks on every frame
 node tools/render.js --workers=2                       # all 1860 frames to out/frames
 node sound/render.js                                   # out/score.wav
-tools/encode.sh                                        # out/gate_of_the_sun.mp4
+tools/encode.sh                                        # master: out/gate_of_the_sun.mp4
+tools/encode_delivery.sh                               # <100 MB: out/gate_of_the_sun_delivery.mp4
 ```
 
 Chromium runs with SwiftShader (software WebGL2); a frame takes a few seconds.
