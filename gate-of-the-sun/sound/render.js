@@ -67,14 +67,20 @@ const S = {
 buildScore(S);
 console.log(`placed ${mix.voices} sampled voices and ${mix.placed.length} synthesised signals in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
 
-// Low end: every bus except 'low' is high-passed at 60 Hz (fourth order).
+// Low end: 'hp' and 'amb' are high-passed at 60 Hz, 'hp40' (cellos and
+// trombones) at 40 Hz, all fourth order; 'low' is left alone.
 const t1 = Date.now();
-const { low: hpBus, amb: ambBus } = { low: mix.bus.hp, amb: mix.bus.amb };
+const hpBus = mix.bus.hp, ambBus = mix.bus.amb, hp40Bus = mix.bus.hp40;
 const flashSample = 348 * SAMPLES_PER_FRAME;
 for (let i = flashSample; i < mix.n; i++) if (ambBus.L[i] !== 0 || ambBus.R[i] !== 0) throw new Error('ambience signal found after the flash');
 const lowBefore = lowBandPower(hpBus.L, hpBus.R, 50);
 highpass4([hpBus.L, hpBus.R, hpBus.sL, hpBus.sR, ambBus.L, ambBus.R, ambBus.sL, ambBus.sR], 60);
 const lowAfter = lowBandPower(hpBus.L, hpBus.R, 50);
+const low40Before = lowBandPower(hp40Bus.L, hp40Bus.R, 35);
+highpass4([hp40Bus.L, hp40Bus.R, hp40Bus.sL, hp40Bus.sR], 40);
+const low40After = lowBandPower(hp40Bus.L, hp40Bus.R, 35);
+// fold the 40 Hz bus into the 60 Hz one (both are filtered now)
+for (let i = 0; i < mix.n; i++) { hpBus.L[i] += hp40Bus.L[i]; hpBus.R[i] += hp40Bus.R[i]; hpBus.sL[i] += hp40Bus.sL[i]; hpBus.sR[i] += hp40Bus.sR[i]; }
 
 // Music reverb on the summed sends of the low and high-passed buses.
 const lowBus = mix.bus.low;
@@ -193,7 +199,7 @@ for (const nm of ambNames) {
 
 // Low end and clicks.
 const lowDb = (x) => dB(Math.sqrt(x.low)) - dB(Math.sqrt(x.all));
-console.log(`\nlow end: energy below 50 Hz on the high-passed bus ${lowDb(lowBefore).toFixed(1)} dB re its total before the 60 Hz high-pass, ${lowDb(lowAfter).toFixed(1)} dB after`);
+console.log(`\nlow end: energy below 50 Hz on the 60 Hz bus ${lowDb(lowBefore).toFixed(1)} dB re its total before the high-pass, ${lowDb(lowAfter).toFixed(1)} dB after; below 35 Hz on the 40 Hz bus (cellos, trombones) ${lowDb(low40Before).toFixed(1)} dB before, ${lowDb(low40After).toFixed(1)} dB after`);
 const E = mix.edges;
 console.log(`clicks: ${E.checked} sampled notes checked; ${E.wouldClickEnd} would have ended abruptly (source ran out before the release), now faded; worst end edge ${dB(E.worstEnd).toFixed(0)} dB (was ${dB(E.worstRawEnd).toFixed(0)} dB), worst start edge ${dB(E.worstStart).toFixed(0)} dB re each note's peak`);
 

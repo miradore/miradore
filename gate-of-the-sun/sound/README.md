@@ -56,15 +56,42 @@ the repitch happen in one interpolation stage. The nearest sampled pitch is
 chosen, then the velocity layer nearest the requested dynamic, then a round
 robin from a per-note seed.
 
-Pitch naming: the VSCO 2 CE file names follow the "middle C = C3"
-convention (measured by autocorrelation: the files named A3 sound at 440 Hz),
-whereas `N()` in the cue sheet is scientific (C4 = 60). Every sampled pitched
-note therefore sounds one octave above its name in `cues.js` (the cello
-"D2" sounds D3, the tuba "D1" sounds D2). Intervals between sampled
-instruments are unaffected. The synthesised parts (choir, bells, sub booms)
-and the measured timpani roots are at true pitch. This has been left as it
-is in the polish pass; transposing the whole orchestra would be a
-composition decision.
+Pitch naming: the VSCO 2 CE file names follow the library's "middle C =
+C3" convention (measured by autocorrelation: the files named A3 sound at 440
+Hz), whereas `N()` in the cue sheet is scientific (C4 = 60). The parser adds
+an octave (`nameShift`, default +12), so a file named A3 maps to MIDI 69 and
+every sampled note sounds at the pitch written in `cues.js`. The harp files
+(KSHarp) are already named in scientific pitch (A2 sounds at 110 Hz) and use
+`nameShift: 0`. Until the polish pass every sampled pitched note sounded an
+octave above its written pitch; the director's decision was that the written
+pitches are the intent (low lament, contrabass pedal D, dread in the low
+strings).
+
+Unpitched instruments (bass drums, anvil, cymbals, gong, snare) play at their
+sample's own root when a note carries no pitch. The bass drums have a root of
+C2 and were previously asked for MIDI 60, so they played two octaves up at
+four times speed; they now play as recorded.
+
+Range check after the octave fix: every written note was compared with the
+instrument's samples. Notes that fell below the lowest sample, or needed more
+than 5 semitones of repitch from the nearest one, were moved up an octave for
+that instrument only (marked "octave up" in `cues.js`):
+
+- contrabass (sustain, tremolo, pizzicato): every D1 pedal is now D2 (lowest
+  samples F#1 sustain, E1 tremolo and pizzicato): shot 5 drone, dread
+  tremolo, hand, near silence, the breath at 45 s, the chaos pizzicato and the
+  lament pedal from 61.5 s;
+- tuba: flash D1 and D#1 to D2 and D#2, swell A#0 to A#1, kick D1 and G#0 to
+  D2 and G#1 (lowest sample F1);
+- tenor trombone: the G#1 in the hand stinger and in the kick cluster to G#2
+  (lowest sample A#1);
+- timpani (lowest drum F#1): the flash E1 to E2, the kick's falling figure
+  F#1 F1 E1 to F#2 F2 E2, the extra E1 under the facade landing (frame 1247)
+  to E2, and any random step of the chaos pattern that lands on F1 goes to F2.
+
+Everything else sits within 2 semitones of a sample. The only larger repitch
+left is deliberate: the stone rattle after frame 1247 repitches the unpitched
+anvil 3 to 14 semitones up to make small pebbles.
 
 Sustain samples are 5 to 13 s long, so notes that outlast them loop a region
 between 38 and 86 percent of the file with a 0.6 s equal-power crossfade.
@@ -76,7 +103,7 @@ rolls, tremolo crescendos).
 
 Clicks: every note and every synthesised signal has at least a 3 ms fade at
 both edges. Unlooped notes that run out of source before their release has
-finished (18 of them, mostly short pizzicato and percussion tails) now fade
+finished (25 of them, mostly short pizzicato and percussion tails) now fade
 over the last 3 ms of the source instead of stopping dead; the rumbles, sub
 boom, glass and footsteps, whose decays were still audible at the end of
 their buffers, get a raised-cosine tail. The click check in the render
@@ -87,6 +114,9 @@ Mixing is into three Float64 stereo buses, each with a stereo reverb send:
 
 - `low`: the instruments allowed below 60 Hz, namely bass drums, timpani,
   tuba, contrabass, the sub synths (sub boom, rumbles) and the heartbeat;
+- `hp40`: cellos and trombones, high-passed at 40 Hz instead of 60 Hz so
+  their lowest written fundamentals (cello D2 at 73 Hz, trombone A#1 at 58
+  Hz) are left intact;
 - `hp`: everything else, high-passed at 60 Hz with a fourth-order
   Butterworth (dry and send) so the low end belongs to the instruments above;
 - `amb`: the diegetic ambience bed, also high-passed, with its own longer
@@ -219,44 +249,44 @@ cause) and the right-heavy lament (the section cello samples are recorded
 right of centre, so the solo cello line is now panned slightly left to sit in
 the middle), plus the noise generator imbalance described above.
 
-       0.00 -  14.50 s  calm town         L  -28.0  R  -28.5  diff   0.46
-      14.50 -  17.50 s  flash             L  -18.8  R  -19.6  diff   0.84
-      17.50 -  21.00 s  shock wave        L  -22.5  R  -23.8  diff   1.31
-      21.00 -  26.67 s  dread             L  -30.1  R  -30.0  diff  -0.06
-      26.67 -  29.50 s  hand              L  -15.6  R  -17.0  diff   1.35
-      29.50 -  31.50 s  dust              L  -31.6  R  -31.6  diff   0.01
-      31.50 -  35.00 s  head rises        L  -16.0  R  -16.4  diff   0.41
-      35.00 -  37.50 s  mask              L  -13.6  R  -14.4  diff   0.77
-      37.50 -  41.50 s  strings thin      L  -32.1  R  -30.9  diff  -1.20
-      41.50 -  44.00 s  near silence      L  -31.9  R  -31.9  diff   0.07
-      44.00 -  46.33 s  leg lifts         L  -36.1  R  -38.7  diff   2.61
-      46.33 -  57.00 s  kick and chaos    L  -11.7  R  -12.6  diff   0.84
-      57.00 -  61.50 s  lament begins     L  -20.0  R  -21.1  diff   1.07
-      61.50 -  67.00 s  giant dissolves   L  -29.3  R  -28.1  diff  -1.18
-      67.00 -  70.00 s  footsteps         L  -26.9  R  -28.4  diff   1.54
-      70.00 -  77.50 s  lament closes     L  -29.3  R  -29.0  diff  -0.30
+       0.00 -  14.50 s  calm town         L  -28.4  R  -28.9  diff   0.50
+      14.50 -  17.50 s  flash             L  -20.2  R  -20.9  diff   0.73
+      17.50 -  21.00 s  shock wave        L  -22.4  R  -23.6  diff   1.21
+      21.00 -  26.67 s  dread             L  -30.1  R  -30.0  diff  -0.12
+      26.67 -  29.50 s  hand              L  -17.6  R  -17.6  diff   0.02
+      29.50 -  31.50 s  dust              L  -31.5  R  -31.5  diff   0.03
+      31.50 -  35.00 s  head rises        L  -17.2  R  -16.4  diff  -0.79
+      35.00 -  37.50 s  mask              L  -12.8  R  -13.4  diff   0.56
+      37.50 -  41.50 s  strings thin      L  -30.3  R  -30.9  diff   0.64
+      41.50 -  44.00 s  near silence      L  -31.8  R  -31.9  diff   0.12
+      44.00 -  46.33 s  leg lifts         L  -36.0  R  -38.7  diff   2.61
+      46.33 -  57.00 s  kick and chaos    L  -11.7  R  -12.6  diff   0.82
+      57.00 -  61.50 s  lament begins     L  -19.8  R  -20.6  diff   0.81
+      61.50 -  67.00 s  giant dissolves   L  -27.5  R  -27.2  diff  -0.25
+      67.00 -  70.00 s  footsteps         L  -27.7  R  -27.1  diff  -0.59
+      70.00 -  77.50 s  lament closes     L  -29.1  R  -28.6  diff  -0.44
 
 ## Measured level structure
 
 Peak and RMS per 5 s window of the delivered `out/score.wav` (peak -1.0 dBFS,
-3,720,000 samples; the limiter works at most 4.9 dB, on the biggest impacts):
+3,720,000 samples; the limiter works at most 4.6 dB, on the biggest impacts):
 
-       0.0 -   5.0 s   peak  -12.1   rms  -28.2
-       5.0 -  10.0 s   peak  -12.6   rms  -26.9
-      10.0 -  15.0 s   peak   -1.1   rms  -21.6
-      15.0 -  20.0 s   peak   -2.6   rms  -23.5
-      20.0 -  25.0 s   peak  -15.4   rms  -31.3
-      25.0 -  30.0 s   peak   -2.2   rms  -18.5
-      30.0 -  35.0 s   peak   -1.3   rms  -17.7
-      35.0 -  40.0 s   peak   -1.0   rms  -16.9
-      40.0 -  45.0 s   peak  -17.3   rms  -33.8
+       0.0 -   5.0 s   peak  -12.2   rms  -28.6
+       5.0 -  10.0 s   peak  -11.8   rms  -27.5
+      10.0 -  15.0 s   peak   -1.2   rms  -22.6
+      15.0 -  20.0 s   peak   -1.7   rms  -23.8
+      20.0 -  25.0 s   peak  -15.2   rms  -31.3
+      25.0 -  30.0 s   peak   -2.0   rms  -19.9
+      30.0 -  35.0 s   peak   -1.3   rms  -18.2
+      35.0 -  40.0 s   peak   -1.0   rms  -16.0
+      40.0 -  45.0 s   peak  -17.1   rms  -33.8
       45.0 -  50.0 s   peak   -1.0   rms  -13.6
-      50.0 -  55.0 s   peak   -1.0   rms  -12.1
-      55.0 -  60.0 s   peak   -1.2   rms  -14.7
-      60.0 -  65.0 s   peak  -15.1   rms  -28.3
-      65.0 -  70.0 s   peak  -14.0   rms  -28.2
-      70.0 -  75.0 s   peak  -15.1   rms  -28.2
-      75.0 -  77.5 s   peak  -16.3   rms  -32.3
+      50.0 -  55.0 s   peak   -1.0   rms  -12.0
+      55.0 -  60.0 s   peak   -1.2   rms  -14.9
+      60.0 -  65.0 s   peak  -14.3   rms  -27.8
+      65.0 -  70.0 s   peak  -14.0   rms  -27.3
+      70.0 -  75.0 s   peak  -15.7   rms  -27.9
+      75.0 -  77.5 s   peak  -15.9   rms  -31.7
 
 ## Licences
 

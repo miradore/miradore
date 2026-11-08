@@ -31,14 +31,16 @@ export const N = noteToMidi;
 export function midiToFreq(m) { return 440 * Math.pow(2, (m - 69) / 12); }
 
 // Pull a note token out of a VSCO file name, e.g. "VlnEns_susVib_A#3_v1_rr1.wav".
-// Note: the VSCO 2 CE names follow the "middle C = C3" convention (measured:
-// "A3" files sound at 440 Hz), while N() is scientific (C4 = 60). Every
-// sampled pitched note therefore sounds one octave above its name in
-// cues.js. Relative intervals between sampled instruments are unaffected;
-// the synthesised parts and the measured timpani roots are at true pitch.
-function noteFromFilename(file) {
+// The VSCO 2 CE names follow the library's "middle C = C3" convention
+// (measured by autocorrelation: a file named A3 sounds at 440 Hz), so a
+// file named A3 maps to MIDI 69 here and every sampled note sounds at the
+// pitch written in cues.js (N() is scientific, C4 = 60). The shift is set per
+// instrument with `nameShift` (default +12); the harp (KSHarp) files are named
+// in scientific pitch already (A2 sounds at 110 Hz) and use 0.
+export const VSCO_NAME_SHIFT = 12;
+function noteFromFilename(file, shift = VSCO_NAME_SHIFT) {
   const m = /(?:^|_)([A-G]#?)(\d)(?=_|\.|-)/.exec(file);
-  return m ? noteToMidi(m[1] + m[2]) : null;
+  return m ? noteToMidi(m[1] + m[2]) + shift : null;
 }
 function velFromFilename(file) {
   const m = /_v(\d+)(?:_|\.)/.exec(file);
@@ -79,7 +81,7 @@ export class Library {
     }
     if (opts.filter) files = files.filter((f) => opts.filter.test(f));
     const zones = files.map((f) => {
-      let midi = noteFromFilename(f);
+      let midi = noteFromFilename(f, opts.nameShift ?? VSCO_NAME_SHIFT);
       if (opts.roots) {
         for (const [frag, root] of Object.entries(opts.roots)) if (f.includes(frag)) midi = root;
       }
@@ -88,7 +90,7 @@ export class Library {
     });
     if (zones.length === 0) this.failed.push(`${name}: no samples matched in ${folder}`);
     const vels = [...new Set(zones.map((z) => z.vel))].sort((a, b) => a - b);
-    this.instruments.set(name, { name, zones, vels, loop: !!opts.loop, attack: opts.attack ?? 0.02, release: opts.release ?? 0.6, send: opts.send ?? 0.3, gain: opts.gain ?? 1, hold: opts.hold ?? null, lowEnd: !!opts.lowEnd });
+    this.instruments.set(name, { name, zones, vels, loop: !!opts.loop, attack: opts.attack ?? 0.02, release: opts.release ?? 0.6, send: opts.send ?? 0.3, gain: opts.gain ?? 1, hold: opts.hold ?? null, lowEnd: !!opts.lowEnd, bus: opts.bus ?? null, defaultRoot: opts.defaultRoot ?? 60 });
     return this;
   }
 
@@ -173,11 +175,13 @@ function hermite(x0, x1, x2, x3, t) {
 }
 
 // Buses: 'low' carries the instruments allowed below 60 Hz (bass drums,
-// timpani, tuba, contrabass, sub synths, heartbeat); 'hp' carries everything
-// else and is high-passed at 60 Hz in render.js; 'amb' is the diegetic
-// ambience bed, also high-passed, with its own reverb so it can be metered as
-// a stem. Each bus has a dry stereo pair and a stereo reverb send.
-export const BUSES = ['low', 'hp', 'amb'];
+// timpani, tuba, contrabass, sub synths, heartbeat); 'hp40' carries the
+// cellos and trombones, high-passed at 40 Hz so their lowest written
+// fundamentals (cello D2 at 73 Hz, trombone A#1 at 58 Hz) are untouched; 'hp'
+// carries everything else and is high-passed at 60 Hz in render.js; 'amb' is
+// the diegetic ambience bed, also high-passed at 60 Hz, with its own reverb so
+// it can be metered as a stem. Each bus has a dry stereo pair and a reverb send.
+export const BUSES = ['low', 'hp40', 'hp', 'amb'];
 const EDGE = 0.003; // 3 ms click-safe fade at every note and signal edge
 
 export class Mixer {
@@ -262,11 +266,14 @@ export class Mixer {
   //         legatoOut (equal-power cosine fade-out over `release`), matchSustain, bus }
   note(lib, instName, t, opts) {
     const inst = lib.get(instName);
-    const midi = opts.midi ?? 60;
+    // Without a midi number a note plays at its sample's own root (unpitched
+    // instruments such as the bass drums). Before the octave fix these were
+    // asked for MIDI 60 against a root of 36 and so played two octaves up.
+    const midi = opts.midi ?? null;
     const vel = opts.vel ?? 0.6;
-    const zone = lib.pickZone(inst, midi, vel, opts.rr ?? Math.floor(t * 1000));
+    const zone = lib.pickZone(inst, midi ?? inst.defaultRoot, vel, opts.rr ?? Math.floor(t * 1000));
     const s = lib.load(zone);
-    const semis = (midi - zone.midi) + (opts.semis ?? 0);
+    const semis = (midi == null ? 0 : midi - zone.midi) + (opts.semis ?? 0);
     const ratio = (s.rate / this.sr) * Math.pow(2, semis / 12);
     const attack = Math.max(EDGE, opts.attack ?? inst.attack);
     const release = Math.max(EDGE, opts.release ?? inst.release);
@@ -285,7 +292,7 @@ export class Mixer {
     const env = opts.env ?? null;
     const loop = opts.loop ?? inst.loop;
     const legatoIn = !!opts.legatoIn, legatoOut = !!opts.legatoOut;
-    const B = this.bus[opts.bus ?? (inst.lowEnd ? 'low' : 'hp')];
+    const B = this.bus[opts.bus ?? inst.bus ?? (inst.lowEnd ? 'low' : 'hp')];
     const gl = Math.cos((pan + 1) * Math.PI / 4) * Math.SQRT2;
     const gr = Math.sin((pan + 1) * Math.PI / 4) * Math.SQRT2;
 

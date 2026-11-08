@@ -20,10 +20,15 @@ export const LENGTH = 77.5;
 // Instrument folders relative to the VSCO root. Timpani files carry no pitch
 // in their names, so roots were measured by autocorrelation (F#1 to F#2).
 // lowEnd: true routes an instrument to the bus that skips the 60 Hz high-pass
-// (bass drums, timpani, tuba, contrabass). Struck and plucked instruments use
+// (bass drums, timpani, tuba, contrabass).
+// Since the octave fix every sampled note sounds as written. Notes that fell
+// below an instrument's lowest sample (or needed more than 5 semitones of
+// repitch) were moved up an octave for that instrument only; each move is
+// marked "octave up" below and listed in the README. Struck and plucked instruments use
 // the 3 ms click-safe minimum attack (they used to inherit a 20 ms linear
 // fade-in that blunted every hit).
 const LOW = { lowEnd: true };
+const HP40 = { bus: 'hp40' }; // cellos and trombones: 40 Hz high-pass instead of 60 Hz
 const HIT = { attack: 0.003 };
 const TIMP_ROOTS = { Timpani1: 30, Timpani2: 34, Timpani3: 37, Timpani4: 40, Timpani5: 42 };
 export const INSTRUMENTS = [
@@ -32,19 +37,19 @@ export const INSTRUMENTS = [
   ['vln_pizz', 'Strings/Violin Section/Pizz', { ...HIT, release: 0.4, send: 0.28 }],
   ['vla_sus', 'Strings/Viola Section/susvib', { loop: true, attack: 0.08, release: 1.3, send: 0.32 }],
   ['vla_trem', 'Strings/Viola Section/trem', { loop: true, attack: 0.06, release: 0.9, send: 0.3 }],
-  ['vc_sus', 'Strings/Cello Section/susvib', { loop: true, attack: 0.07, release: 1.2, send: 0.3 }],
-  ['vc_trem', 'Strings/Cello Section/trem', { loop: true, attack: 0.06, release: 0.9, send: 0.28 }],
-  ['vc_pizz', 'Strings/Cello Section/pizzT', { ...HIT, release: 0.5, send: 0.25 }],
+  ['vc_sus', 'Strings/Cello Section/susvib', { ...HP40, loop: true, attack: 0.07, release: 1.2, send: 0.3 }],
+  ['vc_trem', 'Strings/Cello Section/trem', { ...HP40, loop: true, attack: 0.06, release: 0.9, send: 0.28 }],
+  ['vc_pizz', 'Strings/Cello Section/pizzT', { ...HP40, ...HIT, release: 0.5, send: 0.25 }],
   ['cb_sus', 'Strings/Solo Contrabass/SusVib', { ...LOW, loop: true, attack: 0.1, release: 1.2, send: 0.25 }],
   ['cb_trem', 'Strings/Solo Contrabass/Trem', { ...LOW, loop: true, attack: 0.08, release: 0.9, send: 0.25 }],
   ['cb_pizz', 'Strings/Solo Contrabass/Pizz', { ...LOW, ...HIT, release: 0.6, send: 0.2 }],
-  ['harp', 'Strings/Harp', { ...HIT, release: 1.5, send: 0.35 }],
+  ['harp', 'Strings/Harp', { ...HIT, nameShift: 0, release: 1.5, send: 0.35 }],
   ['hn_sus', 'Brass/F Horn/sus', { loop: true, attack: 0.04, release: 0.8, send: 0.33 }],
   ['hn_stac', 'Brass/F Horn/stac', { ...HIT, release: 0.5, send: 0.3 }],
   ['tpt_sus', 'Brass/Trumpet/sus', { loop: true, attack: 0.03, release: 0.7, send: 0.3 }],
   ['tpt_stac', 'Brass/Trumpet/stac', { ...HIT, release: 0.45, send: 0.3 }],
-  ['tbn_sus', 'Brass/Tenor Trombone/sus', { loop: true, attack: 0.04, release: 0.8, send: 0.3 }],
-  ['tbn_stac', 'Brass/Tenor Trombone/stac', { ...HIT, release: 0.5, send: 0.3 }],
+  ['tbn_sus', 'Brass/Tenor Trombone/sus', { ...HP40, loop: true, attack: 0.04, release: 0.8, send: 0.3 }],
+  ['tbn_stac', 'Brass/Tenor Trombone/stac', { ...HP40, ...HIT, release: 0.5, send: 0.3 }],
   ['tuba_sus', 'Brass/Tuba/sus', { ...LOW, loop: true, attack: 0.05, release: 0.8, send: 0.28 }],
   ['tuba_stac', 'Brass/Tuba/stac', { ...LOW, ...HIT, release: 0.5, send: 0.28 }],
   ['flute', 'Woodwinds/Flute/susvib', { loop: true, attack: 0.05, release: 0.6, send: 0.33 }],
@@ -148,7 +153,8 @@ export function buildScore(S) {
   S.note('harp', 10.5, { midi: N('A3'), gain: 0.08, pan: 0.1 });
   // shot 5: thin to contrabass drone and violin tremolo, cut by the flash
   S.cue(12.5, 'Shot 5: thin to contrabass drone and violin tremolo');
-  S.note('cb_sus', 12.5, { vel: 0.1, midi: N('D1'), dur: 1.95, gain: 0.12, attack: 0.9, release: 0.06 });
+  S.note('cb_sus', 12.5, { vel: 0.1, midi: N('D2'), // octave up (lowest contrabass sample F#1)
+    dur: 1.95, gain: 0.12, attack: 0.9, release: 0.06 });
   S.note('vln_trem', 12.5, { vel: 0.1, midi: N('A4'), dur: 1.95, gain: 0.04, pan: -0.2, attack: 0.9, release: 0.06 });
 
   // -------------------------------------------------------------------------
@@ -157,7 +163,8 @@ export function buildScore(S) {
   S.hit(348, 'THE FLASH (frame 348): bass drum, timpani, anvil, crash, brass fff cluster. Ambience bed cut');
   S.note('bdrum1', tF, { vel: 1, gain: 0.62, dur: 0.55, release: 0.12, rr: 1 });
   S.note('bdrum', tF, { vel: 1, gain: 0.465, dur: 0.55, release: 0.12, pan: 0.1 });
-  S.note('timp', tF, { vel: 1, midi: 28, gain: 0.527, dur: 0.6, release: 0.15, pan: -0.15 });
+  S.note('timp', tF, { vel: 1, midi: 40, // octave up: E1 is below the lowest drum (F#1)
+    gain: 0.527, dur: 0.6, release: 0.15, pan: -0.15 });
   S.note('anvil', tF, { vel: 1, gain: 0.434, pan: 0.2 });
   S.note('crash', tF, { vel: 1, gain: 0.38, pan: 0.15, send: 0.1 });
   S.note('gong', tF + 0.01, { vel: 0.9, gain: 0.15, pan: -0.1, send: 0.1 });
@@ -168,8 +175,9 @@ export function buildScore(S) {
   S.note('tbn_sus', tF, { ...BRASS, midi: N('D2'), gain: 0.372, pan: 0.25 });
   S.note('tbn_sus', tF, { ...BRASS, midi: N('G#2'), gain: 0.341, pan: 0.35 });
   S.note('tbn_sus', tF, { ...BRASS, midi: N('D#2'), gain: 0.341, pan: 0.0 });
-  S.note('tuba_sus', tF, { ...BRASS, midi: N('D1'), gain: 0.434, pan: 0.05 });
-  S.note('tuba_sus', tF, { ...BRASS, midi: N('D#1'), gain: 0.31, pan: -0.05 });
+  // tuba octave up (lowest tuba sample F1)
+  S.note('tuba_sus', tF, { ...BRASS, midi: N('D2'), gain: 0.434, pan: 0.05 });
+  S.note('tuba_sus', tF, { ...BRASS, midi: N('D#2'), gain: 0.31, pan: -0.05 });
   S.cue(tF + 0.6, 'Abrupt cut: cymbal and tam decay only, 6 kHz tinnitus ring');
   S.add(tF + 0.05, syn.sineTone({ freq: 6000, dur: 4.2, gain: 0.03, decay: 1.3 }), { send: 0.1 });
 
@@ -191,7 +199,8 @@ export function buildScore(S) {
   S.cue(21.0, 'Shots 10-11: ringing silence then dread');
   S.cue(21.5, 'Heartbeat begins (72 bpm, to 31.5)');
   S.add(21.5, syn.heartbeat({ dur: 10.0, bpm: 72, gain: 0.16 }), { send: 0.06, bus: 'low', name: 'heartbeat' });
-  S.note('cb_trem', 22.0, { vel: 0.2, midi: N('D1'), dur: 7.4, gain: 0.07, attack: 1.0, release: 1.0, env: [[0, 0.3], [4.5, 1], [7.4, 0.5]] });
+  S.note('cb_trem', 22.0, { vel: 0.2, midi: N('D2'), // octave up (lowest tremolo sample E1)
+    dur: 7.4, gain: 0.07, attack: 1.0, release: 1.0, env: [[0, 0.3], [4.5, 1], [7.4, 0.5]] });
   S.note('vc_trem', 22.5, { vel: 0.2, midi: N('D2'), dur: 7.0, gain: 0.055, attack: 1.0, release: 1.0, pan: 0.2, env: [[0, 0.2], [4, 1], [7, 0.4]] });
   S.cue(22.0, 'Violas: sustained minor second D3 / Eb3');
   S.note('vla_sus', 22.0, { ...PAD, midi: N('D3'), dur: 7.5, gain: 0.04, pan: -0.25, attack: 1.8, release: 1.2 });
@@ -207,11 +216,13 @@ export function buildScore(S) {
   S.note('hn_sus', tH, { ...STING, midi: N('D2'), gain: 0.35, pan: -0.25 });
   S.note('hn_sus', tH, { ...STING, midi: N('G#2'), gain: 0.336, pan: 0.2 });
   S.note('tbn_sus', tH, { ...STING, midi: N('D2'), gain: 0.385, pan: 0.3 });
-  S.note('tbn_sus', tH, { ...STING, midi: N('G#1'), gain: 0.35, pan: -0.1 });
+  S.note('tbn_sus', tH, { ...STING, midi: N('G#2'), // octave up (lowest trombone sample A#1)
+    gain: 0.35, pan: -0.1 });
   S.note('timp', tH, { vel: 1, midi: 34, gain: 0.49, pan: -0.1 });
   S.note('bdrum1', tH, { vel: 0.9, gain: 0.49, rr: 3 });
   S.add(tH + 0.02, syn.rumble({ dur: 3.0, gain: 0.35, seed: 7 }), { send: 0.1, bus: 'low', name: 'rumble' });
-  S.note('cb_trem', tH, { vel: 1, midi: N('D1'), dur: 0.8, gain: 0.14, attack: 0.01, release: 2.2 });
+  S.note('cb_trem', tH, { vel: 1, midi: N('D2'), // octave up
+    dur: 0.8, gain: 0.14, attack: 0.01, release: 2.2 });
 
   // -------------------------------------------------------------------------
   // 29.5 to 31.5  Shot 13: dust, heartbeat, high violin harmonic
@@ -242,7 +253,8 @@ export function buildScore(S) {
   S.note('tpt_sus', 34.0, { vel: 1, midi: N('F4'), dur: 3.5, gain: 0.304, attack: 0.1, release: 1.4, pan: -0.2, env: TPT_SW });
   S.note('tpt_sus', 34.0, { vel: 1, midi: N('A#4'), dur: 3.5, gain: 0.288, attack: 0.1, release: 1.4, pan: 0.15, env: TPT_SW });
   S.note('tpt_sus', 34.1, { vel: 1, midi: N('C#5'), dur: 3.4, gain: 0.24, attack: 0.1, release: 1.4, pan: 0.3, env: TPT_SW });
-  S.note('tuba_sus', 34.0, { vel: 1, midi: N('A#0'), dur: 3.5, gain: 0.44, attack: 0.15, release: 1.5, env: TPT_SW });
+  S.note('tuba_sus', 34.0, { vel: 1, midi: N('A#1'), // octave up
+    dur: 3.5, gain: 0.44, attack: 0.15, release: 1.5, env: TPT_SW });
   S.note('timp_roll', 33.5, { vel: 1, midi: 34, gain: 0.4, dur: 4.0, release: 1.2, env: [[0, 0.1], [1.5, 1], [2.5, 1], [4.0, 0.3]] });
   S.note('vln_trem', 34.0, { vel: 0.8, midi: N('D5'), dur: 3.5, gain: 0.06, attack: 0.3, release: 1.2, pan: -0.3, env: [[0, 0.2], [1, 1], [3.5, 0.3]] });
   S.note('vln_trem', 34.0, { vel: 0.8, midi: N('F5'), dur: 3.5, gain: 0.055, attack: 0.3, release: 1.2, pan: -0.1, env: [[0, 0.2], [1, 1], [3.5, 0.3]] });
@@ -269,7 +281,8 @@ export function buildScore(S) {
   // -------------------------------------------------------------------------
   // 41.5 to 44.0  Shot 18: fade to near silence, heartbeat and low drone
   S.cue(41.5, 'Shot 18: fade to near silence. Low drone');
-  S.note('cb_sus', 41.5, { vel: 0, midi: N('D1'), dur: 2.3, gain: 0.05, attack: 0.8, release: 0.5, env: [[0, 0.6], [2.3, 0.1]] });
+  S.note('cb_sus', 41.5, { vel: 0, midi: N('D2'), // octave up
+    dur: 2.3, gain: 0.05, attack: 0.8, release: 0.5, env: [[0, 0.6], [2.3, 0.1]] });
   S.cue(42.0, 'Heartbeat returns (42 to 44 s)');
   S.add(42.0, syn.heartbeat({ dur: 2.0, bpm: 72, gain: 0.14 }), { send: 0.06, bus: 'low', name: 'heartbeat' });
 
@@ -278,7 +291,8 @@ export function buildScore(S) {
   S.cue(44.0, 'Shot 19: near silence. Soft steam hiss');
   S.add(44.0, syn.noiseBand({ dur: 2.4, f0: 5200, f1: 4300, q: 0.8, env: [[0, 0], [0.3, 1], [2.0, 0.8], [2.4, 0]], gain: 0.02, seed: 9, flutter: 0.5 }), { send: 0.2, pan: 0.2 });
   S.cue(45.0, 'One deep breath of contrabass');
-  S.note('cb_sus', 45.0, { vel: 0.1, midi: N('D1'), dur: 1.1, gain: 0.1, attack: 0.6, release: 0.25, env: [[0, 0.3], [0.7, 1], [1.1, 0.8]] });
+  S.note('cb_sus', 45.0, { vel: 0.1, midi: N('D2'), // octave up
+    dur: 1.1, gain: 0.1, attack: 0.6, release: 0.25, env: [[0, 0.3], [0.7, 1], [1.1, 0.8]] });
 
   // -------------------------------------------------------------------------
   // 46.333  THE KICK (frame 1112): impact
@@ -288,9 +302,10 @@ export function buildScore(S) {
   S.hit(1112, 'THE KICK (frame 1112): bass drum ff, timpani x3, gong, crash, anvil, low brass fff, sub boom');
   S.note('bdrum1', tK, { vel: 1, gain: 0.6, rr: 2 });
   S.note('bdrum', tK, { vel: 1, gain: 0.48, pan: 0.1 });
-  S.note('timp', tK, { vel: 1, midi: 30, gain: 0.51, pan: -0.15 });
-  S.note('timp', tK + 0.085, { vel: 1, midi: 29, gain: 0.42, pan: -0.1 });
-  S.note('timp', tK + 0.17, { vel: 1, midi: 28, gain: 0.48, pan: -0.05 });
+  // timpani falling figure octave up (F#2, F2, E2): F1 and E1 are below the lowest drum
+  S.note('timp', tK, { vel: 1, midi: 42, gain: 0.51, pan: -0.15 });
+  S.note('timp', tK + 0.085, { vel: 1, midi: 41, gain: 0.42, pan: -0.1 });
+  S.note('timp', tK + 0.17, { vel: 1, midi: 40, gain: 0.48, pan: -0.05 });
   S.note('gong', tK, { vel: 1, gain: 0.36, pan: -0.1, send: 0.2 });
   S.note('crash', tK, { vel: 1, gain: 0.45, pan: 0.25 });
   S.note('anvil', tK, { vel: 1, gain: 0.42, pan: 0.3 });
@@ -299,10 +314,12 @@ export function buildScore(S) {
   S.note('hn_sus', tK, { ...KICK, midi: N('D#2'), gain: 0.33, pan: -0.1 });
   S.note('hn_sus', tK, { ...KICK, midi: N('G#2'), gain: 0.33, pan: 0.1 });
   S.note('tbn_sus', tK, { ...KICK, midi: N('D2'), gain: 0.39, pan: 0.3 });
-  S.note('tbn_sus', tK, { ...KICK, midi: N('G#1'), gain: 0.36, pan: 0.0 });
+  S.note('tbn_sus', tK, { ...KICK, midi: N('G#2'), // octave up
+    gain: 0.36, pan: 0.0 });
   S.note('tbn_sus', tK, { ...KICK, midi: N('D#2'), gain: 0.36, pan: 0.35 });
-  S.note('tuba_sus', tK, { ...KICK, midi: N('D1'), gain: 0.42, pan: 0.05 });
-  S.note('tuba_sus', tK, { ...KICK, midi: N('G#0'), gain: 0.36, pan: -0.05 });
+  // tuba octave up (lowest tuba sample F1)
+  S.note('tuba_sus', tK, { ...KICK, midi: N('D2'), gain: 0.42, pan: 0.05 });
+  S.note('tuba_sus', tK, { ...KICK, midi: N('G#1'), gain: 0.36, pan: -0.05 });
   S.add(tK, syn.subBoom({ f0: 44, f1: 29, dur: 2.6, gain: 0.54 }), { send: 0.05, bus: 'low', name: 'subBoom' });
 
   // -------------------------------------------------------------------------
@@ -321,7 +338,12 @@ export function buildScore(S) {
     const jitter = (r() - 0.5) * 0.016;
     for (const part of cell.split('+')) {
       if (part === 'bd') S.note('bdrum', t + jitter, { vel: 0.6 + r() * 0.4, gain: 0.315 + r() * 0.1, pan: (r() - 0.5) * 0.3, release: 0.8 });
-      else S.note('timp', t + jitter, { vel: 0.7 + r() * 0.3, midi: timpRoots[part] + Math.round((r() - 0.5) * 2), gain: 0.255 + r() * 0.1, pan: (r() - 0.5) * 0.5, release: 0.9 });
+      else {
+        // a random step below the lowest drum (F1 from t1) goes up an octave
+        let m = timpRoots[part] + Math.round((r() - 0.5) * 2);
+        if (m < 30) m += 12;
+        S.note('timp', t + jitter, { vel: 0.7 + r() * 0.3, midi: m, gain: 0.255 + r() * 0.1, pan: (r() - 0.5) * 0.5, release: 0.9 });
+      }
     }
   }
   for (const [t, rr] of [[47.5, 1], [50.2, 2], [53.0, 3], [55.4, 4]]) {
@@ -341,7 +363,8 @@ export function buildScore(S) {
     const accent = k % 3 === 0;
     const midi = (k % 7 === 3 || k % 7 === 6) ? N('D#2') : N('D2');
     S.note('vc_sus', t + (r() - 0.5) * 0.01, { vel: 1, midi, dur: 0.085, attack: 0.004, release: 0.1, gain: accent ? 0.17 : 0.12, pan: 0.15, send: 0.15 });
-    if (k % 4 === 0) S.note('cb_pizz', t, { vel: 1, midi: N('D1'), gain: 0.225, pan: 0.15 });
+    // octave up: lowest contrabass pizzicato sample is E1
+    if (k % 4 === 0) S.note('cb_pizz', t, { vel: 1, midi: N('D2'), gain: 0.225, pan: 0.15 });
   }
   S.cue(47.3, 'Trumpet stabs (irregular, to 56 s)');
   for (const [t, n, pan] of [[47.3, 'A#4', -0.3], [47.5, 'A4', 0.3], [48.9, 'E5', 0.0], [50.7, 'A#4', -0.3], [50.9, 'B4', 0.3], [52.6, 'A4', -0.2], [52.6, 'A#4', 0.2], [54.2, 'E5', 0.1], [54.4, 'D#5', -0.1], [56.1, 'A#4', 0.0]]) {
@@ -372,7 +395,7 @@ export function buildScore(S) {
     }
     if (big) {
       S.add(t + 0.03, syn.rumble({ dur: 2.6, gain: 0.2, seed: 13 }), { send: 0.1, bus: 'low', name: 'rumble' });
-      S.note('timp', t + 0.01, { vel: 1, midi: 28, gain: 0.3, pan: 0 });
+      S.note('timp', t + 0.01, { vel: 1, midi: 40, gain: 0.3, pan: 0 }); // octave up (was E1)
       let tt = t + 0.12;
       for (let k = 0; k < 15; k++) {
         tt += 0.03 + r() * 0.16;
@@ -446,7 +469,8 @@ export function buildScore(S) {
   // 61.5 to 67.0  Shots 27-28: the giant dissolves. Distant low choir, pedal D, horn pp
   S.cue(61.5, 'Shots 27-28: giant dissolves. Distant low synth choir, contrabass pedal D, horn pp, steam fading');
   S.add(61.5, syn.choir({ notes: [N('D2'), N('A2'), N('D3'), N('F3')], dur: 5.5, attack: 1.8, release: 2.0, gain: 0.012, vowel: 0.2, seed: 31 }), { send: 0.5 });
-  S.note('cb_sus', 61.5, { vel: 0.1, midi: N('D1'), dur: 14.0, gain: 0.07, attack: 2.0, release: 1.8 });
+  S.note('cb_sus', 61.5, { vel: 0.1, midi: N('D2'), // octave up
+    dur: 14.0, gain: 0.07, attack: 2.0, release: 1.8 });
   S.note('hn_sus', 62.0, { vel: 0.1, midi: N('D3'), dur: 5.0, gain: 0.08, attack: 0.8, release: 1.5, pan: -0.15, send: 0.4 });
   S.add(61.5, syn.noiseBand({ dur: 4.5, f0: 4800, f1: 4000, q: 0.8, env: [[0, 0.8], [3, 0.5], [4.5, 0]], gain: 0.014, seed: 15, flutter: 0.5 }), { send: 0.2, pan: 0.2 });
 
