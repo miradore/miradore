@@ -72,3 +72,11 @@ export default {
 
 ## Sound department
 Works in `sound/` only. Reads samples from the CC0 VSCO2 CE library (path given in the brief), writes `out/score.wav` (48 kHz stereo, 77.5 s, peak -1 dBFS) with `node sound/render.js`. Pure node (no browser). The cue sheet is in `shared/shots.json` (`cue` fields) and `MAP.T`.
+
+## Polish pass additions (core)
+* `ctx.makeCel` new options:
+  * `shade2` (hex): a second, deeper shadow tone on the far side of the form; `band2Edge` (default -0.45) sets where it starts. Use it on characters' hair/fur, the giant's plates, steam and dust for anime two-tone shadow.
+  * `highlight` (hex) and `highlightEdge` (default 0.82): a hard painted highlight shape on the most lit part (hair shine, bronze glint, wet stone).
+  * `paint`: one of `'stucco' | 'stone' | 'ground' | 'paving' | 'metal' | 'foliage' | 'soft'`, a gouache multiply texture sampled in world space (triplanar, no UVs needed); `paintScale` = metres per tile (default 4), `paintAmount` 0..1 (default 1), `paintSeed` for variety.
+* Ink id ranges: `ID.STEAM_MIN..STEAM_MAX` (140..150) and `ID.DUST_MIN..DUST_MAX` (151..159). Give neighbouring spheres in a billow different ids from the range so the ink pass draws the inner cauliflower lines.
+* Checker: `node tools/check.js --step=2 --start=A --end=B --depts=town,characters` runs the BVH checks on a frame range. It must end with zero intersections, zero camera-inside, zero pops for your department.

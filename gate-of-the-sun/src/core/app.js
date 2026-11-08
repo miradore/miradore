@@ -5,7 +5,8 @@ import { makeCel, makeFlat, makeDataMaterial, setOpacity } from './materials.js'
 import { makeSky } from './sky.js';
 import { cameraState, applyCamera, ANCHOR_OVERRIDES } from './camera.js';
 import { frameInfo, SHOTS } from './timeline.js';
-import { makePaintPass, makeComposite } from './passes.js';
+import { makePaintPass, makeComposite, makeBloom, makeFinal } from './passes.js';
+import { lookAt as lookFor } from './look.js';
 
 const { WIDTH, HEIGHT, LAYER, ID } = MAP;
 
@@ -49,6 +50,14 @@ export async function createApp({ canvas, departments, scale = 1 }) {
   comp.mat.uniforms.uNear.value = camera.near; comp.mat.uniforms.uFar.value = camera.far;
   comp.mat.uniforms.uLineScale.value = scale;
   const quadCam = new THREE.Camera();
+  const compRT = new THREE.WebGLRenderTarget(W, H, { type: THREE.HalfFloatType, depthBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
+  const qw = Math.round(W / 4), qh = Math.round(H / 4);
+  const bloomA = new THREE.WebGLRenderTarget(qw, qh, { type: THREE.HalfFloatType, depthBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
+  const bloomB = bloomA.clone();
+  const bloom = makeBloom();
+  const fin = makeFinal(W, H);
+  fin.mat.uniforms.tComp.value = compRT.texture; fin.mat.uniforms.tBloom.value = bloomA.texture;
+  const sunDirW = new THREE.Vector3(-0.45, 0.8, 0.42).normalize();
   const dataMat = makeDataMaterial();
 
   // global post state that departments (FX) can drive per frame
@@ -159,10 +168,28 @@ export async function createApp({ canvas, departments, scale = 1 }) {
     camera.layers.set(LAYER.FG);
     renderer.setRenderTarget(fgRT); renderer.setClearColor(0x000000, 0); renderer.clear(true, true, false);
     renderer.render(scene, camera);
-    // 5) composite + ink to screen
+    // 5) composite + ink (linear, off screen)
     comp.mat.uniforms.uHaze.value = st.haze; comp.mat.uniforms.uSeed.value = seed;
-    comp.mat.uniforms.uFlash.value = post.flash; comp.mat.uniforms.uFade.value = post.fade;
-    renderer.setRenderTarget(null); renderer.render(comp.scene, quadCam);
+    comp.mat.uniforms.uSunView.value.copy(sunDirW).transformDirection(camera.matrixWorldInverse);
+    const look = lookFor(frame, st.info, camera, W, H);
+    comp.mat.uniforms.uBgBlur.value = look.bgBlur * (W / 1920);
+    renderer.setRenderTarget(compRT); renderer.render(comp.scene, quadCam);
+    // 6) diffusion glow at quarter resolution
+    bloom.bright.uniforms.tex.value = compRT.texture; bloom.bright.uniforms.uThresh.value = look.bloomThresh;
+    renderer.setRenderTarget(bloomA); renderer.render(bloom.brightScene, quadCam);
+    for (let k = 0; k < 2; k++) {
+      bloom.blur.uniforms.tex.value = bloomA.texture; bloom.blur.uniforms.uDir.value.set(1.6 / qw, 0);
+      renderer.setRenderTarget(bloomB); renderer.render(bloom.blurScene, quadCam);
+      bloom.blur.uniforms.tex.value = bloomB.texture; bloom.blur.uniforms.uDir.value.set(0, 1.6 / qh);
+      renderer.setRenderTarget(bloomA); renderer.render(bloom.blurScene, quadCam);
+    }
+    // 7) satsuei pass to screen
+    const u = fin.mat.uniforms;
+    u.uBloom.value = look.bloom; u.uLeakColor.value.set(look.leakColor); u.uLeakPos.value.set(look.leakPos[0], look.leakPos[1]); u.uLeakAmt.value = look.leakAmt;
+    u.uSeed.value = Math.floor(frame / 2); u.uFlash.value = post.flash; u.uFade.value = post.fade;
+    u.uSpeed.value = look.speed; u.uSpeedCenter.value.set(look.speedCenter[0], look.speedCenter[1]); u.uSpeedDark.value = look.speedDark ? 1 : 0;
+    u.uImpact.value = look.impact; u.uImpactDeep.value.set(look.impactDeep);
+    renderer.setRenderTarget(null); renderer.render(fin.scene, quadCam);
     camera.layers.enableAll();
     return st;
   }

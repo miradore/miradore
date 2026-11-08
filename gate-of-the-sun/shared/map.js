@@ -127,7 +127,9 @@ export const ID = {
   CHAR_MIN: 1, CHAR_MAX: 99,        // one id per character; all parts of a character share it
   GIANT_MIN: 100, GIANT_MAX: 119,   // cycle plates through these so adjacent plates get a line
   AUTOMATON_MIN: 120, AUTOMATON_MAX: 139,
-  STEAM: 150, DUST: 151, BOLT: 180, DOME: 181, SHOCK: 182, GLOW: 183,
+  STEAM: 150, DUST: 151,
+  STEAM_MIN: 140, STEAM_MAX: 150,   // cycle billow spheres through these so overlapping puffs get inner lines
+  DUST_MIN: 151, DUST_MAX: 159, BOLT: 180, DOME: 181, SHOCK: 182, GLOW: 183,
   BOULDER_MIN: 160, BOULDER_MAX: 169,
   DEBRIS_MIN: 170, DEBRIS_MAX: 179,
   BG_MIN: 200, BG_MAX: 239,         // houses, cycle
