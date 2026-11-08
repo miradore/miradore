@@ -289,6 +289,12 @@ export function wrapGeo(geo, surf, uc, vc, bump = () => 0) {
 // parts: a part collects geometry per material and becomes one mesh per material, sharing one ink id
 
 export function mesh(bc, geo, mat, name, inkId) {
+  // the BVH checker walks the other mesh's index, so every body part carries one
+  if (!geo.index) {
+    const n = geo.attributes.position.count, idx = n > 65535 ? new Uint32Array(n) : new Uint16Array(n);
+    for (let i = 0; i < n; i++) idx[i] = i;
+    geo.setIndex(new THREE.BufferAttribute(idx, 1));
+  }
   const m = new THREE.Mesh(geo, mat);
   m.name = bc.name + '.' + name + '.' + bc.meshes.length;
   bc.tag(m, { inkId: inkId ?? bc.ink.next(), layer: bc.layer });
@@ -391,15 +397,15 @@ export function meander(pt, surf, { v0, v1, cell = 1.6, w = 0.14, h = 0.1, bump 
 export function gears(pt, surf, uc, vc, { depth = 0.5, R = 1.6, hash, seed = 1, k = 14 }) {
   const N = surf.N(uc, vc);
   const pA = surf.P(uc, vc, -depth);
-  pt.add('dark', placeGeo(gearGeo(R, k, 0.7), pA, N, hash(seed) * 3));
+  pt.add('gold', placeGeo(gearGeo(R, k, 0.7), pA, N, hash(seed) * 3));
   const up = surf.P(uc, Math.min(1, vc + 0.3), -depth).sub(pA).normalize();
   const side = new THREE.Vector3().crossVectors(N, up).normalize();
   const pB = pA.clone().addScaledVector(side, R * 1.75).addScaledVector(up, R * 0.5).addScaledVector(N, -0.3);
-  pt.add('gold', placeGeo(gearGeo(R * 0.72, Math.round(k * 0.7), 0.6), pB, N, hash(seed + 1) * 3));
+  pt.add('dark', placeGeo(gearGeo(R * 0.72, Math.round(k * 0.7), 0.6), pB, N, hash(seed + 1) * 3));
   const pC = pA.clone().addScaledVector(side, -R * 1.5).addScaledVector(up, -R * 0.9).addScaledVector(N, -0.15);
-  pt.add('dark', placeGeo(gearGeo(R * 0.6, Math.round(k * 0.6), 0.6), pC, N, hash(seed + 2) * 3));
+  pt.add('gold', placeGeo(gearGeo(R * 0.6, Math.round(k * 0.6), 0.6), pC, N, hash(seed + 2) * 3));
   // axle caps and a piston rod
-  pt.add('gold', placeGeo(finish(new THREE.CylinderGeometry(R * 0.32, R * 0.32, 1.2, 8).rotateX(Math.PI / 2)), pA, N));
+  pt.add('dark', placeGeo(finish(new THREE.CylinderGeometry(R * 0.32, R * 0.32, 1.2, 8).rotateX(Math.PI / 2)), pA, N));
   const rod = finish(new THREE.CylinderGeometry(R * 0.18, R * 0.18, R * 3.2, 6));
   pt.add('dark', placeGeo(rod.rotateX(Math.PI / 2), pA.clone().addScaledVector(up, R * 0.4).addScaledVector(N, -0.6), up));
 }
@@ -419,7 +425,7 @@ export function ring(bc, parent, o) {
     const pt = part(bc, group, name, { drift: V(Math.sin(tc), 0, Math.cos(tc)) });
     const sd = seed * 13 + i;
     if (missing.includes(i)) {
-      gears(pt, surf, 0.5, 0.5, { depth: (o.thick ?? 0.5) + 0.3, R: Math.min(h, surf.du) * 0.22, hash, seed: sd });
+      gears(pt, surf, 0.5, 0.5, { depth: (o.thick ?? 0.5) + 0.15, R: Math.min(h, surf.du) * 0.27, hash, seed: sd });
       // torn stubs of the plate left at both ends
       forgedPlate(pt, cylSurf({ rTop, rBot, h, t0, len: len * 0.16 }), { ...o, su: 2, rivets: false, drips: 0, vmax: (u) => 0.55 + 0.4 * hash(sd + u * 3) });
       forgedPlate(pt, cylSurf({ rTop, rBot, h, t0: t0 + len * 0.86, len: len * 0.14 }), { ...o, su: 2, rivets: false, drips: 0, vmax: (u) => 0.4 + 0.3 * hash(sd + 9 + u * 3) });

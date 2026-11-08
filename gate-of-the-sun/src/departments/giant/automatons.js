@@ -13,7 +13,7 @@ const V = (x, y, z) => new THREE.Vector3(x, y, z);
 export const A = {
   hipWalk: 6.4, hipX: 1.1, thigh: 3.4, shin: 3.0, ankleH: 0.71,
   shoulderX: 2.2, shoulderY: 3.0, upperArm: 3.6, foreArm: 3.2,
-  neckBase: 3.3, neckLen: 1.0, headR: 1.5, headUp: 1.6,
+  neckBase: 3.3, neckLen: 1.0, headR: 1.3, headUp: 1.6,
   footCentre: new THREE.Vector3(0, -0.35, 0.45),
 };
 
@@ -88,7 +88,7 @@ export function buildAutomaton(ctx, index, mats) {
   for (let k = 0; k < 16; k++) {
     const ph = (k + 0.5) * Math.PI * 2 / 16;
     if (Math.abs(Math.sin(ph)) < 0.35) continue;
-    const rho0 = 1 / Math.sqrt((Math.sin(ph) / 0.3) ** 2 + (Math.cos(ph) / 0.8) ** 2) + 0.08, rho1 = (k % 2 ? 0.82 : 0.68) * Am * Rm;
+    const rho0 = 1 / Math.sqrt((Math.sin(ph) / 0.3) ** 2 + (Math.cos(ph) / 0.75) ** 2) + 0.08, rho1 = (k % 2 ? 0.82 : 0.68) * Am * Rm;
     const v0 = 1 - rho0 / Rm / Am, v1 = 1 - rho1 / Rm / Am;
     mk.add('gold', ribbonGeo(maskS, (t) => [ph / (Math.PI * 2), v0 + (v1 - v0) * t], { n: 2, width: (t) => 0.08 - 0.04 * t, height: 0.035, caps: false }));
   }
@@ -96,10 +96,17 @@ export function buildAutomaton(ctx, index, mats) {
   const crestS = { P(u, v, off = 0) { const al = 0.62 - u * 2.4, rr = Rc + off; return V(0, rr * Math.cos(al), rr * Math.sin(al)); }, N(u) { const al = 0.62 - u * 2.4; return V(0, Math.cos(al), Math.sin(al)); }, du: Rc * 2.4, dv: 1 };
   mk.add('gold', ribbonGeo(crestS, (t) => [t, 0], { n: 10, width: 0.2, height: 0.32, base: -0.03 }));
   for (const s of [-1, 1]) {
-    mk.add('verd', finish(new THREE.CylinderGeometry(0.42, 0.46, 0.26, 12).rotateZ(Math.PI / 2)).translate(s * 1.47, 0.05, -0.05));
-    mk.add('gold', finish(new THREE.TorusGeometry(0.4, 0.06, 4, 12).rotateY(Math.PI / 2)).translate(s * 1.6, 0.05, -0.05));
+    mk.add('verd', finish(new THREE.CylinderGeometry(0.42, 0.46, 0.26, 12).rotateZ(Math.PI / 2)).translate(s * (A.headR - 0.02), 0.05, -0.05));
+    mk.add('gold', finish(new THREE.TorusGeometry(0.4, 0.06, 4, 12).rotateY(Math.PI / 2)).translate(s * (A.headR + 0.11), 0.05, -0.05));
   }
   mk.end();
+  // chin collar and a flared nape lame, as on the giant
+  R(head, { y: -0.12, h: 0.75, rTop: 0.86, rBot: 0.78, n: 4, phase: 0.4, rivets: false, band: 0.08 });
+  {
+    const np = part(bc, skull, 'nape', { drift: V(0, 0, -1) });
+    forgedPlate(np, cylSurf({ rTop: A.headR + 0.04, rBot: A.headR + 0.32, h: 0.6, t0: 1.15, len: Math.PI * 2 - 2.3, y0: -0.75 }), { innerMat: 'dark', thick: 0.08, bu: 0, bv: 0.03, su: 16, sv: 1, band: 0.08, bandRaise: 0.03, rivets: false, drips: 0 });
+    np.end();
+  }
   const halo = mesh(bc, patchGeo(sphSurf({ R: Rm, phi0: -0.09, phiLen: 0.18, thLo: Math.PI / 2 + 0.5, thHi: Math.PI / 2 - 0.5 }), { off: 0.012, su: 2, sv: 6 }), mats.halo, 'halo', mk.id);
   const slit = mesh(bc, patchGeo(sphSurf({ R: Rm, phi0: -0.045, phiLen: 0.09, thLo: Math.PI / 2 + 0.42, thHi: Math.PI / 2 - 0.42 }), { off: 0.025, su: 2, sv: 6 }), mats.slit, 'slit', mk.id);
   for (const m of [halo, slit]) { m.castShadow = false; m.userData.drift = V(0, 0, 0); skull.add(m); }
@@ -111,21 +118,21 @@ export function buildAutomaton(ctx, index, mats) {
     // shoulder scales: a cap and two lames fanning down and out
     const c = V(side * 0.15, 0.1, 0), out = side > 0 ? Math.PI / 2 : -Math.PI / 2;
     const cap = part(bc, pauld, 'pauldron', { drift: V(side, 1, 0) });
-    forgedPlate(cap, sphSurf({ R: 1.05, phi0: 0, phiLen: Math.PI * 2, thLo: 0.85, thHi: 0.02, centre: c }), { thick: 0.1, bu: 0, bv: 0.04, su: 12, sv: 3, band: 0.11, bandRaise: 0.04, rivets: false, drips: 0 });
+    forgedPlate(cap, sphSurf({ R: 1.15, phi0: 0, phiLen: Math.PI * 2, thLo: 0.85, thHi: 0.02, centre: c }), { innerMat: 'dark', thick: 0.1, bu: 0, bv: 0.04, su: 12, sv: 3, band: 0.11, bandRaise: 0.04, rivets: false, drips: 0 });
     cap.end();
-    [[1.13, 0.68, 1.15, 1.5], [1.21, 1.0, 1.45, 1.35]].forEach(([Rl, th0, th1, wf]) => {
+    [[1.24, 0.68, 1.15, 1.5], [1.33, 1.0, 1.45, 1.35]].forEach(([Rl, th0, th1, wf]) => {
       const w = wf * Math.PI;
       const lp = part(bc, pauld, 'pauldron', { drift: V(side, 0.2, 0) });
-      forgedPlate(lp, sphSurf({ R: Rl, phi0: out - w / 2, phiLen: w, thLo: th1, thHi: th0, centre: c }), { thick: 0.09, bu: 0.03, bv: 0.04, su: 10, sv: 2, band: 0.11, bandRaise: 0.04, rivets: false, drips: 0 });
+      forgedPlate(lp, sphSurf({ R: Rl, phi0: out - w / 2, phiLen: w, thLo: th1, thHi: th0, centre: c }), { innerMat: 'dark', thick: 0.09, bu: 0.03, bv: 0.04, su: 10, sv: 2, band: 0.11, bandRaise: 0.04, rivets: false, drips: 0 });
       lp.end();
     });
     vent(bc, pauld, { pos: c.clone().add(V(side * 0.3, 1.0, -0.4).normalize().multiplyScalar(1.1)).toArray(), dir: [side * 0.3, 1.0, -0.4], r: 0.16, len: 0.35, small: true, joint: 'shoulder', side: key });
     const upper = new THREE.Group(); upper.position.set(side * A.shoulderX, A.shoulderY, 0); torso.add(upper);
     ball(bc, upper, 0.55, [0, 0, 0], 10);
-    R(upper, { y: -3.0, h: 2.3, rTop: 0.62, rBot: 0.52, n: 3, phase: 0.2 });
+    R(upper, { y: -3.0, h: 2.4, rTop: 0.68, rBot: 0.58, n: 3, phase: 0.2 });
     const fore = new THREE.Group(); fore.position.y = -A.upperArm; upper.add(fore);
     ball(bc, fore, 0.5, [0, 0, 0], 10);
-    R(fore, { y: -2.7, h: 2.1, rTop: 0.52, rBot: 0.56, n: 3, phase: 0.5 });
+    R(fore, { y: -2.75, h: 2.2, rTop: 0.56, rBot: 0.62, n: 3, phase: 0.5 });
     vent(bc, fore, { pos: [0, -0.2, -0.55], dir: [0, 0.4, -1], r: 0.14, len: 0.3, small: true, joint: 'elbow', side: key });
     const hand = new THREE.Group(); hand.position.y = -A.foreArm; fore.add(hand);
     ball(bc, hand, 0.38, [0, 0, 0], 8);
@@ -144,10 +151,10 @@ export function buildAutomaton(ctx, index, mats) {
     const key = side > 0 ? 'L' : 'R';
     const thigh = new THREE.Group(); thigh.position.set(side * A.hipX, 0, 0); pelvis.add(thigh);
     ball(bc, thigh, 0.6, [0, 0, 0], 10);
-    R(thigh, { y: -2.95, h: 2.4, rTop: 0.7, rBot: 0.58, n: 3, phase: 0.3 });
+    R(thigh, { y: -2.95, h: 2.45, rTop: 0.78, rBot: 0.64, n: 3, phase: 0.3 });
     const shin = new THREE.Group(); shin.position.y = -A.thigh; thigh.add(shin);
     ball(bc, shin, 0.52, [0, 0, 0], 10);
-    R(shin, { y: -2.55, h: 2.0, rTop: 0.62, rBot: 0.6, n: 3, phase: 0.6 });
+    R(shin, { y: -2.55, h: 2.05, rTop: 0.66, rBot: 0.66, n: 3, phase: 0.6 });
     const kq = new THREE.Quaternion().setFromUnitVectors(V(0, 1, 0), V(0, 0, 1));
     const kp = part(bc, shin, 'poleyn', { drift: V(0, 0, 1) });
     forgedPlate(kp, sphSurf({ R: 0.58, phi0: 0, phiLen: Math.PI * 2, thLo: 0.9, thHi: 0, quat: kq, centre: V(0, -0.1, 0) }), { thick: 0.08, bu: 0, bv: 0.03, su: 10, sv: 2, band: 0.08, bandRaise: 0.03, rivets: false, drips: 0 });
