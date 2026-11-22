@@ -34,6 +34,24 @@ def setp(node, names, value):
     return None
 
 
+def menu(node, name, choices):
+    """Set a menu parameter to the first value it accepts."""
+    par = getattr(node.par, name, None)
+    if par is None:
+        warnings.append('{}: no parameter named {}'.format(node.name, name))
+        return
+    for choice in choices:
+        if choice in par.menuNames:
+            par.val = choice
+            return
+    warnings.append('{}.par.{}: none of {} in its menu {}'.format(node.name, name, choices, list(par.menuNames)))
+
+
+def sequential(node):
+    """Movies must free-run. Locked to Timeline would jump every time the timeline loops and ignores cue pulses."""
+    menu(node, 'playmode', ['seq', 'sequential'])
+
+
 def expr(node, names, expression):
     for name in ([names] if isinstance(names, str) else names):
         par = getattr(node.par, name, None)
@@ -123,6 +141,7 @@ WALL = "parent().op('wall_ext').module.wall(parent())"
 
 folder = make(w, folderDAT, 'folder1', -1000, 300)
 expr(folder, 'rootfolder', "parent().par.Serverfolder.eval() + '/tiles'")
+setp(folder, 'allextensions', False)
 setp(folder, 'extensions', 'mov')
 
 folder_exec = make(w, datexecuteDAT, 'folder_exec', -800, 300)
@@ -136,6 +155,8 @@ tiles.appendRow(['name', 'path'])
 
 master = make(w, moviefileinTOP, 'tile_master', -400, 400)
 setp(master, 'play', True)
+sequential(master)
+setp(master, 'prereadframes', 2)   # 100 readers: keep each one's read-ahead small
 master.bypass = True  # only its copies play
 
 rep_cb = text_dat(w, 'rep_callbacks', -400, 200, text=(
@@ -145,13 +166,17 @@ rep_cb = text_dat(w, 'rep_callbacks', -400, 200, text=(
     "def onReplicate(comp, allOps, newOps, template, master):\n"
     "\tfor c in newOps:\n"
     "\t\tc.bypass = False\n"
+    "\t\tc.viewer = False\n"
     "\t\tc.par.file = template[c.name, 'path'].val\n"
     "\t\tc.par.play = True\n"
     "\treturn\n"))
 
 rep = make(w, replicatorCOMP, 'replicator1', -400, 300)
 setp(rep, 'template', 'tiles')
-setp(rep, 'namefromtable', 'name')      # operator name = first column (t_<tile name>)
+menu(rep, 'method', ['bytable', 'table'])
+menu(rep, 'namefromtable', ['colname', 'colindex'])   # operator name = the table's "name" column (t_<tile name>)
+setp(rep, 'colname', 'name')
+setp(rep, 'colindex', 0)
 setp(rep, 'ignorefirstrow', True)
 setp(rep, 'opprefix', '')
 setp(rep, 'master', 'tile_master')
@@ -162,6 +187,7 @@ setp(rep, 'callbacks', 'rep_callbacks')
 brand = make(w, moviefileinTOP, 'brand', -1000, 0)
 expr(brand, 'file', "parent().par.Brandclip")
 setp(brand, 'play', True)
+sequential(brand)
 brand_fit = make(w, resolutionTOP, 'brand_fit', -800, 0)   # same size as the tiles, so they share one texture array
 wire(brand, brand_fit)
 setp(brand_fit, 'outputresolution', 'custom')
@@ -216,8 +242,10 @@ full_res(render)
 
 atlas = make(w, moviefileinTOP, 'atlas', -200, -550)
 setp(atlas, 'play', True)
+sequential(atlas)
 atlas_xf = make(w, transformTOP, 'atlas_xf', 0, -550)
 wire(atlas, atlas_xf)
+menu(atlas_xf, 'extend', ['zero'])   # scaled down to the grid area: outside it must be empty, not smeared edge pixels
 full_res(atlas_xf)
 atlas_level = make(w, levelTOP, 'atlas_level', 200, -550)
 wire(atlas_xf, atlas_level)
@@ -228,6 +256,7 @@ wire(render, over_atlas, 0)
 wire(atlas_level, over_atlas, 1)
 
 hero = make(w, moviefileinTOP, 'hero', 0, 150)
+sequential(hero)
 hero_fit = make(w, fitTOP, 'hero_fit', 200, 150)
 wire(hero, hero_fit)
 full_res(hero_fit)
@@ -250,6 +279,7 @@ wire(target, target_flat, 0)
 wire(target_bg, target_flat, 1)
 target_res = make(w, resolutionTOP, 'target_res', 400, 500)  # one pixel per cell = each cell's average colour
 wire(target_flat, target_res)
+menu(target_res, 'inputfiltertype', ['mipmap'])   # a true average of each cell, not one sampled pixel
 setp(target_res, 'outputresolution', 'custom')
 expr(target_res, 'resolutionw', "parent().par.Cols")
 expr(target_res, 'resolutionh', "parent().par.Rows")
@@ -258,6 +288,7 @@ wire(target_res, target_cells)
 
 target_xf = make(w, transformTOP, 'target_xf', 200, 350)
 wire(target, target_xf)
+menu(target_xf, 'extend', ['zero'])
 full_res(target_xf)
 target_level = make(w, levelTOP, 'target_level', 400, 350)
 wire(target_xf, target_level)

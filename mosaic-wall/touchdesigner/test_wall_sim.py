@@ -74,11 +74,12 @@ class Comp:
                         Tintreused=0.7, Tintall=0.35, Atlasmode=False, Logperf=True, Paused=False, Blackedout=False)
         target = Op()
         rng = np.random.default_rng(3)
+        target.cook = lambda force=False: None
         target.numpyArray = lambda: rng.random((rows, cols, 4)).astype(np.float32)
         assign = Op()
         assign.module = mosaic_assign
         self.ops = {
-            'tiles': Table(), 'inst': Op(), 'geo': Op(instancetexs=''), 'hero': Op(file='', play=False, cuepulse=None),
+            'tiles': Table(), 'inst': Op(), 'geo': Op(instancetexs=''), 'hero': Op(file='', play=False, cue=False),
             'hero_level': Op(opacity=0.0), 'target_level': Op(opacity=0.0), 'black_level': Op(brightness1=1.0),
             'atlas_xf': Op(sx=1, sy=1), 'target_xf': Op(sx=1, sy=1), 'atlas': Op(file='', reloadpulse=None),
             'atlas_level': Op(opacity=0.0), 'target_cells': target, 'mosaic_assign': assign,
@@ -124,7 +125,7 @@ try:
     run(w, 1.2)
     assert comp.ops['hero_level'].par.opacity.val == 1.0 and comp.ops['hero'].par.file.val.endswith('new1.mp4')
     assert 'new1' not in w.cell_name and w.busy
-    run(w, 2.5)   # past 3 s of hero: now landing
+    run(w, 2.8)   # past 0.3 s of cueing plus 3 s of hero: now landing
     assert comp.ops['hero_level'].par.opacity.val == 0.0 and w.arr[wall_ext.SX, n] > w.size, 'flyer should be shrinking in'
     run(w, 1.0)
     assert w.cell_name[5] == 'new1' and w.arr[wall_ext.SX, n] == 0.0

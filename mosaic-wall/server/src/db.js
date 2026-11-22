@@ -6,6 +6,7 @@ const { config } = require('./config');
 const db = new DatabaseSync(config.dbFile);
 db.exec(`
   PRAGMA journal_mode = WAL;
+  PRAGMA busy_timeout = 3000;
   CREATE TABLE IF NOT EXISTS jobs (
     id            TEXT PRIMARY KEY,
     theme         TEXT NOT NULL,

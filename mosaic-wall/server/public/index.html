@@ -12,13 +12,13 @@
 
 <section id="attract" class="screen active">
   <p class="eyebrow">Miradore Labs</p>
-  <h1>Step into<br>the wall</h1>
-  <p class="lede">One photo. Your own AI film. On the big screen in about two minutes.</p>
+  <h1 tabindex="-1">Step into<br>the wall</h1>
+  <p class="lede">One photo becomes your own short AI film, on the big screen in about two minutes.</p>
   <button class="btn primary huge" data-go="consent">Start</button>
 </section>
 
 <section id="consent" class="screen">
-  <h2>Before we start</h2>
+  <h2 tabindex="-1">Before we start</h2>
   <label class="check">
     <input type="checkbox" id="consentBox">
     <span class="box" aria-hidden="true"></span>
@@ -31,38 +31,44 @@
 </section>
 
 <section id="themes" class="screen">
-  <h2>Pick your world</h2>
+  <h2 tabindex="-1">Pick your world</h2>
+  <p id="themeMsg" class="lede" role="status"></p>
   <div id="themeList" class="themes"></div>
+  <button class="btn primary" id="themeRetry" hidden>Try again</button>
   <button class="btn ghost" data-go="attract">Start over</button>
 </section>
 
 <section id="camera" class="screen">
+  <h2 class="sr" tabindex="-1">Take your photo</h2>
   <div class="stage">
     <video id="video" playsinline autoplay muted></video>
     <img id="still" alt="Your photo" hidden>
     <svg class="guide" viewBox="0 0 1080 1350" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       <ellipse cx="540" cy="560" rx="270" ry="360"/>
     </svg>
-    <div id="count" class="count" hidden></div>
-    <p id="camMsg" class="cammsg" hidden></p>
+    <div id="count" class="count" role="status" hidden></div>
+    <p id="camMsg" class="cammsg" role="alert" hidden></p>
   </div>
-  <p id="hint" class="hint">Fit your face in the oval</p>
+  <p id="hint" class="hint" role="status">Line your face up with the oval</p>
   <div class="row" id="liveBtns">
     <button class="btn ghost" data-go="themes">Back</button>
+    <button class="btn primary" id="camRetry" hidden>Try again</button>
     <button class="btn primary" id="shoot">Take photo</button>
   </div>
   <div class="row" id="reviewBtns" hidden>
     <button class="btn ghost" id="retake">Retake</button>
-    <button class="btn primary" id="submit">Submit</button>
+    <button class="btn primary" id="submit">Use this photo</button>
   </div>
 </section>
 
 <section id="thanks" class="screen">
-  <h2>You're in</h2>
-  <p class="lede">Watch the wall. Scan to get your clip on your phone.</p>
+  <h2 tabindex="-1">You're in</h2>
+  <p class="lede">Your film will be on the wall in about two minutes. Scan the code to keep it on your phone.</p>
   <img id="qr" class="qr" alt="QR code for your clip">
   <p id="jobCode" class="code"></p>
-  <button class="btn ghost" data-go="attract">Done <span id="resetIn"></span></button>
+  <p id="wifi" class="hint" hidden></p>
+  <button class="btn ghost" data-go="attract">Finish</button>
+  <p id="resetIn" class="hint"></p>
 </section>
 
 <script src="app.js"></script>

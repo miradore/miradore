@@ -59,6 +59,13 @@ class Wall:
         self.live = []             # tile names that have a Movie File In TOP, in texture order
         self.arr = np.zeros((len(CHANNELS), 1), dtype=np.float32)
         self.last = {'scan': 0.0, 'atlas': 0.0, 'perf': 0.0, 'frames': 0, 'atlas_mtime': 0.0}
+        self.filling = False
+        # This object starts clean, so put the operators back to clean too. After a file reload or reopening the
+        # project they may still hold a hero on screen, a reveal overlay or a blackout from before.
+        self.set_par('hero_level', 'opacity', 0.0)
+        self.set_par('target_level', 'opacity', 0.0)
+        self.set_par('black_level', 'brightness1', 1.0)
+        self.show_state()
         self.layout()
 
     # ------------------------------------------------------------------ parameters and paths
@@ -108,6 +115,8 @@ class Wall:
 
     def layout(self):
         """Work out cell positions. Units: screen height is 1, screen width is the aspect ratio."""
+        if self.busy:  # never pull the grid out from under a hero, landing or reveal
+            return self.later(0.5, self.layout)
         cols, rows, n = self.cols, self.rows, self.n
         aspect = float(self.p('Resw', 1920)) / max(1.0, float(self.p('Resh', 1080)))
         self.cell = min(aspect / cols, 1.0 / rows)
@@ -174,21 +183,25 @@ class Wall:
 
     def push(self):
         chop = self.o('inst')
-        if chop is not None:
+        if chop is not None and not self.filling:  # not while the CHOP itself is cooking
             chop.cook(force=True)
 
     def fill_chop(self, script_op):
         """Called from the Script CHOP's onCook."""
-        script_op.clear()
+        self.filling = True
         try:
-            script_op.copyNumpyArray(self.arr)
-            for i, name in enumerate(CHANNELS):
-                script_op[i].name = name
-        except Exception:
             script_op.clear()
-            script_op.numSamples = self.arr.shape[1]
-            for i, name in enumerate(CHANNELS):
-                script_op.appendChan(name).vals = self.arr[i].tolist()
+            try:
+                script_op.copyNumpyArray(self.arr)
+                for i, name in enumerate(CHANNELS):
+                    script_op[i].name = name
+            except Exception:
+                script_op.clear()
+                script_op.numSamples = self.arr.shape[1]
+                for i, name in enumerate(CHANNELS):
+                    script_op.appendChan(name).vals = self.arr[i].tolist()
+        finally:
+            self.filling = False
 
     def write_cells(self):
         """data/cells.csv tells the Step 4b atlas baker which tile sits in which cell."""
@@ -342,11 +355,18 @@ class Wall:
 
         hero = self.folder('hero', name + '.mp4')
         if os.path.isfile(hero):
+            # Hold the new file on its first frame for a moment before showing it; otherwise the previous
+            # guest's last frame flashes up while the file opens.
             self.set_par('hero', 'file', hero)
-            self.pulse('hero', 'cuepulse')
+            self.set_par('hero', 'cue', True)
             self.set_par('hero', 'play', True)
-            self.set_par('hero_level', 'opacity', 1.0)
-            self.later(float(self.p('Heroseconds', 3.0)), lambda: self.land(name, cell))
+
+            def show():
+                self.set_par('hero', 'cue', False)
+                self.set_par('hero_level', 'opacity', 1.0)
+
+            self.later(0.3, show)
+            self.later(0.3 + float(self.p('Heroseconds', 3.0)), lambda: self.land(name, cell))
         else:
             self.later(0.2, lambda: self.land(name, cell))
 
@@ -457,6 +477,7 @@ class Wall:
         top = self.o('target_cells')
         if top is None:
             return None
+        top.cook(force=True)  # nothing displays this TOP, so make sure it is current
         pixels = top.numpyArray()
         if pixels is None or pixels.shape[0] != self.rows or pixels.shape[1] != self.cols:
             return None

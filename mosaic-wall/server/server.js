@@ -30,9 +30,19 @@ app.get('/api/themes', (req, res) => {
   res.json(themes.map(({ id, label, color }) => ({ id, label, color })));
 });
 
-app.post('/api/jobs', upload.single('photo'), (req, res) => {
+app.get('/api/config', (req, res) => res.json({ wifi: config.WIFI_NAME }));
+
+// Only the iPad may create jobs. Checked before the upload is read, so a stranger cannot even fill the disk.
+const boothOnly = (req, res, next) => {
+  if (req.get('x-booth-token') !== config.BOOTH_TOKEN) return res.status(403).json({ error: 'This address is for the booth iPad only' });
+  const c = jobs.counts();
+  if (c.new + c.generating >= config.MAX_QUEUE) return res.status(429).json({ error: 'Queue full' });
+  next();
+};
+
+app.post('/api/jobs', boothOnly, upload.single('photo'), (req, res) => {
   const theme = String(req.body.theme || '');
-  if (!loadThemes().themes.some((t) => t.id === theme)) return res.status(400).json({ error: 'Unknown theme' });
+  if (!loadThemes().themes.some((t) => t.id === theme && t.enabled !== false)) return res.status(400).json({ error: 'Unknown theme' });
   const buf = req.file && req.file.buffer;
   if (!buf || buf.length < 4 || buf[0] !== 0xff || buf[1] !== 0xd8) return res.status(400).json({ error: 'Photo must be a JPEG' });
   const id = newId();
@@ -80,6 +90,7 @@ const operatorOnly = (req, res, next) => {
   res.status(403).send('The operator page only opens on the MacBook: http://localhost:' + config.PORT + '/operator');
 };
 
+app.get('/operator.html', operatorOnly, (req, res) => res.redirect('/operator'));
 app.get('/operator', operatorOnly, (req, res) => res.sendFile(path.join(__dirname, 'public', 'operator.html')));
 
 app.get('/api/operator/jobs', operatorOnly, (req, res) => {
@@ -110,8 +121,21 @@ const jobIn = (statuses) => (req, res, next) => {
   next();
 };
 
+const approving = new Set(); // a second tab or a double key press must not run ffmpeg twice on one clip
+
 app.post('/api/operator/jobs/:id/approve', operatorOnly, jobIn(['ready']), wrap(async (req, res) => {
   const job = req.job;
+  if (approving.has(job.id)) return res.status(409).json({ error: 'Already being approved' });
+  approving.add(job.id);
+  try {
+    await approve(job);
+  } finally {
+    approving.delete(job.id);
+  }
+  res.json({ ok: true });
+}));
+
+async function approve(job) {
   // Hero first: the wall plays the hero clip the moment the tile lands in /tiles.
   const hero = path.join(config.dirs.hero, `${job.id}.mp4`);
   fs.copyFileSync(job.clip_path, hero + '.part');
@@ -124,8 +148,7 @@ app.post('/api/operator/jobs/:id/approve', operatorOnly, jobIn(['ready']), wrap(
   }
   jobs.update(job.id, { status: 'approved' });
   console.log(`[approve] ${job.id} is on the wall`);
-  res.json({ ok: true });
-}));
+}
 
 app.post('/api/operator/jobs/:id/reject', operatorOnly, jobIn(['ready']), (req, res) => {
   jobs.update(req.job.id, { status: 'rejected' });
@@ -164,11 +187,14 @@ const certFile = path.join(config.dirs.certs, 'cert.pem');
 if (fs.existsSync(keyFile) && fs.existsSync(certFile)) {
   https.createServer({ key: fs.readFileSync(keyFile), cert: fs.readFileSync(certFile) }, app).listen(config.HTTPS_PORT, () => {
     const host = new URL(config.PUBLIC_BASE_URL).hostname;
-    console.log(`iPad capture    https://${host}:${config.HTTPS_PORT}/`);
+    console.log(`iPad capture    https://${host}:${config.HTTPS_PORT}/?k=${config.BOOTH_TOKEN}`);
   });
 } else {
   console.warn('No certs/ found: the iPad camera needs HTTPS. Run "npm run cert" and restart.');
 }
 
+if (!process.env.PUBLIC_BASE_URL && config.lanAddresses.length > 1) {
+  console.warn(`This Mac has several network addresses (${config.lanAddresses.join(', ')}). Set PUBLIC_BASE_URL in .env to the one guests' phones can reach, or the QR codes may not open.`);
+}
 console.log(`Generation: ${config.GEN_PROVIDER === 'mock' ? 'MOCK (no API calls)' : 'Higgsfield ' + config.GEN_MODEL}, concurrency ${config.MAX_CONCURRENCY}`);
 queue.start();

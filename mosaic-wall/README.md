@@ -36,9 +36,14 @@ npm start
 
 It prints three addresses:
 
-- **iPad capture**: `https://<MacBook IP>:3443/`. HTTPS is required: Safari will not open the camera on plain http. `npm run cert` prints how to trust the certificate on the iPad.
+- **iPad capture**: `https://<MacBook IP>:3443/?k=<booth token>`. Use the full address the server prints. HTTPS is required: Safari will not open the camera on plain http, and `npm run cert` prints how to trust the certificate on the iPad. The `?k=` token is what lets the iPad submit photos; guests' phones on the same network do not have it, so they cannot spend credits.
 - **Operator**: `http://localhost:3000/operator`, on the MacBook only. `A` approves, `R` rejects, arrow keys move.
 - **Guest clip links** (the QR code): `http://<MacBook IP>:3000/clip/<jobId>`. A guest only sees their clip after it is approved.
+
+Two settings in `.env` matter for guests' phones:
+
+- `PUBLIC_BASE_URL`: the address in the QR code. If the MacBook is on wired internet and wifi at once, set this to the address phones can reach (the server warns when it sees more than one). A phone on mobile data cannot open a local address at all.
+- `WIFI_NAME`: shown on the thank-you screen so guests join the right network before scanning.
 
 To rehearse with no API calls and no credits, set `GEN_PROVIDER=mock` in `.env`. It makes a slow push-in on the photo instead of an AI clip.
 
@@ -46,7 +51,7 @@ Folders the server makes: `uploads/` photos, `clips/` raw clips, `tiles/` 320x32
 
 ### Step 2 check (iPad)
 
-1. On the iPad open the capture address in Safari, Share, Add to Home Screen, open it from there (full screen), then turn on Guided Access.
+1. On the iPad open the capture address (with `?k=`) in Safari, Share, Add to Home Screen, open it from there (full screen), then turn on Guided Access. In Settings > Accessibility > Guided Access set Display Auto-Lock to Never, so the camera is not cut off.
 2. Submit 5 photos in a row. Each JPEG appears in `server/uploads/` named with its job id.
 3. Leave the thank-you screen alone: it returns to the start after 20 seconds. Any other screen returns after 90 seconds untouched.
 
@@ -66,11 +71,11 @@ Approve them on the operator page, then:
 
 docs.higgsfield.ai could not be opened from where this was built, so the endpoints were taken from Higgsfield's official Node SDK (`@higgsfield/client` 0.2.6) instead of guessed. They are listed at the top of `server/src/higgsfield.js`. Three things to confirm on the first real run:
 
-1. **Photo upload.** The SDK's `uploadImage` is used to get a URL for the guest photo. If it is rejected with the API key, the fix is in `start()` in `higgsfield.js`.
+1. **Photo upload.** The SDK's `uploadImage` is used to get a URL for the guest photo. It sends the key in an older header style than the rest of the API, so it is the call most likely to be refused. If it is, every job fails at once with an authentication error; the fix is in `start()` in `higgsfield.js`. Make one real call before anything else.
 2. **Model.** `models.json` ships the three DoP models, the only image-to-video endpoint the SDK documents. To use Seedance or Kling, add an entry with the endpoint and body copied from the docs, then set `GEN_MODEL` in `.env`. That is also how to switch model on the day if one is slow.
 3. **Clip length and size.** The DoP request has no duration field in the SDK. Check what comes back in Step 1.
 
-Failures: each job gets one retry. Moderation rejections, a bad key and no credits fail straight away because a retry cannot help. On the operator page a failed job can be tried again or turned into a still-photo tile (the plan's last resort).
+Failures: each job gets one retry. A dropped connection while waiting does not count as a failure and never resubmits the clip, so a wifi blip cannot bill a clip twice. Moderation rejections, a bad key and no credits fail straight away because a retry cannot help. On the operator page a failed job can be tried again or turned into a still-photo tile (the plan's last resort).
 
 ### Other commands
 

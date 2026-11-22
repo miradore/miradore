@@ -4,6 +4,7 @@
 //   node scripts/submit-test-jobs.js 10 path/to/photo1.jpg [photo2.jpg ...]
 // With no photos given it makes a plain test card. Use real staff photos when the real API is on.
 const fs = require('fs');
+const { config } = require('../src/config');
 const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -24,7 +25,7 @@ const base = process.env.BASE_URL || `http://localhost:${process.env.PORT || 300
     const form = new FormData();
     form.append('theme', themes[i % themes.length].id);
     form.append('photo', new Blob([fs.readFileSync(photos[i % photos.length])], { type: 'image/jpeg' }), 'photo.jpg');
-    const res = await fetch(`${base}/api/jobs`, { method: 'POST', body: form });
+    const res = await fetch(`${base}/api/jobs`, { method: 'POST', body: form, headers: { 'x-booth-token': config.BOOTH_TOKEN } });
     const body = await res.json();
     console.log(res.ok ? `submitted ${body.jobId}  ${body.clipUrl}` : `FAILED ${JSON.stringify(body)}`);
   }

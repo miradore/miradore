@@ -26,38 +26,57 @@
 <body>
   <p class="eyebrow">Miradore Labs</p>
 
-  <div id="pending">
+  <div id="pending" role="status">
     <div class="spin" style="margin-left:auto;margin-right:auto"></div>
     <h1>Your clip is being made</h1>
-    <p style="margin:12px auto 0">Keep this page open. It appears here as soon as it is ready, usually within a few minutes.</p>
+    <p id="pendingMsg" style="margin:12px auto 0">Keep this page open. Your clip will appear here in a few minutes.</p>
   </div>
 
   <div id="ready" hidden style="display:contents">
     <h1>Here is your clip</h1>
     <video id="v" controls playsinline loop muted autoplay></video>
-    <a class="btn" id="dl">Download</a>
-    <p>On iPhone, tap Download, then Share, then Save Video.</p>
+    <a class="btn" id="dl">Save your clip</a>
+    <p id="ios" hidden>On iPhone: tap Save your clip, then Download. Tap the arrow in the address bar, open the clip, then Share and Save Video.</p>
   </div>
 
   <div id="unavailable" hidden>
-    <h1 style="margin-top:40px">Sorry, this one did not work out</h1>
-    <p style="margin:12px auto 0">Please see a host at the booth and we will take another photo.</p>
+    <h1 style="margin-top:40px">Sorry, this clip did not work out</h1>
+    <p style="margin:12px auto 0">Please see a host at the booth and we will happily take another photo.</p>
+  </div>
+
+  <div id="gone" hidden>
+    <h1 style="margin-top:40px">We cannot find this clip</h1>
+    <p style="margin:12px auto 0">Clips are removed 7 days after the event. If yours is from today, please see a host at the booth.</p>
   </div>
 
 <script>
 (() => {
   const id = location.pathname.split('/').filter(Boolean).pop();
-  const show = (name) => ['pending', 'ready', 'unavailable'].forEach((n) => { document.getElementById(n).hidden = n !== name; });
+  const $ = (n) => document.getElementById(n);
+  const show = (name) => ['pending', 'ready', 'unavailable', 'gone'].forEach((n) => { $(n).hidden = n !== name; });
+  const started = Date.now();
+  let misses = 0;
+  $('ios').hidden = !/iPhone|iPad|iPod/.test(navigator.userAgent);
+
   async function check() {
-    let state = 'pending';
-    try { state = (await (await fetch('/api/clip/' + id)).json()).state; } catch (e) {}
+    let state = null;
+    try {
+      state = (await (await fetch('/api/clip/' + id, { cache: 'no-store' })).json()).state;
+      misses = 0;
+    } catch (e) {
+      misses++;
+    }
     if (state === 'ready') {
-      document.getElementById('v').src = '/clip/' + id + '/video';
-      document.getElementById('dl').href = '/clip/' + id + '/video?download=1';
+      $('v').src = '/clip/' + id + '/video#t=0.001'; // shows the first frame even where autoplay is blocked (Low Power Mode)
+      $('dl').href = '/clip/' + id + '/video?download=1';
       return show('ready');
     }
-    if (state === 'unavailable' || state === 'gone') return show('unavailable');
+    if (state === 'unavailable') return show('unavailable');
+    if (state === 'gone') return show('gone');
     show('pending');
+    $('pendingMsg').textContent = misses >= 3 ? 'We cannot reach the booth. Check your connection and we will keep trying.'
+      : Date.now() - started > 10 * 60 * 1000 ? 'This is taking longer than usual. Please see a host at the booth.'
+      : 'Keep this page open. Your clip will appear here in a few minutes.';
     setTimeout(check, 4000);
   }
   check();

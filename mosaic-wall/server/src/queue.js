@@ -68,22 +68,31 @@ async function runJob(job) {
   }
 }
 
+/** Runs a job and makes sure nothing it throws (disk full, database busy) can crash the server. */
+function launch(job) {
+  runJob(job).catch((err) => {
+    active.delete(job.id);
+    console.error(`[queue] ${job.id} crashed:`, err);
+  });
+}
+
 function tick() {
   if (active.size >= config.MAX_CONCURRENCY) return;
   for (const job of jobs.byStatus('new')) {
     if (active.size >= config.MAX_CONCURRENCY) break;
-    if (!active.has(job.id)) runJob(job);
+    if (!active.has(job.id)) launch(job);
   }
 }
 
 function start() {
   // Jobs caught mid-generation by a restart: resume polling if Higgsfield already has them, otherwise requeue.
   for (const job of jobs.byStatus('generating')) {
-    if (job.request_id && config.GEN_PROVIDER !== 'mock') runJob(job);
+    if (job.request_id && config.GEN_PROVIDER !== 'mock') launch(job);
     else jobs.update(job.id, { status: 'new', attempts: Math.max(0, job.attempts - 1) });
   }
-  setInterval(tick, 1000).unref();
-  tick();
+  const safeTick = () => { try { tick(); } catch (err) { console.error('[queue] tick failed:', err); } };
+  setInterval(safeTick, 1000).unref();
+  safeTick();
 }
 
 /** Operator: run a failed job again from scratch. */

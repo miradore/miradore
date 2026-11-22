@@ -17,6 +17,8 @@ On the `wall` COMP, page **Wall**:
 - **Target Image**: the Miradore Labs logo PNG. Make it the same shape as the grid (10 x 10 grid: a square image), because it is stretched over the grid.
 - **Columns / Rows**: the grid. **Output Width / Height**: the screen's native resolution from Step 0.
 
+A paid TouchDesigner licence is needed: Non-Commercial caps output at 1280 x 1280.
+
 Then add a Window COMP, set its Operator to `wall/out`, pick the office screen as the monitor, and open it in Perform mode.
 
 Start the server (`npm start` in `server/`). Tiles already in `server/tiles/` appear in their cells straight away. Each newly approved clip plays full screen for 3 seconds, then flies into the next free cell over 1 second. When the wall is full, the oldest tile gives up its cell.
@@ -40,8 +42,11 @@ Each warning names an operator and a parameter it could not find. The ones most 
 
 - **geo, Instance page**: Instancing On; Default Instance OP `inst`; Translate X/Y/Z `tx ty tz`; Scale X/Y `sx sy`.
 - **geo, Instance 2 page**: Color R/G/B `r g b`; Instance Textures (the wall fills this in itself, starting with `brand_fit`); Texture Index OP `inst`, Texture Index `tex`.
-- **replicator1**: Template Table `tiles`; Name from Table: first column; Ignore First Row On; Master Operator `tile_master`; Callbacks `rep_callbacks`. Copies must appear inside `wall` named `t_<tile name>`.
+- **replicator1**: Replication Method: By Table; Template Table `tiles`; Name from Table: Column Name, Column Name `name`; Ignore First Row On; Master Operator `tile_master`; Callbacks `rep_callbacks`. Copies must appear inside `wall` named `t_<tile name>`.
 - **cam**: Projection Orthographic, Ortho Width = output width / output height, Translate Z 5.
+- **tile_master, brand, hero, atlas** (Movie File In): Play Mode Sequential. If it is Locked to Timeline, tiles jump when the timeline loops and heroes start mid-clip.
+- **geo/tile** (Grid SOP): middle-click it; if there is no `uv` attribute, set Texture Coordinates to Rows & Columns.
+- **atlas_xf, target_xf** (Transform TOP): Extend Zero. **target_res**: Input Smoothness Mipmap Pixels.
 - **folder1**: Root Folder = `server/tiles`, extension `mov`. If the Folder DAT gives trouble the wall falls back to listing the folder itself once a second.
 - **tick** (Execute DAT): Frame Start On. **parexec**: OP `..`, Parameters `*`, On Pulse and Value Change On.
 
@@ -51,7 +56,9 @@ Each warning names an operator and a parameter it could not find. The ones most 
 2. Dialogs > Performance Monitor: the wall holds 60 fps. `server/data/perf_log.csv` also logs fps every 10 s.
 3. Approve one new clip: hero for 3 s, then it lands in its cell.
 4. All four Stream Deck keys work.
-5. Below 50 fps: go to Step 4b before anything else.
+5. Below 50 fps, try these first: Perform mode (not the network editor), mains power, the screen at 60 Hz, Render TOP anti-alias at 1x or 2x. Still below 50: go to Step 4b.
+
+The hero clip is 4:5, so on a 16:9 screen it plays with the wall visible either side. To make it cover the whole screen (cropping top and bottom), set Fit to Fill on `hero_fit`.
 
 ## Step 4b, only if needed
 

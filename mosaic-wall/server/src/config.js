@@ -32,6 +32,19 @@ function lanIp() {
 
 const PORT = num('PORT', 3000);
 
+/**
+ * The booth token keeps guests' phones (same network, they have the server address from the QR code) from
+ * submitting jobs and spending credits. Only the iPad's address carries it. Made once, then kept in data/.
+ */
+function boothToken() {
+  if (process.env.BOOTH_TOKEN) return process.env.BOOTH_TOKEN;
+  const file = path.join(dirs.data, 'booth_token');
+  if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8').trim();
+  const token = require('crypto').randomBytes(9).toString('base64url');
+  fs.writeFileSync(file, token + '\n');
+  return token;
+}
+
 const config = {
   ROOT,
   dirs,
@@ -40,6 +53,10 @@ const config = {
   PUBLIC_BASE_URL: (process.env.PUBLIC_BASE_URL || `http://${lanIp()}:${PORT}`).replace(/\/$/, ''),
   OPERATOR_LOCAL_ONLY: (process.env.OPERATOR_LOCAL_ONLY || 'true') !== 'false',
   RETENTION_DAYS: num('RETENTION_DAYS', 7),
+  BOOTH_TOKEN: boothToken(),
+  MAX_QUEUE: num('MAX_QUEUE', 30),
+  WIFI_NAME: process.env.WIFI_NAME || '',
+  lanAddresses: Object.values(os.networkInterfaces()).flat().filter((i) => i && i.family === 'IPv4' && !i.internal).map((i) => i.address),
   GEN_PROVIDER: process.env.GEN_PROVIDER || 'higgsfield',
   GEN_MODEL: process.env.GEN_MODEL || 'dop-turbo',
   MAX_CONCURRENCY: Math.max(1, num('MAX_CONCURRENCY', 3)),

@@ -57,7 +57,8 @@ async function start(job, prompt) {
   const { v2, files } = getClients();
   const model = loadModel();
   try {
-    const imageUrl = await files.uploadImage(fs.readFileSync(job.photo_path), 'jpeg');
+    // The SDK's upload has no timeout of its own; a stalled upload must not hold a queue slot forever.
+    const imageUrl = await withTimeout(files.uploadImage(fs.readFileSync(job.photo_path), 'jpeg'), 60000, 'photo upload');
     const res = await v2.subscribe(model.endpoint, {
       input: fill(model.input, { prompt, image_url: imageUrl }),
       withPolling: false,
@@ -69,12 +70,27 @@ async function start(job, prompt) {
   }
 }
 
+function withTimeout(promise, ms, what) {
+  let timer;
+  const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`${what} timed out`)), ms); });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 /** Polls until the request finishes, then returns the video URL. */
 async function waitForVideo(requestId, deadline) {
   const headers = { Authorization: `Key ${config.HF_CREDENTIALS}` };
   for (;;) {
     if (Date.now() > deadline) throw new Error(`timed out after ${config.GEN_TIMEOUT_S}s`);
-    const res = await fetch(`${BASE_URL}/requests/${requestId}/status`, { headers });
+    let res;
+    try {
+      res = await fetch(`${BASE_URL}/requests/${requestId}/status`, { headers, signal: AbortSignal.timeout(15000) });
+    } catch (err) {
+      // A network blip is not a failed generation. Keep polling the same request; resubmitting would bill it twice.
+      await sleep(config.POLL_INTERVAL_MS);
+      continue;
+    }
     if (res.status === 401) throw new FatalGenerationError('AuthenticationError: invalid API credentials');
     if (res.ok) {
       const body = await res.json();
@@ -84,19 +100,30 @@ async function waitForVideo(requestId, deadline) {
       }
       if (body.status === 'nsfw') throw new FatalGenerationError('nsfw: rejected by Higgsfield moderation');
       if (body.status === 'failed') throw new Error('Higgsfield reported the generation as failed');
-    } else if (res.status < 500) {
+    } else if (res.status < 500 && res.status !== 429) {
       throw new Error(`status check returned HTTP ${res.status}`);
     }
-    await new Promise((r) => setTimeout(r, config.POLL_INTERVAL_MS));
+    await sleep(config.POLL_INTERVAL_MS);
   }
 }
 
+/** Downloads the finished clip, trying three times: the clip is already paid for, so do not give up on one bad connection. */
 async function download(url, outPath) {
-  const res = await fetch(url);
-  if (!res.ok || !res.body) throw new Error(`clip download returned HTTP ${res.status}`);
   const tmp = outPath + '.part';
-  await pipeline(Readable.fromWeb(res.body), fs.createWriteStream(tmp));
-  fs.renameSync(tmp, outPath);
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(120000) });
+      if (!res.ok || !res.body) throw new Error(`clip download returned HTTP ${res.status}`);
+      await pipeline(Readable.fromWeb(res.body), fs.createWriteStream(tmp));
+      fs.renameSync(tmp, outPath);
+      return;
+    } catch (err) {
+      lastError = err;
+      await sleep(2000 * attempt);
+    }
+  }
+  throw lastError;
 }
 
 module.exports = { start, waitForVideo, download, FatalGenerationError };

@@ -46,11 +46,9 @@ async function bake() {
     chains.push(`[${i}:v]scale=${CELL}:${CELL},fps=30[t${i}]`);
     chains.push(`[bg${i}][t${i}]overlay=${x}:${y}[bg${i + 1}]`);
   });
-  // overlay chain rather than one xstack: it leaves unbaked cells transparent to the live layer and has no input-count limit
-  const graphFile = path.join(config.dirs.atlas, 'graph.txt');
-  fs.writeFileSync(graphFile, chains.join(';\n'));
+  // An overlay chain rather than one xstack: cells can be left out (they stay black; the live tile draws over them).
   const tmp = path.join(config.dirs.atlas, '.atlas.part');
-  args.push('-filter_complex_script', graphFile, '-map', `[bg${slots.length}]`, '-t', String(SECONDS), '-an', '-c:v', 'hap', '-f', 'mov', tmp);
+  args.push('-filter_complex', chains.join(';'), '-map', `[bg${slots.length}]`, '-t', String(SECONDS), '-an', '-c:v', 'hap', '-f', 'mov', tmp);
 
   const t0 = Date.now();
   await media.run('ffmpeg', args);
