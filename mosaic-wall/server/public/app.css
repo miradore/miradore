@@ -1,0 +1,54 @@
+:root {
+  --black: #0B1215; --orange: #FF6B35; --teal: #00BCB0; --gold: #C9A84C; --ink: #F4F1EA; --dim: #9AA5A8;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; margin: 0; overflow: hidden; background: var(--black); color: var(--ink);
+  font-family: -apple-system, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
+.screen { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4vh; padding: max(4vh, env(safe-area-inset-top)) 6vw max(4vh, env(safe-area-inset-bottom)); text-align: center; }
+.screen.active { display: flex; }
+.eyebrow { margin: 0; letter-spacing: .4em; text-transform: uppercase; color: var(--gold); font-size: 2.2vmin; }
+h1 { margin: 0; font-size: 13vmin; line-height: .95; font-weight: 800; letter-spacing: -.02em; }
+h2 { margin: 0; font-size: 7vmin; font-weight: 800; letter-spacing: -.01em; }
+.lede { margin: 0; max-width: 32ch; font-size: 3.4vmin; line-height: 1.35; color: var(--dim); }
+.btn { appearance: none; border: 0; border-radius: 999px; min-height: 96px; min-width: 240px; padding: 0 56px;
+  font: inherit; font-size: 3.6vmin; font-weight: 700; color: var(--ink); background: transparent; }
+.btn.primary { background: var(--orange); color: var(--black); }
+.btn.ghost { box-shadow: inset 0 0 0 3px rgba(244, 241, 234, .35); }
+.btn.huge { min-height: 150px; min-width: 420px; font-size: 6vmin; }
+.btn:active { transform: scale(.97); }
+.btn:disabled { opacity: .3; }
+.row { display: flex; gap: 4vw; flex-wrap: wrap; justify-content: center; }
+
+.check { display: flex; align-items: flex-start; gap: 28px; max-width: 30em; padding: 36px; border-radius: 28px;
+  background: rgba(244, 241, 234, .06); font-size: 3.2vmin; line-height: 1.4; text-align: left; }
+.check input { position: absolute; opacity: 0; }
+.check .box { flex: none; width: 64px; height: 64px; border-radius: 14px; box-shadow: inset 0 0 0 4px var(--ink); }
+.check input:checked + .box { background: var(--teal) center / 70% no-repeat
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 12.5l5 5L20 6.5' fill='none' stroke='%230B1215' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  box-shadow: none; }
+
+.themes { display: flex; gap: 3vw; width: 100%; justify-content: center; flex-wrap: wrap; }
+.theme { flex: 1 1 26vw; max-width: 420px; min-height: 34vh; border: 0; border-radius: 32px; padding: 32px;
+  display: flex; align-items: flex-end; font: inherit; font-size: 4.4vmin; font-weight: 800; text-align: left; color: var(--black); }
+.theme:active { transform: scale(.97); }
+
+#camera { gap: 2.5vh; }
+.stage { position: relative; height: 68vh; aspect-ratio: 4 / 5; max-width: 92vw; border-radius: 28px; overflow: hidden; background: #000; }
+.stage video, .stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.stage video { transform: scaleX(-1); }
+.guide { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.guide ellipse { fill: none; stroke: rgba(244, 241, 234, .85); stroke-width: 6; stroke-dasharray: 18 14; }
+.count { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 40vmin; font-weight: 800; text-shadow: 0 0 60px rgba(0, 0, 0, .6); }
+.cammsg { position: absolute; inset: 0; margin: 0; display: flex; align-items: center; justify-content: center; padding: 10%;
+  font-size: 3vmin; line-height: 1.4; background: var(--black); }
+.hint { margin: 0; font-size: 3vmin; color: var(--dim); }
+.flash { animation: flash .35s ease-out; }
+@keyframes flash { from { filter: brightness(4); } to { filter: none; } }
+
+.qr { width: 38vmin; height: 38vmin; border-radius: 24px; background: #fff; }
+.code { margin: 0; font-size: 2.6vmin; letter-spacing: .3em; color: var(--dim); text-transform: uppercase; }
+[hidden] { display: none !important; }
+@media (prefers-reduced-motion: reduce) { .flash { animation: none; } .btn:active, .theme:active { transform: none; } }

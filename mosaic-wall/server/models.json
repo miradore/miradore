@@ -1,0 +1,29 @@
+{
+  "_note": "Each model is an endpoint plus the JSON body sent to it. {{prompt}} and {{image_url}} are filled in per job. The DoP entries come from the official SDK (@higgsfield/client 0.2.6). To add Seedance or Kling, copy the endpoint path and body from https://docs.higgsfield.ai exactly. Do not guess them.",
+  "models": {
+    "dop-turbo": {
+      "endpoint": "/v1/image2video/dop",
+      "input": {
+        "model": "dop-turbo",
+        "prompt": "{{prompt}}",
+        "input_images": [{ "type": "image_url", "image_url": "{{image_url}}" }]
+      }
+    },
+    "dop-lite": {
+      "endpoint": "/v1/image2video/dop",
+      "input": {
+        "model": "dop-lite",
+        "prompt": "{{prompt}}",
+        "input_images": [{ "type": "image_url", "image_url": "{{image_url}}" }]
+      }
+    },
+    "dop-standard": {
+      "endpoint": "/v1/image2video/dop",
+      "input": {
+        "model": "dop-standard",
+        "prompt": "{{prompt}}",
+        "input_images": [{ "type": "image_url", "image_url": "{{image_url}}" }]
+      }
+    }
+  }
+}

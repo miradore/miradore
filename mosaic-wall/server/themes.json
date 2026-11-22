@@ -1,0 +1,34 @@
+{
+  "_note": "The capture page shows the first 3 themes with enabled=true. Teepu approves the final 3 after the Step 1 look test.",
+  "avoid": "No extra people, no text, no hands near the face, no fast motion.",
+  "themes": [
+    {
+      "id": "future-city",
+      "label": "Future City",
+      "color": "#00BCB0",
+      "enabled": true,
+      "prompt": "The person from the photo walks slowly towards camera through a sunlit futuristic city of white curved towers and turquoise water, gentle dolly in, soft cinematic light, keep the face and clothing exactly as in the photo, realistic, 5 seconds."
+    },
+    {
+      "id": "desert-gold",
+      "label": "Desert Gold",
+      "color": "#C9A84C",
+      "enabled": true,
+      "prompt": "The person from the photo stands on a golden sand dune at sunset, wind moving their clothes, slow orbit around them, warm film grain, keep the face exactly as in the photo, realistic."
+    },
+    {
+      "id": "neon-studio",
+      "label": "Neon Studio",
+      "color": "#FF6B35",
+      "enabled": true,
+      "prompt": "The person from the photo turns to camera and smiles in a dark studio with magenta and teal light streaks, slow push in, keep the face exactly as in the photo, realistic, clean background."
+    },
+    {
+      "id": "labs-garden",
+      "label": "Labs Garden",
+      "color": "#005F58",
+      "enabled": false,
+      "prompt": "The person from the photo stands in a glowing digital garden of light flowers that bloom around them, slow crane up, keep the face exactly as in the photo, realistic."
+    }
+  ]
+}

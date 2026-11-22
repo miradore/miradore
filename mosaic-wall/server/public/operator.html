@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wall operator</title>
+<style>
+  :root { --black: #0B1215; --panel: #142024; --orange: #FF6B35; --teal: #00BCB0; --ink: #F4F1EA; --dim: #9AA5A8; --red: #E5484D; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--black); color: var(--ink); font: 15px/1.4 -apple-system, "Helvetica Neue", Arial, sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center;
+    padding: 12px 20px; background: var(--black); border-bottom: 1px solid #22323a; }
+  header h1 { margin: 0 auto 0 0; font-size: 18px; }
+  .stat { color: var(--dim); font-variant-numeric: tabular-nums; }
+  .stat b { color: var(--ink); }
+  kbd { padding: 1px 7px; border-radius: 5px; background: #22323a; font: inherit; }
+  main { padding: 20px; }
+  h2 { margin: 28px 0 12px; font-size: 14px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+  h2:first-child { margin-top: 0; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
+  .card { border-radius: 14px; background: var(--panel); overflow: hidden; outline: 3px solid transparent; cursor: pointer; }
+  .card.sel { outline-color: var(--orange); }
+  .card video { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; background: #000; }
+  .meta { display: flex; justify-content: space-between; gap: 8px; padding: 8px 12px; color: var(--dim); font-size: 13px; }
+  .acts { display: flex; }
+  button { flex: 1; padding: 12px; border: 0; font: inherit; font-weight: 700; color: var(--black); cursor: pointer; }
+  button.ok { background: var(--teal); }
+  button.no { background: var(--red); color: #fff; }
+  button.alt { background: #22323a; color: var(--ink); }
+  button:disabled { opacity: .4; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 8px 10px; border-top: 1px solid #22323a; vertical-align: middle; }
+  td.err { color: var(--red); word-break: break-word; }
+  td.act { white-space: nowrap; text-align: right; }
+  td.act button { flex: none; padding: 7px 12px; border-radius: 8px; margin-left: 6px; }
+  .empty { color: var(--dim); }
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 10px 18px; border-radius: 10px;
+    background: var(--red); color: #fff; font-weight: 600; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Wall operator</h1>
+  <span class="stat">Engine <b id="provider">-</b></span>
+  <span class="stat">Waiting <b id="cWait">0</b></span>
+  <span class="stat">Ready <b id="cReady">0</b></span>
+  <span class="stat">On wall <b id="cApproved">0</b></span>
+  <span class="stat">Rejected <b id="cRejected">0</b></span>
+  <span class="stat">Failed <b id="cFailed">0</b></span>
+  <span class="stat"><kbd>A</kbd> approve <kbd>R</kbd> reject <kbd>←</kbd><kbd>→</kbd> move</span>
+</header>
+<main>
+  <h2>Ready for review</h2>
+  <div id="ready" class="grid"></div>
+  <p id="readyEmpty" class="empty">Nothing to review. New clips appear here on their own.</p>
+
+  <h2>Failed</h2>
+  <table id="failed"></table>
+  <p id="failedEmpty" class="empty">No failures.</p>
+
+  <h2>In the queue</h2>
+  <table id="waiting"></table>
+  <p id="waitingEmpty" class="empty">Queue is empty.</p>
+</main>
+<div id="toast" hidden></div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  let ready = [];
+  let selected = null;
+  const inFlight = new Set();
+
+  function toast(text) {
+    $('toast').textContent = text;
+    $('toast').hidden = false;
+    clearTimeout(toast.t);
+    toast.t = setTimeout(() => { $('toast').hidden = true; }, 4000);
+  }
+
+  async function act(id, action) {
+    if (inFlight.has(id)) return;
+    inFlight.add(id);
+    if (action === 'approve' || action === 'reject') {
+      const i = ready.findIndex((j) => j.id === id);
+      const next = ready[i + 1] || ready[i - 1];
+      selected = next ? next.id : null;
+      const card = document.querySelector('[data-id="' + id + '"]');
+      if (card) card.style.opacity = .35;
+      mark();
+    }
+    try {
+      const res = await fetch('/api/operator/jobs/' + id + '/' + action, { method: 'POST' });
+      if (!res.ok) toast(id + ': ' + ((await res.json()).error || res.status));
+    } catch (e) {
+      toast(id + ': server not reachable');
+    }
+    inFlight.delete(id);
+    refresh();
+  }
+
+  function mark() {
+    document.querySelectorAll('.card').forEach((c) => c.classList.toggle('sel', c.dataset.id === selected));
+  }
+
+  function el(tag, props, kids) {
+    const e = Object.assign(document.createElement(tag), props || {});
+    (kids || []).forEach((k) => e.appendChild(typeof k === 'string' ? document.createTextNode(k) : k));
+    return e;
+  }
+
+  function renderReady() {
+    const box = $('ready');
+    const keep = new Set(ready.map((j) => j.id));
+    box.querySelectorAll('.card').forEach((c) => { if (!keep.has(c.dataset.id)) c.remove(); });
+    for (const j of ready) {
+      if (box.querySelector('[data-id="' + j.id + '"]')) continue; // keep existing cards so their video keeps playing
+      const video = el('video', { src: '/operator/media/clip/' + j.id, muted: true, loop: true, autoplay: true, playsInline: true });
+      const card = el('div', { className: 'card' }, [
+        video,
+        el('div', { className: 'meta' }, [el('span', {}, [j.theme]), el('span', {}, [(j.seconds_taken ?? '-') + ' s · ' + (j.source || '')])]),
+        el('div', { className: 'acts' }, [
+          el('button', { className: 'ok', textContent: 'Approve', onclick: (e) => { e.stopPropagation(); act(j.id, 'approve'); } }),
+          el('button', { className: 'no', textContent: 'Reject', onclick: (e) => { e.stopPropagation(); act(j.id, 'reject'); } }),
+        ]),
+      ]);
+      card.dataset.id = j.id;
+      card.onclick = () => { selected = j.id; mark(); };
+      box.appendChild(card);
+    }
+    if (!ready.some((j) => j.id === selected)) selected = ready.length ? ready[0].id : null;
+    mark();
+    $('readyEmpty').hidden = ready.length > 0;
+  }
+
+  function renderTable(id, rows, withActions) {
+    const t = $(id);
+    t.textContent = '';
+    for (const j of rows) {
+      const cells = [el('td', {}, [j.id]), el('td', {}, [j.theme]), el('td', {}, [j.status + (j.attempts > 1 ? ' (retried)' : '')])];
+      if (withActions) {
+        cells.push(el('td', { className: 'err' }, [j.error || '']));
+        cells.push(el('td', { className: 'act' }, [
+          el('button', { className: 'alt', textContent: 'Try again', onclick: () => act(j.id, 'retry') }),
+          el('button', { className: 'alt', textContent: 'Use still photo', onclick: () => act(j.id, 'still') }),
+        ]));
+      }
+      t.appendChild(el('tr', {}, cells));
+    }
+    $(id + 'Empty').hidden = rows.length > 0;
+  }
+
+  async function refresh() {
+    try {
+      const d = await (await fetch('/api/operator/jobs')).json();
+      ready = d.ready.filter((j) => !inFlight.has(j.id));
+      $('provider').textContent = d.provider;
+      $('cWait').textContent = d.counts.new + d.counts.generating;
+      $('cReady').textContent = d.counts.ready;
+      $('cApproved').textContent = d.counts.approved;
+      $('cRejected').textContent = d.counts.rejected;
+      $('cFailed').textContent = d.counts.failed;
+      renderReady();
+      renderTable('failed', d.failed, true);
+      renderTable('waiting', d.waiting, false);
+    } catch (e) {
+      toast('Server not reachable');
+    }
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+    const k = e.key.toLowerCase();
+    if ((k === 'a' || k === 'r') && selected) { e.preventDefault(); act(selected, k === 'a' ? 'approve' : 'reject'); }
+    if (k === 'arrowright' || k === 'arrowleft') {
+      const i = ready.findIndex((j) => j.id === selected);
+      const n = ready[i + (k === 'arrowright' ? 1 : -1)];
+      if (n) { selected = n.id; mark(); document.querySelector('.card.sel').scrollIntoView({ block: 'nearest' }); }
+    }
+  });
+
+  refresh();
+  setInterval(refresh, 2000);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "name": "mosaic-wall-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI video mosaic wall: iPad capture booth, Higgsfield generation queue, operator approval, tiles for TouchDesigner",
+  "main": "server.js",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server.js",
+    "cert": "bash scripts/make-cert.sh",
+    "test-jobs": "node scripts/submit-test-jobs.js",
+    "test-tiles": "node scripts/make-test-tiles.js",
+    "passmarks": "node scripts/passmarks.js",
+    "bake-atlas": "node scripts/bake-atlas.js",
+    "purge": "node scripts/purge.js"
+  },
+  "dependencies": {
+    "@higgsfield/client": "^0.2.6",
+    "express": "^4.21.2",
+    "multer": "^2.0.2",
+    "qrcode": "^1.5.4"
+  }
+}

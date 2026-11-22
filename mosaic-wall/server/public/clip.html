@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your Miradore Labs clip</title>
+<style>
+  :root { --black: #0B1215; --orange: #FF6B35; --ink: #F4F1EA; --dim: #9AA5A8; --gold: #C9A84C; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; gap: 20px;
+    padding: 28px 16px 40px; background: var(--black); color: var(--ink); text-align: center;
+    font-family: -apple-system, "Helvetica Neue", Roboto, Arial, sans-serif; }
+  .eyebrow { margin: 0; letter-spacing: .35em; text-transform: uppercase; color: var(--gold); font-size: 12px; }
+  h1 { margin: 0; font-size: 28px; }
+  p { margin: 0; color: var(--dim); line-height: 1.45; max-width: 30ch; }
+  video { width: 100%; max-width: 420px; border-radius: 20px; background: #000; aspect-ratio: 4 / 5; }
+  a.btn { display: block; width: 100%; max-width: 420px; padding: 18px; border-radius: 999px; background: var(--orange);
+    color: var(--black); font-weight: 700; font-size: 18px; text-decoration: none; }
+  .spin { width: 48px; height: 48px; border-radius: 50%; border: 4px solid rgba(244, 241, 234, .2); border-top-color: var(--orange);
+    animation: spin 1s linear infinite; margin: 40px 0 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 4s; } }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+  <p class="eyebrow">Miradore Labs</p>
+
+  <div id="pending">
+    <div class="spin" style="margin-left:auto;margin-right:auto"></div>
+    <h1>Your clip is being made</h1>
+    <p style="margin:12px auto 0">Keep this page open. It appears here as soon as it is ready, usually within a few minutes.</p>
+  </div>
+
+  <div id="ready" hidden style="display:contents">
+    <h1>Here is your clip</h1>
+    <video id="v" controls playsinline loop muted autoplay></video>
+    <a class="btn" id="dl">Download</a>
+    <p>On iPhone, tap Download, then Share, then Save Video.</p>
+  </div>
+
+  <div id="unavailable" hidden>
+    <h1 style="margin-top:40px">Sorry, this one did not work out</h1>
+    <p style="margin:12px auto 0">Please see a host at the booth and we will take another photo.</p>
+  </div>
+
+<script>
+(() => {
+  const id = location.pathname.split('/').filter(Boolean).pop();
+  const show = (name) => ['pending', 'ready', 'unavailable'].forEach((n) => { document.getElementById(n).hidden = n !== name; });
+  async function check() {
+    let state = 'pending';
+    try { state = (await (await fetch('/api/clip/' + id)).json()).state; } catch (e) {}
+    if (state === 'ready') {
+      document.getElementById('v').src = '/clip/' + id + '/video';
+      document.getElementById('dl').href = '/clip/' + id + '/video?download=1';
+      return show('ready');
+    }
+    if (state === 'unavailable' || state === 'gone') return show('unavailable');
+    show('pending');
+    setTimeout(check, 4000);
+  }
+  check();
+})();
+</script>
+</body>
+</html>

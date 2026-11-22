@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Miradore Labs Booth</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<section id="attract" class="screen active">
+  <p class="eyebrow">Miradore Labs</p>
+  <h1>Step into<br>the wall</h1>
+  <p class="lede">One photo. Your own AI film. On the big screen in about two minutes.</p>
+  <button class="btn primary huge" data-go="consent">Start</button>
+</section>
+
+<section id="consent" class="screen">
+  <h2>Before we start</h2>
+  <label class="check">
+    <input type="checkbox" id="consentBox">
+    <span class="box" aria-hidden="true"></span>
+    <span>I am 18 or over and agree my photo and AI video can be shown on the screen at this event and deleted after 7 days</span>
+  </label>
+  <div class="row">
+    <button class="btn ghost" data-go="attract">Back</button>
+    <button class="btn primary" id="consentNext" disabled>Continue</button>
+  </div>
+</section>
+
+<section id="themes" class="screen">
+  <h2>Pick your world</h2>
+  <div id="themeList" class="themes"></div>
+  <button class="btn ghost" data-go="attract">Start over</button>
+</section>
+
+<section id="camera" class="screen">
+  <div class="stage">
+    <video id="video" playsinline autoplay muted></video>
+    <img id="still" alt="Your photo" hidden>
+    <svg class="guide" viewBox="0 0 1080 1350" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <ellipse cx="540" cy="560" rx="270" ry="360"/>
+    </svg>
+    <div id="count" class="count" hidden></div>
+    <p id="camMsg" class="cammsg" hidden></p>
+  </div>
+  <p id="hint" class="hint">Fit your face in the oval</p>
+  <div class="row" id="liveBtns">
+    <button class="btn ghost" data-go="themes">Back</button>
+    <button class="btn primary" id="shoot">Take photo</button>
+  </div>
+  <div class="row" id="reviewBtns" hidden>
+    <button class="btn ghost" id="retake">Retake</button>
+    <button class="btn primary" id="submit">Submit</button>
+  </div>
+</section>
+
+<section id="thanks" class="screen">
+  <h2>You're in</h2>
+  <p class="lede">Watch the wall. Scan to get your clip on your phone.</p>
+  <img id="qr" class="qr" alt="QR code for your clip">
+  <p id="jobCode" class="code"></p>
+  <button class="btn ghost" data-go="attract">Done <span id="resetIn"></span></button>
+</section>
+
+<script src="app.js"></script>
+</body>
+</html>
