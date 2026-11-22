@@ -17,7 +17,7 @@ On the `wall` COMP, page **Wall**:
 - **Target Image**: starts as `assets/target-placeholder.png`, a stand-in gold "M". Replace it with the real Miradore Labs logo, in gold and bone on the lapis ground (#0E1B33). Make it the same shape as the grid (10 x 10 grid: a square image), because it is stretched over the grid.
 - **Columns / Rows**: the grid. **Output Width / Height**: the screen's native resolution from Step 0.
 
-A paid TouchDesigner licence is needed: Non-Commercial caps output at 1280 x 1280.
+Use the Commercial TouchDesigner licence (Miradore has one). Non-Commercial caps output at 1280 x 1280, so check the licence is active on the playback machine before the event.
 
 Then add a Window COMP, set its Operator to `wall/out`, pick the office screen as the monitor, and open it in Perform mode.
 
