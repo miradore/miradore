@@ -5,7 +5,11 @@ Lives in a Text DAT called wall_ext inside the wall COMP that build_wall.py crea
 
 How the picture is made: one Geometry COMP draws COLS x ROWS instanced squares in a single render pass.
 A Script CHOP feeds it one sample per cell (position, scale, texture index, tint) plus one extra "flyer"
-sample used for the tile that is landing. Texture index 0 is the brand clip, 1..T are the tile movies."""
+sample used for the tile that is landing and one for the gold-leaf ring behind it. Texture index 0 is the brand
+clip, 1 is gold leaf, 2 onwards are the tile movies.
+
+The look is "Tessera": glazed tiles with grout gaps on a lapis ground, gold leaf for the tile that has just
+arrived, a slow shimmer across the wall when nothing else is happening."""
 import os
 import re
 import time
@@ -30,6 +34,16 @@ def wall(comp):
 
 def ease_out(t):
     return 1.0 - (1.0 - t) ** 3
+
+
+def ease_settle(t):
+    """Ease out with a small overshoot, so a landing tile presses into its cell and settles."""
+    c1 = 1.70158
+    return 1 + (c1 + 1) * (t - 1) ** 3 + c1 * (t - 1) ** 2
+
+
+FIRST_TILE_TEX = 2   # 0 brand clip, 1 gold leaf
+RING = 1.14          # gold ring is this much larger than the tile it frames
 
 
 def ease_in_out(t):
@@ -60,6 +74,7 @@ class Wall:
         self.arr = np.zeros((len(CHANNELS), 1), dtype=np.float32)
         self.last = {'scan': 0.0, 'atlas': 0.0, 'perf': 0.0, 'frames': 0, 'atlas_mtime': 0.0}
         self.filling = False
+        self.wave = None           # start time of the shimmer that is crossing the wall, if any
         # This object starts clean, so put the operators back to clean too. After a file reload or reopening the
         # project they may still hold a hero on screen, a reveal overlay or a blackout from before.
         self.set_par('hero_level', 'opacity', 0.0)
@@ -120,7 +135,7 @@ class Wall:
         cols, rows, n = self.cols, self.rows, self.n
         aspect = float(self.p('Resw', 1920)) / max(1.0, float(self.p('Resh', 1080)))
         self.cell = min(aspect / cols, 1.0 / rows)
-        self.size = self.cell * (1.0 - float(self.p('Gap', 0.04)))
+        self.size = self.cell * (1.0 - float(self.p('Gap', 0.1)))
         idx = np.arange(n)
         self.home = np.stack([
             ((idx % cols) + 0.5 - cols / 2.0) * self.cell,
@@ -136,10 +151,14 @@ class Wall:
             self.paths = {k: v for k, v in self.paths.items() if k in keep}
             self.cell_name = keep + [None] * (n - len(keep))
 
-        self.arr = np.zeros((len(CHANNELS), n + 1), dtype=np.float32)
+        # n cells, then the flyer (index n) and its gold ring (index n + 1)
+        self.arr = np.zeros((len(CHANNELS), n + 2), dtype=np.float32)
         self.arr[R:B + 1] = 1.0
         self.arr[TX:TY + 1, :n] = self.home.T
-        self.arr[TZ, n] = 0.5  # the flyer draws in front of the grid
+        self.arr[TZ, n] = 0.5      # the flyer draws in front of the grid
+        self.arr[TZ, n + 1] = 0.4  # its ring sits just behind it
+        self.arr[TEX, n + 1] = 1   # gold leaf
+        self.wave = None
         self.tween = None
 
         # The atlas and the reveal overlay are stretched over the grid area, which may be smaller than the screen.
@@ -162,7 +181,7 @@ class Wall:
                     table.appendRow(row)
         geo = self.o('geo')
         if geo is not None:
-            tops = ['brand_fit'] + ['t_' + name for name in self.live]
+            tops = ['brand_fit', 'gold'] + ['t_' + name for name in self.live]
             texs = ' '.join(self.comp.path + '/' + t for t in tops)
             for par_name in ('instancetexs', 'instancetextures'):
                 par = getattr(geo.par, par_name, None)
@@ -170,8 +189,9 @@ class Wall:
                     if par.eval() != texs:
                         par.val = texs
                     break
-        index = {name: i + 1 for i, name in enumerate(self.live)}
+        index = {name: i + FIRST_TILE_TEX for i, name in enumerate(self.live)}
         n = self.n
+        self.wave = None
         for cell in range(n):
             name = self.cell_name[cell]
             hidden = atlas and name in self.baked
@@ -242,6 +262,8 @@ class Wall:
                 if tw.get('done'):
                     tw['done']()
 
+        self.shimmer(now)
+
         if now - self.last['scan'] > 1.0:
             self.last['scan'] = now
             self.rescan()
@@ -250,6 +272,29 @@ class Wall:
             self.check_atlas()
         if now - self.last['perf'] > 10.0:
             self.log_perf(now)
+
+    def shimmer(self, now):
+        """When the wall is idle, a slow wave lifts each tile a little as it crosses from one corner to the other."""
+        n = self.n
+        if self.busy or self.tween is not None or not self.p('Shimmer', True):
+            if self.wave is not None:
+                self.wave = None
+                self.arr[SX:SY + 1, :n] = np.where(self.arr[SX, :n] > 0, self.size, 0.0)
+            return
+        if self.wave is None:
+            if now - self.last.get('shimmer', now - 1e9) < float(self.p('Shimmerevery', 14.0)):
+                return
+            self.wave = self.last['shimmer'] = now
+        idx = np.arange(n)
+        diag = ((idx % self.cols) + (idx // self.cols)) / max(1, self.cols + self.rows - 2)
+        x = np.clip((now - self.wave) / 2.4 * 1.5 - diag, 0.0, 0.5) * 2.0   # each tile's own 0..1 progress
+        lift = 1.0 + 0.09 * np.sin(np.pi * x)
+        self.arr[SX:SY + 1, :n] = np.where(self.arr[SX, :n] > 0, self.size * lift, 0.0)
+        self.push()
+        if now - self.wave > 2.4:
+            self.wave = None
+            self.arr[SX:SY + 1, :n] = np.where(self.arr[SX, :n] > 0, self.size, 0.0)
+            self.push()
 
     def later(self, seconds, fn):
         self.jobs.append((time.perf_counter() + seconds, fn))
@@ -377,12 +422,14 @@ class Wall:
         self.set_par('hero', 'play', False)
         if name not in self.live:  # removed while the hero played
             return self.landed(name, cell)
-        self.arr[TEX, n] = self.live.index(name) + 1
-        self.arr[TX:TY + 1, n] = 0.0
+        self.arr[TEX, n] = self.live.index(name) + FIRST_TILE_TEX
+        self.arr[TX:TY + 1, n:n + 2] = 0.0
         self.arr[SX:SY + 1, n] = 1.0
-        self.animate([n], {
-            TX: [self.home[cell, 0]], TY: [self.home[cell, 1]], SX: [self.size], SY: [self.size],
-        }, self.p('Landseconds', 1.0), ease_out, done=lambda: self.landed(name, cell))
+        self.arr[SX:SY + 1, n + 1] = 1.0 + (RING - 1.0) * self.size   # same ring thickness as it will have in the cell
+        x, y, size = self.home[cell, 0], self.home[cell, 1], self.size
+        self.animate([n, n + 1], {
+            TX: [x, x], TY: [y, y], SX: [size, size * RING], SY: [size, size * RING],
+        }, self.p('Landseconds', 1.0), ease_settle, done=lambda: self.landed(name, cell))
 
     def landed(self, name, cell):
         n = self.n
@@ -391,10 +438,22 @@ class Wall:
                 cell = self.next_cell()
             self.cell_name[cell] = name
         self.arr[SX:SY + 1, n] = 0.0
-        self.busy = False
+        ring = self.arr[SX:SY + 1, n + 1].copy()
         self.sync()
         self.write_cells()
-        self.pump()
+        self.arr[SX:SY + 1, n + 1] = ring
+
+        # The gold ring holds around the new tile for a moment, then draws back behind it.
+        def ring_gone():
+            self.arr[SX:SY + 1, n + 1] = 0.0
+            self.busy = False
+            self.push()
+            self.pump()
+
+        def ring_out():
+            self.animate([n + 1], {SX: [self.size * 0.9], SY: [self.size * 0.9]}, 0.5, ease_in_out, done=ring_gone)
+
+        self.later(float(self.p('Ringhold', 0.8)), ring_out)
 
     # ------------------------------------------------------------------ operator actions
 
@@ -504,7 +563,7 @@ class Wall:
         dest = np.zeros(n, dtype=int)       # instance -> cell it flies to
         tex = self.arr[TEX, :n].copy()
         strength = np.zeros(n)
-        index = {name: i + 1 for i, name in enumerate(self.live)}
+        index = {name: i + FIRST_TILE_TEX for i, name in enumerate(self.live)}
         for cell in range(n):
             name = names[cell_tile[cell]]
             if reused[cell] and spare:

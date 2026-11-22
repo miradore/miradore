@@ -16,6 +16,13 @@ This folder is the build for test plan v2 (Show Tech, 23 Nov 2026). Rule from th
 | 6 Full run | Team | `npm run passmarks` | To do |
 | 7 Event spec | Show Tech | `docs/event-spec.md` | Draft with [FILL] fields |
 
+## The look: Tessera
+
+The wall is treated as a real mosaic: glazed square tiles with grout gaps on a lapis ground, and gold leaf for the one tile that has just arrived. The iPad, the phone page and the operator page share the same palette and type (`server/public/tessera.css`). Syne and Manrope are bundled in `server/public/fonts/` (both under the SIL Open Font License), so the booth needs no internet for its fonts.
+
+- Open `touchdesigner/wall-look.html` in a browser for a working preview of the wall's look and motion, with the timings the TouchDesigner build uses. Talha should match the wall to it.
+- World colours on the theme picker come from `server/themes.json`.
+
 ## Step 0. Prep (Shayan)
 
 - MacBook to the office screen by HDMI, extended display, native resolution, no overscan.

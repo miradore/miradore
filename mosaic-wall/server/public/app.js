@@ -26,7 +26,8 @@
     state.timers = [];
     state.busy = false; // a countdown cut short by leaving the screen must not lock the booth
     document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('active', s.id === name));
-    if (name === 'attract') reset();
+    document.body.dataset.screen = name;
+    if (name === 'attract') { reset(); if (window.mosaicReplay) window.mosaicReplay(); }
     if (name === 'themes') loadThemes();
     if (name === 'camera') startCamera();
     const heading = $(name).querySelector('h1, h2');
@@ -74,14 +75,17 @@
       const themes = await res.json();
       if (!res.ok || !themes.length) throw new Error('no themes');
       msg.hidden = true;
-      for (const t of themes) {
+      themes.forEach((t, i) => {
         const b = document.createElement('button');
         b.className = 'theme';
-        b.textContent = t.label;
-        b.style.background = t.color || '#FF6B35';
+        const index = document.createElement('small');
+        index.textContent = 'World 0' + (i + 1);
+        b.append(index, t.label);
+        b.style.background = t.color || '#C9A24A';
+        b.style.color = isDark(t.color) ? '#E6DDCB' : '#0E1B33';
         b.addEventListener('click', () => { state.theme = t.id; go('camera'); });
         list.appendChild(b);
-      }
+      });
     } catch (e) {
       if (!isRetry) return void state.timers.push(setTimeout(() => loadThemes(true), 2000)); // one quiet retry first
       msg.textContent = 'We could not load the worlds. Tap Try again, or ask a host.';
@@ -89,6 +93,14 @@
     }
   }
   $('themeRetry').addEventListener('click', () => loadThemes());
+
+  /** True for a glaze dark enough to need light text on it. */
+  function isDark(hex) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+    if (!m) return false;
+    const n = parseInt(m[1], 16);
+    return 0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255) < 110;
+  }
 
   // ---------------------------------------------------------------- camera
 
@@ -163,7 +175,7 @@
     state.busy = true;
     $('shoot').disabled = true;
     count.hidden = false;
-    for (const n of [3, 2, 1]) { count.textContent = n; await wait(1000); }
+    for (const n of [3, 2, 1]) { count.innerHTML = '<span>' + n + '</span>'; await wait(1000); }
     count.hidden = true;
     if (!video.videoWidth) { state.busy = false; return startCamera(); }
     state.blob = await capture();

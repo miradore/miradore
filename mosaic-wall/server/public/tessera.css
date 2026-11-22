@@ -1,0 +1,25 @@
+/* Tessera: the look shared by the booth, the guest's phone page and the operator page.
+   The wall is a mosaic; every surface is built from the same glazed squares on a lapis ground. */
+@font-face { font-family: "Syne"; font-weight: 600; font-display: swap; src: url("fonts/syne-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Syne"; font-weight: 800; font-display: swap; src: url("fonts/syne-latin-800-normal.woff2") format("woff2"); }
+@font-face { font-family: "Manrope"; font-weight: 400; font-display: swap; src: url("fonts/manrope-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Manrope"; font-weight: 600; font-display: swap; src: url("fonts/manrope-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Manrope"; font-weight: 800; font-display: swap; src: url("fonts/manrope-latin-800-normal.woff2") format("woff2"); }
+
+:root {
+  color-scheme: dark;
+  --ground: #0E1B33;   /* the wall behind the tiles */
+  --deep: #16284A;     /* an empty cell */
+  --lapis: #1F3A6B;
+  --glaze: #2A8C8C;
+  --gold: #C9A24A;     /* gold leaf: the one thing that matters right now */
+  --gold-hi: #E2C06A;
+  --bone: #E6DDCB;
+  --dim: #8FA0BD;
+  --garnet: #9C3B4E;
+  --emerald: #0F5C4E;
+  --danger: #D9605A;
+  --display: "Syne", "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+  --text: "Manrope", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+}

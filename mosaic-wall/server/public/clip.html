@@ -2,51 +2,57 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E1B33">
 <title>Your Miradore Labs clip</title>
+<link rel="stylesheet" href="/tessera.css">
 <style>
-  :root { --black: #0B1215; --orange: #FF6B35; --ink: #F4F1EA; --dim: #9AA5A8; --gold: #C9A84C; }
   * { box-sizing: border-box; }
-  body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; gap: 20px;
-    padding: 28px 16px 40px; background: var(--black); color: var(--ink); text-align: center;
-    font-family: -apple-system, "Helvetica Neue", Roboto, Arial, sans-serif; }
-  .eyebrow { margin: 0; letter-spacing: .35em; text-transform: uppercase; color: var(--gold); font-size: 12px; }
-  h1 { margin: 0; font-size: 28px; }
-  p { margin: 0; color: var(--dim); line-height: 1.45; max-width: 30ch; }
-  video { width: 100%; max-width: 420px; border-radius: 20px; background: #000; aspect-ratio: 4 / 5; }
-  a.btn { display: block; width: 100%; max-width: 420px; padding: 18px; border-radius: 999px; background: var(--orange);
-    color: var(--black); font-weight: 700; font-size: 18px; text-decoration: none; }
-  .spin { width: 48px; height: 48px; border-radius: 50%; border: 4px solid rgba(244, 241, 234, .2); border-top-color: var(--orange);
-    animation: spin 1s linear infinite; margin: 40px 0 8px; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 4s; } }
+  body { margin: 0; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; gap: 22px;
+    padding: max(28px, env(safe-area-inset-top)) 22px max(36px, env(safe-area-inset-bottom));
+    background: var(--ground); color: var(--bone); font-family: var(--text); }
+  .eyebrow { margin: 0; letter-spacing: .42em; text-transform: uppercase; color: var(--gold); font-size: 12px; font-weight: 600; }
+  h1 { margin: 0; font-family: var(--display); font-weight: 800; font-size: clamp(34px, 11vw, 52px); line-height: .98; letter-spacing: -.02em; text-wrap: balance; }
+  p { margin: 0; color: var(--dim); line-height: 1.5; font-size: 16px; max-width: 34ch; }
+  .state { display: flex; flex-direction: column; gap: 22px; flex: 1; }
+  .frame { align-self: center; width: min(100% - 16px, 46vh); margin: 8px 0; outline: 4px solid var(--gold); outline-offset: 6px; border-radius: 4px; background: var(--deep); }
+  video { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 4px; background: #050A14; }
+  a.btn { display: block; padding: 20px; border-radius: 8px; background: var(--gold); color: var(--ground); font-weight: 800; font-size: 18px; text-align: center; text-decoration: none; }
+  a.btn:active { background: var(--gold-hi); }
+  a.btn:focus-visible { outline: 3px solid var(--bone); outline-offset: 3px; }
+  /* waiting: a small wall setting itself, one tile at a time */
+  .setting { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; width: 132px; margin: 6vh 0 2vh; }
+  .setting i { aspect-ratio: 1; border-radius: 3px; background: var(--deep); animation: glaze 3.2s ease-in-out infinite; }
+  .setting i:nth-child(3n) { --to: var(--glaze); } .setting i:nth-child(4n+1) { --to: var(--gold); } .setting i:nth-child(5n+2) { --to: var(--bone); } .setting i:nth-child(7n+3) { --to: var(--garnet); }
+  @keyframes glaze { 0%, 100% { background: var(--deep); } 40%, 60% { background: var(--to, var(--lapis)); } }
+  @media (prefers-reduced-motion: reduce) { .setting i { animation: none; background: var(--to, var(--lapis)); } }
   [hidden] { display: none !important; }
 </style>
 </head>
 <body>
   <p class="eyebrow">Miradore Labs</p>
 
-  <div id="pending" role="status">
-    <div class="spin" style="margin-left:auto;margin-right:auto"></div>
-    <h1>Your clip is being made</h1>
-    <p id="pendingMsg" style="margin:12px auto 0">Keep this page open. Your clip will appear here in a few minutes.</p>
+  <div id="pending" class="state" role="status">
+    <div class="setting" aria-hidden="true"></div>
+    <h1>Your piece is being made</h1>
+    <p id="pendingMsg">Keep this page open. Your clip will appear here in a few minutes.</p>
   </div>
 
-  <div id="ready" hidden style="display:contents">
-    <h1>Here is your clip</h1>
-    <video id="v" controls playsinline loop muted autoplay></video>
+  <div id="ready" class="state" hidden>
+    <h1>Your piece of the wall</h1>
+    <div class="frame"><video id="v" controls playsinline loop muted autoplay></video></div>
     <a class="btn" id="dl">Save your clip</a>
     <p id="ios" hidden>On iPhone: tap Save your clip, then Download. Tap the arrow in the address bar, open the clip, then Share and Save Video.</p>
   </div>
 
-  <div id="unavailable" hidden>
-    <h1 style="margin-top:40px">Sorry, this clip did not work out</h1>
-    <p style="margin:12px auto 0">Please see a host at the booth and we will happily take another photo.</p>
+  <div id="unavailable" class="state" hidden>
+    <h1 style="margin-top:6vh">Sorry, this clip did not work out</h1>
+    <p>Please see a host at the booth and we will happily take another photo.</p>
   </div>
 
-  <div id="gone" hidden>
-    <h1 style="margin-top:40px">We cannot find this clip</h1>
-    <p style="margin:12px auto 0">Clips are removed 7 days after the event. If yours is from today, please see a host at the booth.</p>
+  <div id="gone" class="state" hidden>
+    <h1 style="margin-top:6vh">We cannot find this clip</h1>
+    <p>Clips are removed 7 days after the event. If yours is from today, please see a host at the booth.</p>
   </div>
 
 <script>
@@ -55,6 +61,8 @@
   const $ = (n) => document.getElementById(n);
   const show = (name) => ['pending', 'ready', 'unavailable', 'gone'].forEach((n) => { $(n).hidden = n !== name; });
   const started = Date.now();
+  const setting = document.querySelector('.setting');
+  for (let i = 0; i < 16; i++) setting.appendChild(document.createElement('i')).style.animationDelay = ((i * 7) % 16) * 0.2 + 's';
   let misses = 0;
   $('ios').hidden = !/iPhone|iPad|iPod/.test(navigator.userAgent);
 

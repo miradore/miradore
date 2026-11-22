@@ -13,8 +13,8 @@ Not yet run inside TouchDesigner. The logic passes a simulation (`python3 test_w
 
 On the `wall` COMP, page **Wall**:
 
-- **Brand Clip**: the looping clip for empty cells.
-- **Target Image**: the Miradore Labs logo PNG. Make it the same shape as the grid (10 x 10 grid: a square image), because it is stretched over the grid.
+- **Brand Clip**: the looping clip for empty cells. It starts as `assets/brand-tile.mov`, a glazed lapis tile that catches a slow band of light.
+- **Target Image**: starts as `assets/target-placeholder.png`, a stand-in gold "M". Replace it with the real Miradore Labs logo, in gold and bone on the lapis ground (#0E1B33). Make it the same shape as the grid (10 x 10 grid: a square image), because it is stretched over the grid.
 - **Columns / Rows**: the grid. **Output Width / Height**: the screen's native resolution from Step 0.
 
 A paid TouchDesigner licence is needed: Non-Commercial caps output at 1280 x 1280.
@@ -22,6 +22,8 @@ A paid TouchDesigner licence is needed: Non-Commercial caps output at 1280 x 128
 Then add a Window COMP, set its Operator to `wall/out`, pick the office screen as the monitor, and open it in Perform mode.
 
 Start the server (`npm start` in `server/`). Tiles already in `server/tiles/` appear in their cells straight away. Each newly approved clip plays full screen for 3 seconds, then flies into the next free cell over 1 second. When the wall is full, the oldest tile gives up its cell.
+
+The look and motion to match are in `wall-look.html` (open it in a browser): lapis ground showing as grout between tiles, a gold-leaf ring around each tile as it lands, a settle at the end of the landing, and a slow shimmer across the wall every 14 seconds when nothing else is happening. Grout Gap, Idle Shimmer and Gold Ring Hold are parameters on the `wall` COMP. `python3 make_assets.py` remakes the two starter assets.
 
 ## Controls
 

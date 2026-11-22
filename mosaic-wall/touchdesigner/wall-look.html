@@ -1,0 +1,212 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0}</style></head><body>
+<title>Tessera Wall Preview</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&family=Syne:wght@800&display=swap">
+<style>
+/* Layout: the wall first and as large as possible, its controls directly under it, then the motion spec as a table. */
+:root { --bg: #F2F3F1; --fg: #131A26; --dim: #5A6475; --line: #D4D8DC; --panel: #FFFFFF; --key: #8A6A1E;
+  --wall-ground: #0E1B33; --wall-gold: #C9A24A; --wall-bone: #E6DDCB;
+  --display: "Syne", "Avenir Next", sans-serif; --text: "Manrope", system-ui, sans-serif; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #0A1322; --fg: #E6DDCB; --dim: #8FA0BD; --line: #24385F; --panel: #16284A; --key: #C9A24A; color-scheme: dark } }
+:root[data-theme="dark"] { --bg: #0A1322; --fg: #E6DDCB; --dim: #8FA0BD; --line: #24385F; --panel: #16284A; --key: #C9A24A; color-scheme: dark }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--text); font-size: 16px; line-height: 1.5;
+  padding-block: 32px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+h1 { margin: 0; font-family: var(--display); font-weight: 800; font-size: clamp(28px, 5vw, 44px); letter-spacing: -.02em; line-height: 1; }
+header p { margin: 8px 0 0; color: var(--dim); max-width: 65ch; }
+canvas { display: block; width: 100%; max-width: 100%; aspect-ratio: 16 / 9; border-radius: 6px; background: var(--wall-ground); }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.bar button { font: inherit; font-weight: 800; font-size: 14px; padding: 10px 18px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); cursor: pointer; }
+.bar button:hover, .bar button:focus-visible { border-color: var(--key); outline: none; }
+.bar button[aria-pressed="true"] { background: var(--wall-gold); color: var(--wall-ground); border-color: var(--wall-gold); }
+.bar .now { margin-left: auto; color: var(--dim); font-size: 14px; font-variant-numeric: tabular-nums; }
+h2 { margin: 24px 0 0; font-size: 12px; font-weight: 600; letter-spacing: .3em; text-transform: uppercase; color: var(--key); }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14px; }
+th, td { text-align: left; padding: 10px 12px 10px 0; border-top: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; color: var(--dim); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; border-top: 0; }
+td:first-child { font-weight: 800; white-space: nowrap; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; border: 1px solid var(--line); }
+.note { color: var(--dim); font-size: 14px; margin: 0; max-width: 70ch; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Tessera wall</h1>
+    <p>A working preview of the wall's look and motion, with the same timings the TouchDesigner build uses. The figures are stand-ins for guest clips. A new guest arrives every few seconds; use the buttons to trigger the rest.</p>
+  </header>
+
+  <canvas id="wall" width="1920" height="1080" role="img" aria-label="Animated preview of the mosaic wall"></canvas>
+  <div class="bar">
+    <button type="button" id="bGuest">New guest</button>
+    <button type="button" id="bReveal">Reveal</button>
+    <button type="button" id="bShuffle">Shuffle</button>
+    <button type="button" id="bPause" aria-pressed="false">Pause new</button>
+    <button type="button" id="bBlack" aria-pressed="false">Blackout</button>
+    <span class="now" id="now" role="status">Idle</span>
+  </div>
+
+  <h2>Motion</h2>
+  <div class="tbl"><table>
+    <tr><th>Moment</th><th>What happens</th><th>Timing</th><th>Easing</th></tr>
+    <tr><td>Hero</td><td>The guest's full clip plays at full height in the centre. The wall stays visible either side.</td><td>3.0 s, after 0.3 s held on the first frame</td><td>Cut in, cut out</td></tr>
+    <tr><td>Landing</td><td>The tile flies from full height into its cell, framed by a gold-leaf ring.</td><td>1.0 s</td><td>Ease out with a small overshoot, so it presses in and settles</td></tr>
+    <tr><td>Gold ring</td><td>Holds around the new tile, then draws back behind it.</td><td>0.8 s hold, 0.5 s out</td><td>Ease in-out</td></tr>
+    <tr><td>Idle shimmer</td><td>A wave crosses corner to corner, lifting each tile by 9 percent as it passes.</td><td>2.4 s, every 14 s</td><td>Sine</td></tr>
+    <tr><td>Shuffle</td><td>Every tile travels to a new cell.</td><td>1.0 s</td><td>Ease in-out</td></tr>
+    <tr><td>Reveal</td><td>Tiles travel to the cell whose colour they match best and take a tint towards it. Empty cells borrow a tile. The logo is laid over at 25 percent.</td><td>5 s in, 8 s hold, 3 s back</td><td>Ease in-out</td></tr>
+    <tr><td>Blackout</td><td>Output goes to black and back.</td><td>Immediate</td><td>Cut</td></tr>
+  </table></div>
+
+  <h2>Look</h2>
+  <div class="tbl"><table>
+    <tr><th>Part</th><th>Spec</th></tr>
+    <tr><td>Ground</td><td><span class="sw" style="background:#0E1B33"></span>Lapis #0E1B33, visible as grout between tiles</td></tr>
+    <tr><td>Grout gap</td><td>10 percent of the cell</td></tr>
+    <tr><td>Empty cell</td><td><span class="sw" style="background:#16284A"></span>Glazed lapis #16284A with a slow band of light (assets/brand-tile.mov)</td></tr>
+    <tr><td>Gold leaf</td><td><span class="sw" style="background:#C9A24A"></span>#C9A24A, only for the tile that has just arrived and for the logo</td></tr>
+    <tr><td>Logo</td><td><span class="sw" style="background:#C9A24A"></span><span class="sw" style="background:#E6DDCB"></span>Gold and bone on the lapis ground, drawn to the grid's shape</td></tr>
+    <tr><td>Tiles</td><td>Square, 320 x 320, no rounded corners, no drop shadows</td></tr>
+  </table></div>
+  <p class="note">This preview uses a 16 x 9 grid so it fills the frame. The TouchDesigner wall takes any grid from its Columns and Rows settings.</p>
+</div>
+
+<script>
+(() => {
+  const cv = document.getElementById('wall'), ctx = cv.getContext('2d');
+  const W = 1920, H = 1080, COLS = 16, ROWS = 9, N = COLS * ROWS, CELL = 120, SIZE = CELL * 0.9, RING = 1.14;
+  const GROUND = '#0E1B33', GOLD = [201, 162, 74], BONE = [230, 221, 203], GND = [14, 27, 51];
+  const GLAZES = [[31, 58, 107], [42, 140, 140], [201, 162, 74], [156, 59, 78], [230, 221, 203], [15, 92, 78], [59, 47, 91], [22, 40, 74]];
+  const SKINS = ['#F1D6BD', '#E9C7A5', '#C68E63', '#8A5A3C', '#5E3B28'];
+  const M = ['................', '..XX........XX..', '..XXX......XXX..', '..XXXX....XXXX..', '..XX.XX..XX.XX..', '..XX..XXXX..XX..', '..XX...XX...XX..', '..BB........BB..', '................'];
+  const target = M.join('').split('').map((ch) => ch === 'X' ? GOLD : ch === 'B' ? BONE : GND);
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const rnd = (list) => list[Math.floor(Math.random() * list.length)];
+  const home = (c) => [(c % COLS + 0.5) * CELL, (Math.floor(c / COLS) + 0.5) * CELL];
+  const rgb = (c, a) => 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (a === undefined ? 1 : a) + ')';
+  const inOut = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  const settle = (t) => 1 + 2.70158 * Math.pow(t - 1, 3) + 1.70158 * Math.pow(t - 1, 2);
+  const newTile = () => ({ bg: rnd(GLAZES), skin: rnd(SKINS), sway: Math.random() * 6.28 });
+
+  let cells = Array.from({ length: N }, () => Math.random() < 0.62 ? newTile() : null);
+  let inst = [];          // per cell: where it is drawn right now {x, y, tile, tint}
+  let stage = null;       // { kind, t0, ... } the one thing on stage
+  let queue = 0, pending = null, paused = false, black = false, lastShimmer = 0, lastGuest = 0, order = [];
+  const say = (text) => { document.getElementById('now').textContent = text; };
+
+  function drawTile(x, y, size, tile, t, tint) {
+    const h = size / 2;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x - h, y - h, size, size); ctx.clip();
+    if (!tile) {
+      ctx.fillStyle = '#16284A'; ctx.fillRect(x - h, y - h, size, size);
+      const band = ((t * 0.16 + (x + y) / 2400) % 1);
+      const g = ctx.createLinearGradient(x - h, y - h, x + h, y + h);
+      g.addColorStop(Math.max(0, band - 0.3), 'rgba(31,58,107,0)'); g.addColorStop(band, 'rgba(31,58,107,.75)'); g.addColorStop(Math.min(1, band + 0.3), 'rgba(31,58,107,0)');
+      ctx.fillStyle = g; ctx.fillRect(x - h, y - h, size, size);
+    } else {
+      ctx.fillStyle = rgb(tile.bg); ctx.fillRect(x - h, y - h, size, size);
+      const bob = still ? 0 : Math.sin(t * 1.3 + tile.sway) * size * 0.02;
+      ctx.fillStyle = GROUND; ctx.beginPath(); ctx.ellipse(x + bob, y + h * 1.12, size * 0.36, size * 0.52, 0, 0, 6.3); ctx.fill();
+      ctx.fillStyle = tile.skin; ctx.beginPath(); ctx.arc(x + bob * 1.6, y - size * 0.1, size * 0.17, 0, 6.3); ctx.fill();
+      if (tint) { ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = rgb(tint.map((v) => Math.round(v))); ctx.fillRect(x - h, y - h, size, size); }
+    }
+    ctx.restore();
+  }
+
+  function assign() {
+    // Same idea as mosaic_assign.py: cheapest tile-to-cell colour match first, then empty cells borrow the nearest tile.
+    const tiles = cells.map((tile, c) => tile ? { tile, from: c } : null).filter(Boolean);
+    const pairs = [];
+    tiles.forEach((t, i) => target.forEach((col, c) => pairs.push([i, c, col.reduce((s, v, k) => s + (v - t.tile.bg[k]) ** 2, 0)])));
+    pairs.sort((a, b) => a[2] - b[2]);
+    const tileUsed = new Set(), cellTaken = new Map();
+    for (const [i, c] of pairs) { if (!tileUsed.has(i) && !cellTaken.has(c)) { tileUsed.add(i); cellTaken.set(c, i); } }
+    const spare = cells.map((tile, c) => tile ? -1 : c).filter((c) => c >= 0);
+    const moves = [];
+    for (let c = 0; c < N; c++) {
+      const col = target[c];
+      if (cellTaken.has(c)) { const t = tiles[cellTaken.get(c)]; moves.push({ tile: t.tile, from: t.from, to: c, strength: 0.35, col }); }
+      else {
+        let best = tiles[0], bd = Infinity;
+        for (const t of tiles) { const d = col.reduce((s, v, k) => s + (v - t.tile.bg[k]) ** 2, 0); if (d < bd) { bd = d; best = t; } }
+        moves.push({ tile: best.tile, from: spare.shift(), to: c, strength: 0.7, col });
+      }
+    }
+    for (const m of moves) {
+      const ratio = m.col.map((v, k) => v / Math.max(6, m.tile.bg[k])), top = Math.max(1, ...ratio);
+      m.tint = ratio.map((r) => 255 * (1 + (r / top - 1) * m.strength));
+    }
+    return moves;
+  }
+
+  function nextCell() {
+    const free = cells.findIndex((t) => !t);
+    if (free >= 0) return free;
+    return order.length ? order.shift() : Math.floor(Math.random() * N);
+  }
+
+  function start(kind, now) {
+    if (kind === 'guest') { stage = { kind: 'hero', t0: now, tile: newTile(), cell: nextCell() }; cells[stage.cell] = null; say('Hero: the guest\'s clip plays for 3 seconds'); }
+    if (kind === 'shuffle') { const dest = [...Array(N).keys()].sort(() => Math.random() - 0.5); stage = { kind: 'shuffle', t0: now, dest }; say('Shuffle'); }
+    if (kind === 'reveal') { if (!cells.some(Boolean)) return; stage = { kind: 'reveal', t0: now, moves: assign() }; say('Reveal: 5 s in, 8 s hold, 3 s back'); }
+  }
+
+  function frame(ms) {
+    const now = ms / 1000;
+    if (!stage && pending) { const kind = pending; pending = null; start(kind, now); }
+    if (!stage && !paused && (queue > 0 || now - lastGuest > 7)) { if (queue > 0) queue--; lastGuest = now; start('guest', now); }
+    ctx.fillStyle = GROUND; ctx.fillRect(0, 0, W, H);
+    const e = stage ? now - stage.t0 : 0;
+
+    if (stage && stage.kind === 'reveal') {
+      const k = e < 5 ? inOut(e / 5) : e < 13 ? 1 : 1 - inOut((e - 13) / 3);
+      for (const m of stage.moves) {
+        const [x0, y0] = home(m.from), [x1, y1] = home(m.to);
+        drawTile(x0 + (x1 - x0) * k, y0 + (y1 - y0) * k, SIZE, m.tile, now, m.tint.map((v) => 255 + (v - 255) * k));
+      }
+      ctx.globalAlpha = 0.25 * k;
+      target.forEach((col, c) => { if (col !== GND) { const [x, y] = home(c); ctx.fillStyle = rgb(col); ctx.fillRect(x - CELL / 2, y - CELL / 2, CELL, CELL); } });
+      ctx.globalAlpha = 1;
+      if (e >= 16) { stage = null; say('Idle'); }
+    } else {
+      const sh = stage && stage.kind === 'shuffle' ? inOut(Math.min(1, e / 1)) : 0;
+      const wave = !stage && !still && now - lastShimmer < 2.4 ? (now - lastShimmer) / 2.4 : -1;
+      for (let c = 0; c < N; c++) {
+        let [x, y] = home(c), size = SIZE;
+        if (sh) { const [x1, y1] = home(stage.dest[c]); x += (x1 - x) * sh; y += (y1 - y) * sh; }
+        if (wave >= 0) { const d = (c % COLS + Math.floor(c / COLS)) / (COLS + ROWS - 2); size *= 1 + 0.09 * Math.sin(Math.PI * Math.min(1, Math.max(0, (wave * 1.5 - d) * 2))); }
+        drawTile(x, y, size, cells[c], now);
+      }
+      if (!stage && now - lastShimmer > 14) lastShimmer = now;
+      if (sh && e >= 1) { const moved = Array(N).fill(null); stage.dest.forEach((d, c) => { moved[d] = cells[c]; }); cells = moved; order = []; stage = null; say('Idle'); }
+    }
+
+    if (stage && stage.kind === 'hero') {
+      if (e < 3.3) { if (e > 0.3) { const hh = H, hw = H * 0.8; ctx.save(); ctx.beginPath(); ctx.rect(W / 2 - hw / 2, 0, hw, hh); ctx.clip(); drawTile(W / 2, H / 2, hh, stage.tile, now); ctx.restore(); } }
+      else { stage.kind = 'land'; stage.t0 = now; say('Landing: 1 second, with the gold ring'); }
+    } else if (stage && stage.kind === 'land') {
+      const k = settle(Math.min(1, e / 1)), [x1, y1] = home(stage.cell);
+      const x = W / 2 + (x1 - W / 2) * k, y = H / 2 + (y1 - H / 2) * k, size = H + (SIZE - H) * k;
+      let ring = size + (RING - 1) * SIZE;
+      if (e > 1.8) ring = SIZE * (RING - (RING - 0.9) * inOut(Math.min(1, (e - 1.8) / 0.5)));
+      ctx.fillStyle = rgb(GOLD); ctx.fillRect(x - ring / 2, y - ring / 2, ring, ring);
+      drawTile(x, y, Math.max(size, e >= 1 ? SIZE : 0), stage.tile, now);
+      if (e >= 2.3) { cells[stage.cell] = stage.tile; order.push(stage.cell); stage = null; lastShimmer = Math.max(lastShimmer, now - 8); say('Idle'); }
+    }
+    if (black) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); }
+    if (!still || stage) requestAnimationFrame(frame); else setTimeout(() => requestAnimationFrame(frame), 250);
+  }
+
+  const on = (id, fn) => document.getElementById(id).addEventListener('click', (ev) => fn(ev.currentTarget));
+  on('bGuest', () => { queue++; if (stage) say('Queued: waits for the stage to clear'); });
+  on('bReveal', () => { pending = 'reveal'; if (stage) say('Reveal is next, once the stage clears'); });
+  on('bShuffle', () => { pending = 'shuffle'; if (stage) say('Shuffle is next, once the stage clears'); });
+  on('bPause', (b) => { paused = !paused; b.setAttribute('aria-pressed', paused); });
+  on('bBlack', (b) => { black = !black; b.setAttribute('aria-pressed', black); });
+  lastGuest = performance.now() / 1000 - 4;
+  requestAnimationFrame(frame);
+})();
+</script>
+</body></html>

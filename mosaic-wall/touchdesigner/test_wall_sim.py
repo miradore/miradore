@@ -69,7 +69,7 @@ class Comp:
     path = '/project1/wall'
 
     def __init__(self, server, cols, rows):
-        self.par = Pars(Serverfolder=server, Cols=cols, Rows=rows, Resw=1920, Resh=1080, Gap=0.04, Heroseconds=3.0,
+        self.par = Pars(Serverfolder=server, Cols=cols, Rows=rows, Resw=1920, Resh=1080, Gap=0.1, Heroseconds=3.0,
                         Landseconds=1.0, Revealin=5.0, Revealhold=8.0, Revealout=3.0, Targetoverlay=0.25,
                         Tintreused=0.7, Tintall=0.35, Atlasmode=False, Logperf=True, Paused=False, Blackedout=False)
         target = Op()
@@ -116,7 +116,7 @@ try:
     assert w.cell_name[:5] == ['old%d' % i for i in range(5)] and w.cell_name[5:] == [None] * 7, w.cell_name
     assert [r[0] for r in comp.ops['tiles'].data] == ['name'] + ['t_old%d' % i for i in range(5)]
     assert comp.ops['geo'].par.instancetexs.val.split()[0].endswith('/brand_fit')
-    assert list(w.arr[wall_ext.TEX, :n]) == [1, 2, 3, 4, 5] + [0] * 7
+    assert list(w.arr[wall_ext.TEX, :n]) == [2, 3, 4, 5, 6] + [0] * 7
     assert comp.ops['hero_level'].par.opacity.val == 0.0, 'tiles present at start must not play heroes'
     print('first scan ok: existing tiles placed without heroes, half-written file ignored')
 
@@ -129,7 +129,9 @@ try:
     assert comp.ops['hero_level'].par.opacity.val == 0.0 and w.arr[wall_ext.SX, n] > w.size, 'flyer should be shrinking in'
     run(w, 1.0)
     assert w.cell_name[5] == 'new1' and w.arr[wall_ext.SX, n] == 0.0
-    run(w, 4.5)
+    assert w.busy and w.arr[wall_ext.SX, n + 1] > w.size, 'gold ring should still frame the new tile'
+    run(w, 7.5)
+    assert w.arr[wall_ext.SX, n + 1] == 0.0
     assert w.cell_name[6] == 'new2' and not w.busy and not w.queue
     assert open(os.path.join(server, 'data', 'cells.csv')).read().count('\n') == 8
     print('hero then land ok: two new tiles played in turn and landed in cells 5 and 6')
@@ -141,6 +143,7 @@ try:
     w.on_osc('/pause')
     run(w, 2)
     assert 'held' in w.cell_name
+    run(w, 2)
     print('pause ok: tile waited while paused, landed after (no hero file is handled)')
 
     before = sorted(x for x in w.cell_name if x)
@@ -148,6 +151,14 @@ try:
     run(w, 1.5)
     assert sorted(x for x in w.cell_name if x) == before and not w.busy
     assert np.allclose(w.arr[wall_ext.TX:wall_ext.TY + 1, :n], w.home.T)
+    clock[0] += 20
+    w.tick()
+    run(w, 1.0)
+    lifted = w.arr[wall_ext.SX, :n]
+    assert lifted.max() > w.size * 1.02 and lifted.max() < w.size * 1.1, 'idle shimmer should lift tiles a little'
+    run(w, 2.0)
+    assert np.allclose(w.arr[wall_ext.SX, :n], w.size)
+    print('shimmer ok: a wave lifts the tiles and leaves them as they were')
     print('shuffle ok: same tiles, new cells, instances back on the grid')
 
     w.on_osc('/reveal')
@@ -164,7 +175,7 @@ try:
     run(w, 4.5)
     assert comp.ops['target_level'].par.opacity.val == 0.0
     assert np.allclose(w.arr[wall_ext.R:wall_ext.B + 1, :n], 1.0)
-    run(w, 5)
+    run(w, 6.5)
     assert 'during' in w.cell_name and not w.busy
     print('reveal ok: 5 s in, hold with 25% overlay, 3 s back; a tile that arrived mid-reveal waited its turn')
 
@@ -176,7 +187,7 @@ try:
 
     for i in range(6):
         add_tile(server, 'fill%d' % i, hero=False)
-    run(w, 12)
+    run(w, 18)
     assert None not in w.cell_name or len(w.order) <= n
     assert 'old0' not in w.cell_name and 'fill5' in w.cell_name and len([x for x in w.cell_name if x]) == n
     print('full wall ok: oldest tile gave up its cell, wall stays at', n, 'tiles')
@@ -187,7 +198,7 @@ try:
     comp.par.Cols.val = 3
     w.layout()
     run(w, 2)
-    assert w.n == 9 and len(w.cell_name) == 9 and w.arr.shape[1] == 10
+    assert w.n == 9 and len(w.cell_name) == 9 and w.arr.shape[1] == 11
     print('removal and grid resize ok')
 
     comp.par.Atlasmode.val = True

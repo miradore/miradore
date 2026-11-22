@@ -5,28 +5,28 @@
     {
       "id": "future-city",
       "label": "Future City",
-      "color": "#00BCB0",
+      "color": "#2A8C8C",
       "enabled": true,
       "prompt": "The person from the photo walks slowly towards camera through a sunlit futuristic city of white curved towers and turquoise water, gentle dolly in, soft cinematic light, keep the face and clothing exactly as in the photo, realistic, 5 seconds."
     },
     {
       "id": "desert-gold",
       "label": "Desert Gold",
-      "color": "#C9A84C",
+      "color": "#C9A24A",
       "enabled": true,
       "prompt": "The person from the photo stands on a golden sand dune at sunset, wind moving their clothes, slow orbit around them, warm film grain, keep the face exactly as in the photo, realistic."
     },
     {
       "id": "neon-studio",
       "label": "Neon Studio",
-      "color": "#FF6B35",
+      "color": "#9C3B4E",
       "enabled": true,
       "prompt": "The person from the photo turns to camera and smiles in a dark studio with magenta and teal light streaks, slow push in, keep the face exactly as in the photo, realistic, clean background."
     },
     {
       "id": "labs-garden",
       "label": "Labs Garden",
-      "color": "#005F58",
+      "color": "#0F5C4E",
       "enabled": false,
       "prompt": "The person from the photo stands in a glowing digital garden of light flowers that bloom around them, slow crane up, keep the face exactly as in the photo, realistic."
     }

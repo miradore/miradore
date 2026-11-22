@@ -5,19 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0E1B33">
 <title>Miradore Labs Booth</title>
+<link rel="stylesheet" href="tessera.css">
 <link rel="stylesheet" href="app.css">
 </head>
-<body>
+<body data-screen="attract">
+
+<canvas id="mosaic" aria-hidden="true"></canvas>
+<div class="veil" aria-hidden="true"></div>
 
 <section id="attract" class="screen active">
   <p class="eyebrow">Miradore Labs</p>
-  <h1 tabindex="-1">Step into<br>the wall</h1>
-  <p class="lede">One photo becomes your own short AI film, on the big screen in about two minutes.</p>
+  <h1 tabindex="-1">Become<br>a piece<br>of it</h1>
+  <p class="lede">One photo becomes your own short AI film, set into the wall in about two minutes.</p>
   <button class="btn primary huge" data-go="consent">Start</button>
 </section>
 
 <section id="consent" class="screen">
+  <p class="eyebrow">Step 1 of 3</p>
   <h2 tabindex="-1">Before we start</h2>
   <label class="check">
     <input type="checkbox" id="consentBox">
@@ -31,11 +37,12 @@
 </section>
 
 <section id="themes" class="screen">
-  <h2 tabindex="-1">Pick your world</h2>
+  <p class="eyebrow">Step 2 of 3</p>
+  <h2 tabindex="-1">Choose your world</h2>
   <p id="themeMsg" class="lede" role="status"></p>
   <div id="themeList" class="themes"></div>
   <button class="btn primary" id="themeRetry" hidden>Try again</button>
-  <button class="btn ghost" data-go="attract">Start over</button>
+  <button class="btn ghost small" data-go="attract">Start over</button>
 </section>
 
 <section id="camera" class="screen">
@@ -45,32 +52,41 @@
     <img id="still" alt="Your photo" hidden>
     <svg class="guide" viewBox="0 0 1080 1350" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       <ellipse cx="540" cy="560" rx="270" ry="360"/>
+      <path d="M40 180V40h140 M900 40h140v140 M1040 1170v140H900 M180 1310H40v-140"/>
     </svg>
     <div id="count" class="count" role="status" hidden></div>
     <p id="camMsg" class="cammsg" role="alert" hidden></p>
   </div>
-  <p id="hint" class="hint" role="status">Line your face up with the oval</p>
-  <div class="row" id="liveBtns">
-    <button class="btn ghost" data-go="themes">Back</button>
-    <button class="btn primary" id="camRetry" hidden>Try again</button>
-    <button class="btn primary" id="shoot">Take photo</button>
-  </div>
-  <div class="row" id="reviewBtns" hidden>
-    <button class="btn ghost" id="retake">Retake</button>
-    <button class="btn primary" id="submit">Use this photo</button>
+  <div class="side">
+    <p class="eyebrow">Step 3 of 3</p>
+    <p id="hint" class="hint" role="status">Line your face up with the oval</p>
+    <div class="row" id="liveBtns">
+      <button class="btn primary" id="camRetry" hidden>Try again</button>
+      <button class="btn primary" id="shoot">Take photo</button>
+      <button class="btn ghost" data-go="themes">Back</button>
+    </div>
+    <div class="row" id="reviewBtns" hidden>
+      <button class="btn primary" id="submit">Use this photo</button>
+      <button class="btn ghost" id="retake">Retake</button>
+    </div>
   </div>
 </section>
 
 <section id="thanks" class="screen">
-  <h2 tabindex="-1">You're in</h2>
-  <p class="lede">Your film will be on the wall in about two minutes. Scan the code to keep it on your phone.</p>
-  <img id="qr" class="qr" alt="QR code for your clip">
-  <p id="jobCode" class="code"></p>
-  <p id="wifi" class="hint" hidden></p>
-  <button class="btn ghost" data-go="attract">Finish</button>
-  <p id="resetIn" class="hint"></p>
+  <div class="qrtile"><img id="qr" alt="QR code for your clip"></div>
+  <div class="side">
+    <p class="eyebrow">Piece <span id="jobCode"></span></p>
+    <h2 tabindex="-1">You're in</h2>
+    <p class="lede">Your film will be on the wall in about two minutes. Scan the code to keep it on your phone.</p>
+    <p id="wifi" class="hint" hidden></p>
+    <div class="row">
+      <button class="btn ghost" data-go="attract">Finish</button>
+    </div>
+    <p id="resetIn" class="hint"></p>
+  </div>
 </section>
 
+<script src="mosaic.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -4,32 +4,34 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Wall operator</title>
+<link rel="stylesheet" href="/tessera.css">
 <style>
-  :root { --black: #0B1215; --panel: #142024; --orange: #FF6B35; --teal: #00BCB0; --ink: #F4F1EA; --dim: #9AA5A8; --red: #E5484D; }
+  :root { --black: var(--ground); --panel: var(--deep); --orange: var(--gold); --teal: var(--glaze); --ink: var(--bone); --red: var(--danger); --rule: #24385F; }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--black); color: var(--ink); font: 15px/1.4 -apple-system, "Helvetica Neue", Arial, sans-serif; }
+  body { margin: 0; background: var(--black); color: var(--ink); font: 15px/1.4 var(--text); }
   header { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center;
-    padding: 12px 20px; background: var(--black); border-bottom: 1px solid #22323a; }
-  header h1 { margin: 0 auto 0 0; font-size: 18px; }
+    padding: 12px 20px; background: var(--black); border-bottom: 1px solid var(--rule); }
+  header h1 { margin: 0 auto 0 0; font-family: var(--display); font-weight: 800; font-size: 20px; letter-spacing: -.01em; }
   .stat { color: var(--dim); font-variant-numeric: tabular-nums; }
-  .stat b { color: var(--ink); }
-  kbd { padding: 1px 7px; border-radius: 5px; background: #22323a; font: inherit; }
+  .stat b { color: var(--ink); font-weight: 800; }
+  button:focus-visible { outline: 3px solid var(--bone); outline-offset: -3px; }
+  kbd { padding: 1px 7px; border-radius: 5px; background: var(--rule); font: inherit; }
   main { padding: 20px; }
-  h2 { margin: 28px 0 12px; font-size: 14px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+  h2 { margin: 28px 0 12px; font-size: 12px; font-weight: 600; letter-spacing: .3em; text-transform: uppercase; color: var(--dim); }
   h2:first-child { margin-top: 0; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
-  .card { border-radius: 14px; background: var(--panel); overflow: hidden; outline: 3px solid transparent; cursor: pointer; }
+  .card { border-radius: 6px; background: var(--panel); overflow: hidden; outline: 3px solid transparent; cursor: pointer; }
   .card.sel { outline-color: var(--orange); }
   .card video { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; background: #000; }
   .meta { display: flex; justify-content: space-between; gap: 8px; padding: 8px 12px; color: var(--dim); font-size: 13px; }
   .acts { display: flex; }
   button { flex: 1; padding: 12px; border: 0; font: inherit; font-weight: 700; color: var(--black); cursor: pointer; }
-  button.ok { background: var(--teal); }
+  button.ok { background: var(--gold); }
   button.no { background: var(--red); color: #fff; }
-  button.alt { background: #22323a; color: var(--ink); }
+  button.alt { background: var(--rule); color: var(--ink); }
   button:disabled { opacity: .4; }
   table { width: 100%; border-collapse: collapse; }
-  td { padding: 8px 10px; border-top: 1px solid #22323a; vertical-align: middle; }
+  td { padding: 8px 10px; border-top: 1px solid var(--rule); vertical-align: middle; }
   td.err { color: var(--red); word-break: break-word; }
   td.act { white-space: nowrap; text-align: right; }
   td.act button { flex: none; padding: 7px 12px; border-radius: 8px; margin-left: 6px; }

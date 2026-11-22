@@ -105,13 +105,13 @@ w = make(root, baseCOMP, 'wall', 0, -200)
 
 page = w.appendCustomPage('Wall')
 page.appendFolder('Serverfolder', label='Server Folder')[0].val = SERVER
-page.appendFile('Brandclip', label='Brand Clip (empty cells)')
-page.appendFile('Targetimage', label='Target Image (reveal)')
+page.appendFile('Brandclip', label='Brand Clip (empty cells)')[0].val = os.path.join(TD_DIR, 'assets', 'brand-tile.mov')
+page.appendFile('Targetimage', label='Target Image (reveal)')[0].val = os.path.join(TD_DIR, 'assets', 'target-placeholder.png')
 for name, label, value in (('Cols', 'Columns', 10), ('Rows', 'Rows', 10), ('Resw', 'Output Width', 1920), ('Resh', 'Output Height', 1080)):
     par = page.appendInt(name, label=label)[0]
     par.val = par.default = value
     par.normMin, par.normMax, par.min, par.clampMin = 1, (40 if name in ('Cols', 'Rows') else 3840), 1, True
-for name, label, value in (('Gap', 'Gap Between Tiles', 0.04), ('Heroseconds', 'Hero Seconds', 3.0), ('Landseconds', 'Land Seconds', 1.0)):
+for name, label, value in (('Gap', 'Grout Gap', 0.1), ('Heroseconds', 'Hero Seconds', 3.0), ('Landseconds', 'Land Seconds', 1.0)):
     par = page.appendFloat(name, label=label)[0]
     par.val = par.default = value
 for name, label in (('Reveal', 'Reveal'), ('Shuffle', 'Shuffle'), ('Pausenew', 'Pause New'), ('Blackout', 'Blackout'), ('Rescan', 'Rescan Folder')):
@@ -127,6 +127,10 @@ for name, label, value in (('Revealin', 'Fly In Seconds', 5.0), ('Revealhold', '
 
 page = w.appendCustomPage('Advanced')
 page.appendToggle('Atlasmode', label='Atlas Mode (Step 4b)')
+page.appendToggle('Shimmer', label='Idle Shimmer')[0].val = True
+for name, label, value in (('Shimmerevery', 'Shimmer Every (s)', 14.0), ('Ringhold', 'Gold Ring Hold (s)', 0.8)):
+    par = page.appendFloat(name, label=label)[0]
+    par.val = par.default = value
 page.appendToggle('Logperf', label='Log FPS To perf_log.csv')[0].val = True
 page.appendInt('Oscport', label='OSC In Port')[0].val = 7000
 
@@ -194,6 +198,13 @@ setp(brand_fit, 'outputresolution', 'custom')
 setp(brand_fit, 'resolutionw', 320)
 setp(brand_fit, 'resolutionh', 320)
 
+gold = make(w, constantTOP, 'gold', -800, -100)             # gold leaf: the ring around the tile that has just arrived
+for par_name, value in (('colorr', 0.788), ('colorg', 0.635), ('colorb', 0.290), ('alpha', 1)):
+    setp(gold, par_name, value)
+setp(gold, 'outputresolution', 'custom')
+setp(gold, 'resolutionw', 320)
+setp(gold, 'resolutionh', 320)
+
 # ------------------------------------------------------------ one-pass instanced render
 
 inst_cb = text_dat(w, 'inst_callbacks', -600, -200, text=(
@@ -225,7 +236,7 @@ for par_name, chan in (('instancetx', 'tx'), ('instancety', 'ty'), ('instancetz'
     setp(geo, par_name, chan)
 setp(geo, ['instancetexindexop', 'instancetexop'], 'inst')
 setp(geo, 'instancetexindex', 'tex')
-setp(geo, ['instancetexs', 'instancetextures'], w.path + '/brand_fit')
+setp(geo, ['instancetexs', 'instancetextures'], w.path + '/brand_fit ' + w.path + '/gold')
 
 cam = make(w, cameraCOMP, 'cam', -200, -50)
 setp(cam, 'projection', 'ortho')
@@ -251,9 +262,17 @@ atlas_level = make(w, levelTOP, 'atlas_level', 200, -550)
 wire(atlas_xf, atlas_level)
 setp(atlas_level, 'opacity', 0)
 
+ground = make(w, constantTOP, 'ground', 200, -700)           # lapis ground: what shows in the grout between tiles
+for par_name, value in (('colorr', 0.055), ('colorg', 0.106), ('colorb', 0.200), ('alpha', 1)):
+    setp(ground, par_name, value)
+full_res(ground)
+over_ground = make(w, overTOP, 'over_ground', 400, -550)
+wire(atlas_level, over_ground, 0)
+wire(ground, over_ground, 1)
+
 over_atlas = make(w, overTOP, 'over_atlas', 400, -200)
 wire(render, over_atlas, 0)
-wire(atlas_level, over_atlas, 1)
+wire(over_ground, over_atlas, 1)
 
 hero = make(w, moviefileinTOP, 'hero', 0, 150)
 sequential(hero)
