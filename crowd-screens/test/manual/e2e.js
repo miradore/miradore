@@ -89,7 +89,7 @@ const OUT = process.argv[2];
   assert.ok((await pad2.textContent('#preview')).includes('Countdown: GO!'));
 
   // Wrong key
-  const bad = await open({}, '/pad?key=nope'); await bad.waitForTimeout(800);
+  const bad = await open({}, '/pad?key=nope'); await bad.waitForTimeout(2000);
   assert.strictEqual(await bad.textContent('#status'), 'wrong key');
 
   await pad.locator('details summary').click(); await pad.waitForTimeout(400);

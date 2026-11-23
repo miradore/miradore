@@ -10,10 +10,10 @@
   html,body{margin:0;height:100%;background:#0B1215;overflow:hidden;overscroll-behavior:none;touch-action:manipulation;
     -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;
     font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-  #stage{position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center}
+  #stage{position:fixed;top:0;left:0;right:0;bottom:0;background:#000;display:flex;align-items:center;justify-content:center}
   #txt{font-weight:900;line-height:1.02;text-align:center;padding:4vw;max-width:100vw;box-sizing:border-box}
   #dot{position:fixed;right:10px;bottom:10px;width:8px;height:8px;border-radius:50%;background:#FF6B35;opacity:.7;display:none}
-  .full{position:fixed;inset:0;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  .full{position:fixed;top:0;left:0;right:0;bottom:0;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;
     text-align:center;padding:8vw;box-sizing:border-box}
   #join{background:radial-gradient(120% 80% at 50% 0%,#3a1a0e 0%,#0B1215 60%);z-index:3}
   #idle{background:#0B1215;z-index:2;display:none}
@@ -66,7 +66,10 @@ function connect(){
   clearTimeout(timer);timer=null;
   var s=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws');
   ws=s;
+  // On a congested network a connection attempt can hang; give up after 8 s and try again.
+  var giveUp=setTimeout(function(){if(s===ws&&s.readyState===0)dropped()},8000);
   s.onopen=function(){
+    clearTimeout(giveUp);
     if(s!==ws)return;
     retry=0;dot.style.display='none';
     s.send(JSON.stringify({t:'hello',role:'aud',zone:zone}));burst(6);
@@ -95,11 +98,12 @@ function dropped(){
 }
 
 // ----- clock sync: several pings, keep the one with the shortest round trip
-var best=null,burstId=0;
+var best=null,burstId=0,asked={};
 function burst(n){
-  var id=++burstId,s=ws;best=null;
+  var id=++burstId,s=ws;best=null;asked={};   // answers to older pings are ignored from here on
   for(var i=0;i<n;i++)setTimeout(function(){
-    if(s===ws&&s.readyState===1)s.send(JSON.stringify({t:'sync',c:performance.now()}));
+    if(id!==burstId||s!==ws||s.readyState!==1)return;
+    var c=performance.now();asked[c]=1;s.send(JSON.stringify({t:'sync',c:c}));
   },i*180);
   setTimeout(function(){
     if(id!==burstId||s!==ws)return;
@@ -110,6 +114,7 @@ function burst(n){
   },n*180+4000);
 }
 function onSync(m){
+  if(!asked[m.c])return;
   var t=performance.now(),rtt=t-m.c;
   if(rtt<0||rtt>10000)return;
   if(!best||rtt<best.rtt){
@@ -117,7 +122,7 @@ function onSync(m){
     if(!synced)offset=best.off;      // use the first answer straight away, refine after
   }
 }
-setInterval(function(){if(started&&ws&&ws.readyState===1)burst(3)},30000);
+setInterval(function(){if(started&&ws&&ws.readyState===1)burst(2)},15000);
 
 // ----- drawing
 function css(c){return'rgb('+Math.round(c[0])+','+Math.round(c[1])+','+Math.round(c[2])+')'}
@@ -152,15 +157,20 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 window.addEventListener('pageshow',function(e){if(e.persisted)resumed()});
 window.addEventListener('online',resumed);
 
-document.getElementById('go').addEventListener('click',function(){
+function start(byTap){
   if(started)return;started=true;
   document.getElementById('join').style.display='none';
+  try{sessionStorage.setItem('joined','1')}catch(_){}
   wake();
   var el=document.documentElement;
-  try{if(el.requestFullscreen){var p=el.requestFullscreen({navigationUI:'hide'});if(p&&p.catch)p.catch(function(){})}}catch(_){}
+  if(byTap)try{if(el.requestFullscreen){var p=el.requestFullscreen({navigationUI:'hide'});if(p&&p.catch)p.catch(function(){})}}catch(_){}
   connect();
   requestAnimationFrame(frame);
-});
+}
+document.getElementById('go').addEventListener('click',function(){start(true)});
+document.addEventListener('click',function(){if(started)wake()});   // any later tap re-takes the wake lock
+// If the browser reloads the page (phones do this after the camera is used), rejoin without asking again.
+try{if(sessionStorage.getItem('joined'))start(false)}catch(_){}
 if(!document.querySelector('.show').textContent)document.querySelector('.show').style.display='none';
 })();
 </script>

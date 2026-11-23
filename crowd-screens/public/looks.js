@@ -62,7 +62,7 @@ function colorAt(l, at, t, ctx, from) {
 
 function create(ctx) {
   var cur = null, queue = [], from = [0, 0, 0], last = [0, 0, 0], flash = null;
-  var master = 1, masterNow = 1;
+  var master = 1, masterNow = 1, lastT = null;
   var out = { idle: true, c: [0, 0, 0], text: '', fg: [255, 255, 255] };
   return {
     ctx: ctx,
@@ -76,7 +76,9 @@ function create(ctx) {
         if (q.look.type === 'flash') { if (t - q.at < q.look.dur) flash = q; }
         else if (!cur || q.at >= cur.at) { from = last; cur = q.look.type === 'idle' ? null : q; if (!cur) last = [0, 0, 0]; }
       }
-      masterNow += (master - masterNow) * 0.25;
+      // Brightness moves at a limited speed (full range in 400 ms), so wiggling the slider cannot strobe.
+      var step = lastT === null ? 0 : Math.min(1000, Math.max(0, t - lastT)) * 0.0025; lastT = t;
+      masterNow += Math.min(step, Math.max(-step, master - masterNow));
       out.idle = !cur; out.text = '';
       var c = [0, 0, 0];
       if (cur) {

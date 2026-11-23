@@ -125,8 +125,8 @@ var COLORS=[['Red',[255,0,0]],['Orange',ORANGE],['Gold',[255,190,40]],['Yellow',
   ['Magenta',[255,0,200]],['Pink',[255,110,170]],['Warm white',[255,214,170]],['White',[255,255,255]],['Blackout',[0,0,0]]];
 var FX=[
   ['Rainbow wave',function(){return{type:'rainbow',period:6000}}],
-  ['Beat pulse',function(){return{type:'pulse',c:color,bpm:bpm,t0:beat0}},true],
-  ['Two-colour beat',function(){return{type:'alt',a:color,b:color2,bpm:bpm,t0:beat0}},true],
+  ['Beat pulse',function(){retimed=performance.now();return{type:'pulse',c:color,bpm:bpm,t0:beat0}},true],
+  ['Two-colour beat',function(){retimed=performance.now();return{type:'alt',a:color,b:color2,bpm:bpm,t0:beat0}},true],
   ['Breathe',function(){return{type:'breathe',c:color,period:4000}}],
   ['Sparkle',function(){return{type:'sparkle',c:color}}],
   ['Two-colour split',function(){return{type:'split',colors:[color,color2]}}],
@@ -146,8 +146,9 @@ function now(){return performance.now()+offset}
 function css(c){return'rgb('+Math.round(c[0])+','+Math.round(c[1])+','+Math.round(c[2])+')'}
 function contrast(c){return(c[0]*299+c[1]*587+c[2]*114)/1000>150?[0,0,0]:[255,255,255]}
 function cue(look){
-  if(!ws||ws.readyState!==1)return;
+  if(!ws||ws.readyState!==1||document.body.classList.contains('off'))return false;
   ws.send(JSON.stringify({t:'cue',zones:targets,look:look}));
+  return true;
 }
 function live(el){if(liveEl)liveEl.classList.remove('live');liveEl=el;if(el)el.classList.add('live')}
 function tapEvt(el,fn){el.addEventListener('pointerdown',function(e){if(e.button)return;e.preventDefault();fn(e)})}
@@ -162,7 +163,7 @@ COLORS.forEach(function(c){
   else if(contrast(c[1])[0]===0){b.style.color='#000';b.style.textShadow='none'}
   tapEvt(b,function(){
     if(c[0]!=='Blackout'&&c[1]!==color){color2=color;color=c[1];swatches()}
-    lastFx=null;live(b);cue({type:'color',c:c[1],fade:fade});
+    if(cue({type:'color',c:c[1],fade:fade})){lastFx=null;live(b)}
   });
   $('colors').appendChild(b);
 });
@@ -173,7 +174,7 @@ FADES.forEach(function(f,i){
 });
 FX.forEach(function(f){
   var b=document.createElement('button');b.className='pad fx';b.textContent=f[0];
-  tapEvt(b,function(){lastFx=f;live(b);cue(f[1]())});
+  tapEvt(b,function(){if(cue(f[1]())){lastFx=f;live(b)}});
   $('fx').appendChild(b);
 });
 
@@ -182,10 +183,10 @@ var lastHit=0;
 function hit(c){var t=performance.now();if(t-lastHit<flashGap)return;lastHit=t;cue({type:'flash',c:c,dur:700})}
 tapEvt($('flashW'),function(){hit([255,255,255])});
 tapEvt($('flashC'),function(){hit(color)});
-tapEvt($('standby'),function(){lastFx=null;live(null);cue({type:'idle'})});
+tapEvt($('standby'),function(){if(cue({type:'idle'})){lastFx=null;live(null)}});
 
 // tempo
-var taps=[];
+var taps=[],retime=null,retimed=-1e9;
 tapEvt($('tap'),function(){
   var t=now();
   if(taps.length&&t-taps[taps.length-1]>2500)taps=[];
@@ -193,7 +194,9 @@ tapEvt($('tap'),function(){
   if(taps.length>=3){
     bpm=Math.min(180,Math.max(30,Math.round(60000*(taps.length-1)/(t-taps[0]))));
     beat0=t;$('bpm').textContent=bpm+' BPM';
-    if(lastFx&&lastFx[2])cue(lastFx[1]());     // a running beat effect follows the new tempo
+    // A running beat effect follows the new tempo, re-timed at most once every 2 seconds.
+    if(lastFx&&lastFx[2]&&!retime)retime=setTimeout(function(){retime=null;if(lastFx&&lastFx[2])cue(lastFx[1]())},
+      Math.max(0,2000-(performance.now()-retimed)));
   }
 });
 
@@ -212,14 +215,13 @@ $('dim').addEventListener('input',function(){
 
 // text and countdown
 function sendText(s){
-  s=String(s||'').trim();if(!s)return;lastFx=null;live(null);
-  cue({type:'text',text:s.toUpperCase(),bg:color,fg:contrast(color)});
+  s=String(s||'').trim();if(!s)return;
+  if(cue({type:'text',text:s.toUpperCase(),bg:color,fg:contrast(color)})){lastFx=null;live(null)}
 }
 tapEvt($('sendText'),function(){sendText($('text').value||$('text').placeholder)});
 $('text').addEventListener('keydown',function(e){if(e.key==='Enter')sendText($('text').value)});
 tapEvt($('sendCount'),function(){
-  lastFx=null;live(null);
-  cue({type:'countdown',secs:Number($('secs').value)||10,endText:$('endText').value||'GO!',bg:color,fg:contrast(color)});
+  if(cue({type:'countdown',secs:Number($('secs').value)||10,endText:$('endText').value||'GO!',bg:color,fg:contrast(color)})){lastFx=null;live(null)}
 });
 
 // zones + live preview (a few sample phones per zone, drawn by the same engine the phones use)
@@ -310,12 +312,13 @@ function connect(){
   clearTimeout(retryT);retryT=null;
   var s=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws');
   ws=s;
-  s.onopen=function(){s.send(JSON.stringify({t:'hello',role:'pad',key:key}));syncBurst(s)};
+  var giveUp=setTimeout(function(){if(s===ws&&s.readyState===0)s.onclose()},8000);
+  s.onopen=function(){clearTimeout(giveUp);s.send(JSON.stringify({t:'hello',role:'pad',key:key}));syncBurst(s)};
   s.onmessage=function(e){
     if(s!==ws)return;
     var m;try{m=JSON.parse(e.data)}catch(_){return}
     if(m.t==='welcome'){
-      zones=m.zones;flashGap=m.flashGap||334;setOnline(true);
+      zones=m.zones;flashGap=m.flashGap||334;lastStats=performance.now();setOnline(true);
       drawZones();drawPreview(m.cues||{},m.master);drawQuick(m.quick||[]);drawQrs();
       $('dim').value=Math.round(m.master*100);$('dimLbl').textContent=$('dim').value+'%';
       if(!beat0)beat0=now();
@@ -339,7 +342,7 @@ function connect(){
   };
   s.onclose=s.onerror=function(){
     if(s!==ws)return;
-    ws=null;s.onclose=s.onerror=s.onmessage=null;try{s.close()}catch(_){}
+    clearTimeout(giveUp);ws=null;s.onclose=s.onerror=s.onmessage=null;try{s.close()}catch(_){}
     setOnline(false);if(!retryT)retryT=setTimeout(connect,800);
   };
 }

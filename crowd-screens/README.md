@@ -24,7 +24,7 @@ Turns the audience's phones into one synchronised light show. People scan a QR c
 | Text, Countdown | Big words, or a countdown ending on a word |
 | Standby screen, Blackout | Back to the waiting screen, or black |
 
-Nothing flashes more than 3 times a second: tempo is capped at 180 BPM and the flash button at 3 hits a second (photosensitivity limit).
+Flashing is held to about 3 times a second (photosensitivity limit), and the server enforces it however fast the pad is tapped: tempo is capped at 180 BPM, look changes in a zone are spaced at least a third of a second apart with the last tap winning, the flash button is thinned out or disabled while a fast beat effect is running, and brightness changes are smoothed.
 
 ## Run it
 
@@ -60,6 +60,12 @@ node loadtest.js wss://show.example.com/ws 5000 <operator-key> 10
 ```
 
 The load test simulates the phones and an operator and reports delivery times. Run it against the real hosting before the show, from a different machine than the server.
+
+## Before each show
+
+- Use a long random `OPERATOR_KEY`, and share the pad link only with the operator.
+- Press **Standby screen** before doors open. The last look from a rehearsal is otherwise shown to the first people who join.
+- Two pads can be open at once. The preview strip is always true on both; the highlighted pad button is local to each tablet.
 
 ## Known limits
 

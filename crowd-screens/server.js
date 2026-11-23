@@ -23,8 +23,11 @@ const QUICK_TEXTS = (process.env.QUICK_TEXTS || 'MAKE SOME NOISE,HANDS UP,ONE MO
   .split(',').map((s) => s.trim().slice(0, 24)).filter(Boolean).slice(0, 8);
 const STATE_FILE = process.env.STATE_FILE || path.join(os.tmpdir(), `crowd-screens-${PORT}.json`);
 const STATE_MAX_AGE_MS = 6 * 3600 * 1000;
-const MAX_BPM = 180;          // 3 changes per second at most (photosensitivity limit)
-const FLASH_GAP_MS = 334;     // same limit for the flash button
+// Photosensitivity limit: screens must not flash more than about 3 times a second,
+// however fast the pad is tapped. Everything below enforces that on the server.
+const MAX_BPM = 180;
+const GAP_MS = 334;           // minimum time between two look changes in a zone
+const BEAT_REGAP_MS = 2000;   // minimum time between re-timings of a running beat look
 
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const ZONES = (process.env.ZONES || 'Main')
@@ -85,7 +88,13 @@ try {
   const s = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
   if (Date.now() - s.saved < STATE_MAX_AGE_MS) {
     master = num(s.master, 0, 1, 1);
-    for (const [id, cue] of Object.entries(s.cues || {})) if (zoneById.has(id) && cue && cue.look) zoneCue.set(id, cue);
+    for (const [id, cue] of Object.entries(s.cues || {})) {
+      const at = Number(cue && cue.at);
+      const look = Number.isFinite(at) ? cleanLook(cue.look, at) : null;   // never trust the file blindly
+      if (!zoneById.has(id) || !look || look.type === 'idle' || look.type === 'flash') continue;
+      if (look.type === 'countdown') look.end = num(cue.look.end, 0, at + 600000, at);
+      zoneCue.set(id, { t: 'cue', at, look });
+    }
   }
 } catch { /* no saved state */ }
 let saveTimer = null;
@@ -94,7 +103,7 @@ function saveState() {
   saveTimer = setTimeout(() => {
     saveTimer = null;
     const data = JSON.stringify({ saved: Date.now(), master, cues: Object.fromEntries(zoneCue) });
-    fs.writeFile(STATE_FILE, data, () => {});
+    fs.writeFile(STATE_FILE + '.tmp', data, (e) => { if (!e) fs.rename(STATE_FILE + '.tmp', STATE_FILE, () => {}); });
   }, 250);
 }
 
@@ -102,8 +111,9 @@ function saveState() {
 const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pages = { '/': 'index.html', '/pad': 'pad.html' };
 const cache = new Map();
+const qrCache = new Map();
 function page(name) {
-  if (!cache.has(name) || process.env.NODE_ENV !== 'production') {
+  if (!cache.has(name) || process.env.DEV) {
     const dir = path.join(__dirname, 'public');
     const html = fs.readFileSync(path.join(dir, name), 'utf8')
       .replace('/*__LOOKS__*/', () => fs.readFileSync(path.join(dir, 'looks.js'), 'utf8'))
@@ -129,7 +139,11 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/qr') {
       const zone = zoneById.get(url.searchParams.get('z')) || ZONES[0];
       const link = ZONES.length > 1 ? `${baseUrl(req)}/?z=${zone.id}` : `${baseUrl(req)}/`;
-      const svg = await QRCode.toString(link, { type: 'svg', margin: 2, errorCorrectionLevel: 'M' });
+      if (!qrCache.has(link)) {
+        if (qrCache.size > 50) qrCache.clear();
+        qrCache.set(link, await QRCode.toString(link, { type: 'svg', margin: 2, errorCorrectionLevel: 'M' }));
+      }
+      const svg = qrCache.get(link);
       res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
       return res.end(svg);
     }
@@ -145,12 +159,16 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+server.keepAliveTimeout = 65000;   // longer than typical load balancer idle timeouts
+server.headersTimeout = 66000;
+server.on('error', (e) => { console.error('Server error:', e.message); process.exit(1); });
+
 // ---------- WebSocket ----------
 const wss = new WebSocketServer({ server, path: '/ws', perMessageDeflate: false, maxPayload: 4096 });
 const audience = new Set();
 const pads = new Set();
 const zoneClients = new Map(ZONES.map((z) => [z.id, new Set()]));
-let lastFlash = 0;
+const zstate = new Map(ZONES.map((z) => [z.id, { lastAt: -1e12, lastFlashAt: -1e12, pending: null, timer: null }]));
 
 const send = (ws, obj) => { if (ws.readyState === 1) ws.send(JSON.stringify(obj)); };
 function fanout(set, payload) {
@@ -168,9 +186,65 @@ const keyOk = (k) => {
 };
 const cuesObject = () => Object.fromEntries(zoneCue);
 
+// ---------- cue scheduling ----------
+const isBeat = (l) => !!l && (l.type === 'pulse' || l.type === 'alt');
+const liveLook = (id) => (zoneCue.get(id) || {}).look;
+
+// A look change is sent at once if the zone has been quiet for GAP_MS. Otherwise it is held
+// and only the latest one is sent when the gap has passed, so fast tapping cannot strobe.
+function requestCue(id, raw, t) {
+  const z = zstate.get(id);
+  clearTimeout(z.timer); z.timer = null; z.pending = null;
+  const gap = isBeat(raw) && isBeat(liveLook(id)) ? BEAT_REGAP_MS : GAP_MS;
+  const wait = z.lastAt + gap - (t + LEAD_MS);
+  if (wait <= 0) return fire(id, raw, t + LEAD_MS);
+  z.pending = raw;
+  z.timer = setTimeout(() => { z.timer = null; z.pending = null; fire(id, raw, now() + LEAD_MS); }, wait);
+}
+function fire(id, raw, at) {
+  const look = cleanLook(raw, at);
+  if (!look) return;
+  zstate.get(id).lastAt = at;
+  if (look.type === 'idle') zoneCue.delete(id); else zoneCue.set(id, { t: 'cue', at, look });
+  fanout(zoneClients.get(id), JSON.stringify({ t: 'cue', at, look }));
+  fanout(pads, JSON.stringify({ t: 'cue', at, look, zones: [id] }));
+  saveState();
+}
+// A flash is momentary and never replayed. It shares the zone's change budget, and is
+// thinned out further while a beat look is already flashing the screen.
+function flashGap(look) {
+  const rate = isBeat(look) ? look.bpm / 60 : look && look.type === 'sparkle' ? 2 : 0;
+  return rate >= 2.9 ? Infinity : Math.max(GAP_MS, 1000 / (3 - rate));
+}
+function fireFlash(targets, look, t) {
+  const at = t + LEAD_MS;
+  const ok = targets.filter((id) => {
+    const z = zstate.get(id);
+    return !z.pending && at - z.lastAt >= GAP_MS && at - z.lastFlashAt >= flashGap(liveLook(id));
+  });
+  if (!ok.length) return;
+  const payload = JSON.stringify({ t: 'cue', at, look });
+  for (const id of ok) {
+    const z = zstate.get(id);
+    z.lastAt = z.lastFlashAt = at;
+    fanout(zoneClients.get(id), payload);
+  }
+  fanout(pads, JSON.stringify({ t: 'cue', at, look, zones: ok }));
+}
+let masterTimer = null;
+function sendMaster() {
+  masterTimer = null;
+  const payload = JSON.stringify({ t: 'master', v: master });
+  fanout(audience, payload);
+  fanout(pads, payload);
+}
+
 wss.on('connection', (ws) => {
-  if (wss.clients.size > MAX_CLIENTS) return ws.close(1013, 'full');
+  // Spare room above the audience limit so the operator can always get in.
+  if (wss.clients.size > MAX_CLIENTS + 500) return ws.close(1013, 'full');
   ws.alive = true;
+  // A connection that never says who it is does not get to stay.
+  ws.helloTimer = setTimeout(() => { if (!ws.role) ws.terminate(); }, 10000);
   ws.msgs = 0;
   ws.on('pong', () => { ws.alive = true; });
   ws.on('error', () => {});
@@ -185,14 +259,18 @@ wss.on('connection', (ws) => {
 
     if (m.t === 'hello' && !ws.role) {
       if (m.role === 'pad') {
-        if (!keyOk(m.key)) { send(ws, { t: 'denied' }); return ws.close(); }
+        if (!keyOk(m.key)) {
+          ws.role = 'denied';
+          return setTimeout(() => { send(ws, { t: 'denied' }); ws.close(); }, 1000);   // slows key guessing
+        }
         ws.role = 'pad';
         pads.add(ws);
         return send(ws, {
-          t: 'welcome', zones: ZONES, lead: LEAD_MS, maxBpm: MAX_BPM, flashGap: FLASH_GAP_MS,
+          t: 'welcome', zones: ZONES, lead: LEAD_MS, maxBpm: MAX_BPM, flashGap: GAP_MS,
           cues: cuesObject(), master, quick: QUICK_TEXTS, show: SHOW_NAME,
         });
       }
+      if (audience.size >= MAX_CLIENTS) return ws.close(1013, 'full');
       const zone = zoneById.get(m.zone) || ZONES[0];
       ws.role = 'aud';
       ws.zone = zone.id;
@@ -204,33 +282,21 @@ wss.on('connection', (ws) => {
     if (ws.role !== 'pad') return;
 
     if (m.t === 'cue') {
-      const t = now(), at = t + LEAD_MS;
-      const look = cleanLook(m.look, at);
-      if (!look) return;
-      if (look.type === 'flash') {
-        if (t - lastFlash < FLASH_GAP_MS) return;
-        lastFlash = t;
-      }
+      const t = now();
+      const probe = cleanLook(m.look, t + LEAD_MS);
+      if (!probe) return;
       const targets = Array.isArray(m.zones) && m.zones.length
         ? [...new Set(m.zones.filter((id) => zoneById.has(id)))] : ZONES.map((z) => z.id);
-      if (!targets.length) return;
-      const payload = JSON.stringify({ t: 'cue', at, look });
-      for (const id of targets) {
-        if (look.type === 'idle') zoneCue.delete(id);
-        else if (look.type !== 'flash') zoneCue.set(id, { t: 'cue', at, look }); // a flash is momentary, never replayed
-        fanout(zoneClients.get(id), payload);
-      }
-      fanout(pads, JSON.stringify({ t: 'cue', at, look, zones: targets }));
-      saveState();
+      if (probe.type === 'flash') return fireFlash(targets, probe, t);
+      for (const id of targets) requestCue(id, m.look, t);
     } else if (m.t === 'master') {
       master = num(m.v, 0, 1, 1);
-      const payload = JSON.stringify({ t: 'master', v: master });
-      fanout(audience, payload);
-      fanout(pads, payload);
       saveState();
+      if (!masterTimer) masterTimer = setTimeout(sendMaster, 100);   // at most 10 updates a second
     }
   });
   ws.on('close', () => {
+    clearTimeout(ws.helloTimer);
     audience.delete(ws);
     pads.delete(ws);
     if (ws.zone) zoneClients.get(ws.zone).delete(ws);
@@ -273,4 +339,5 @@ server.listen(PORT, () => {
   console.log(`Crowd Screens listening on :${PORT}`);
   console.log(`Zones: ${ZONES.map((z) => z.name).join(', ')}`);
   console.log(`Operator pad: /pad?key=${process.env.OPERATOR_KEY ? '<your OPERATOR_KEY>' : OPERATOR_KEY}`);
+  if (OPERATOR_KEY.length < 10) console.warn('Warning: OPERATOR_KEY is short. Use a long random key for a real show.');
 });

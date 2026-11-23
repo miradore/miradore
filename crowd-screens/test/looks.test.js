@@ -89,6 +89,19 @@ test('master brightness dims the output', () => {
   assert.deepStrictEqual(e.frame(1).c.map(Math.round), [100, 50, 0]);
 });
 
+test('brightness moves at a limited speed, so wiggling the slider cannot strobe', () => {
+  const e = Looks.create(ctx());
+  e.push(cue(0, { type: 'color', c: [255, 255, 255], fade: 0 }));
+  e.frame(1);
+  let rises = 0, low = false;
+  for (let t = 2; t < 10000; t += 5) {
+    e.setMaster(Math.floor(t / 50) % 2);          // slider slammed end to end 20 times a second
+    const v = e.frame(t).c[0] / 255;
+    if (low && v > 0.6) { rises++; low = false; } else if (!low && v < 0.3) low = true;
+  }
+  assert.ok(rises <= 30, `${rises} flashes in 10s`);
+});
+
 test('split gives each phone one fixed colour and uses every colour across a crowd', () => {
   const colors = [[255, 0, 0], [0, 255, 0], [0, 0, 255]];
   const seen = new Set();
