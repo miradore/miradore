@@ -4,11 +4,27 @@ Turns the audience's phones into one synchronised light show. People scan a QR c
 
 ## How it works
 
-- **Audience page (`/`)**: full-screen page that syncs to the server clock, keeps the screen awake and shows whatever look is live. If the connection drops, the current look keeps running and the phone reconnects by itself.
-- **Operator pad (`/pad?key=...`)**: colours, fades, effects, tap tempo, text and countdown, sent to everyone or to chosen zones. Shows the live phone count and the QR codes.
-- **Show server (`server.js`)**: one small Node process. Every cue is stamped to fire 500 ms in the future, so phones change together even when their connections have different delays.
+- **Audience page (`/`)**: full-screen page that syncs to the server clock, keeps the screen awake and shows whatever look is live. Before the show it displays a standby screen. If the connection drops, the current look keeps running and the phone reconnects and catches up by itself.
+- **Operator pad (`/pad?key=...`)**: sends looks to everyone or to chosen zones. A strip of sample phones at the top shows what each zone is displaying, drawn by the same code the phones run. A red banner appears if the pad loses its connection.
+- **Show server (`server.js`)**: one small Node process. Every cue is stamped to fire 500 ms in the future, so phones change together even when their connections have different delays. The live look is saved to disk and restored if the server restarts.
 
-Looks: solid colour (snap or fade), rainbow wave, beat pulse, sparkle, zone chase, Miradore colour cycle, text, countdown, blackout. Beat pulse is capped at 180 BPM (3 flashes per second) for photosensitivity.
+### Looks
+
+| Look | What the crowd sees |
+|---|---|
+| Colour | One solid colour, snapped or faded in over 1 or 2 seconds |
+| Rainbow wave, Miradore cycle | Colours rolling across the zones in order |
+| Beat pulse, Two-colour beat | Flashes or colour swaps on the tapped tempo |
+| Breathe | Slow swell of one colour |
+| Sparkle | Random phones twinkling |
+| Two-colour split, Miradore split | Each phone holds one colour, so the crowd becomes a mix |
+| Zone chase | Light sweeping from zone to zone |
+| Fire, Ocean, Lighters | Each phone drifts through a palette on its own |
+| Flash | One hit of white or colour over the current look |
+| Text, Countdown | Big words, or a countdown ending on a word |
+| Standby screen, Blackout | Back to the waiting screen, or black |
+
+Nothing flashes more than 3 times a second: tempo is capped at 180 BPM and the flash button at 3 hits a second (photosensitivity limit).
 
 ## Run it
 
@@ -25,20 +41,25 @@ Open `http://localhost:8080/pad?key=choose-a-secret` for the pad and `http://loc
 | `OPERATOR_KEY` | random, printed at start | Secret for the operator pad |
 | `ZONES` | `Main` | Comma-separated zone names, in the order waves travel |
 | `PUBLIC_URL` | from the request | Address printed into the QR codes, e.g. `https://show.miradore.ae` |
+| `SHOW_NAME` | none | Show title on the join screen, e.g. `ROX` |
+| `QUICK_TEXTS` | four defaults | Comma-separated one-tap text buttons on the pad |
 | `LEAD_MS` | `500` | How far ahead cues are scheduled |
+| `STATE_FILE` | temp folder | Where the live look is saved across restarts |
 | `MAX_CLIENTS` | `20000` | Connection limit |
 
 ## Hosting
 
-Any host that runs Node 18+ and supports WebSockets works. It must be served over HTTPS: the screen wake lock only works on secure pages. Run a single instance (state is in memory), and raise the open-file limit above the expected crowd size.
+Any host that runs Node 18+ (or the included `Dockerfile`) and supports WebSockets works. It must be served over HTTPS: the screen wake lock only works on secure pages. Run a single instance (state is in memory), and raise the open-file limit above the expected crowd size.
 
-## Load test
+## Tests
 
 ```bash
+npm test                                   # look engine and server protocol
+node test/manual/e2e.js                    # emulated phones and pad in a real browser (needs Playwright and a running server)
 node loadtest.js wss://show.example.com/ws 5000 <operator-key> 10
 ```
 
-Simulates the phones and an operator and reports delivery times. Run it against the real hosting before the show, from a different machine than the server.
+The load test simulates the phones and an operator and reports delivery times. Run it against the real hosting before the show, from a different machine than the server.
 
 ## Known limits
 
