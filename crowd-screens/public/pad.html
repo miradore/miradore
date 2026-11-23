@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0B1215">
+<meta name="robots" content="noindex">
+<title>Miradore Crowd Screens Pad</title>
+<style>
+  :root{--bg:#0B1215;--panel:#141d21;--line:#263238;--txt:#e8eef0;--mute:#8a989c;--orange:#FF6B35;--gold:#C9A84C;--teal:#00BCB0}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;overscroll-behavior:none}
+  #top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+  header{display:flex;align-items:center;gap:14px;padding:10px 16px;flex-wrap:wrap}
+  header b{letter-spacing:.25em;color:var(--orange);font-size:15px}
+  header span.t{color:var(--mute);font-size:14px}
+  #status{margin-left:auto;font-size:13px;padding:4px 10px;border-radius:99px;background:#3a1a12;color:#ff9c7a}
+  #status.on{background:#0d3330;color:var(--teal)}
+  #count{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+  #count small{font-size:12px;color:var(--mute);font-weight:500;margin-left:4px}
+  #offline{display:none;background:#b3261e;color:#fff;font-weight:800;text-align:center;padding:10px;font-size:14px}
+  body.off #offline{display:block}
+  body.off main{opacity:.45}
+  #preview{display:flex;gap:18px;padding:6px 16px 10px;flex-wrap:wrap;align-items:flex-end}
+  .pz{display:flex;flex-direction:column;gap:4px}
+  .pz .lbl{font-size:11px;color:var(--mute);letter-spacing:.08em;text-transform:uppercase;max-width:230px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pz .lbl b{color:var(--txt);font-weight:700}
+  .pz .ph{display:flex;gap:4px}
+  .pz .ph i{width:18px;height:30px;border-radius:4px;background:#000;border:1px solid #2c383d;display:block}
+  main{padding:6px 16px 60px;max-width:1100px;margin:0 auto}
+  h2{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--mute);margin:18px 0 8px;font-weight:600}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .chip{padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--txt);font-size:14px;font-weight:600}
+  .chip.sel{border-color:var(--orange);background:#2a1811;color:#fff}
+  .chip small{color:var(--mute);font-weight:500;margin-left:6px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
+  .pad{height:72px;border-radius:12px;border:2px solid transparent;font-size:13px;font-weight:700;color:#fff;
+    text-shadow:0 1px 2px rgba(0,0,0,.6);display:flex;align-items:flex-end;padding:8px;background:var(--panel)}
+  .pad.fx{border-color:var(--line);align-items:center;justify-content:center;text-align:center;text-shadow:none}
+  .pad.hit{background:#fff;color:#000;text-shadow:none;align-items:center;justify-content:center;font-size:15px;letter-spacing:.1em}
+  .pad:active{transform:scale(.96)}
+  .pad.live{border-color:#fff;box-shadow:0 0 0 2px var(--orange)}
+  input[type=text],input[type=number]{background:var(--panel);border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:12px;font-size:16px;
+    -webkit-user-select:text;user-select:text;min-width:0}
+  input[type=range]{flex:1;max-width:420px;accent-color:var(--orange);height:32px}
+  button.act{background:var(--orange);color:var(--bg);border:0;border-radius:10px;padding:12px 18px;font-weight:800;font-size:14px}
+  button.ghost{background:none;border:1px solid var(--line);color:var(--mute);border-radius:10px;padding:8px 12px;font-weight:700;font-size:12px}
+  #tap{background:var(--teal);padding:18px 28px;font-size:16px}
+  #bpm{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;min-width:90px}
+  .hint{color:var(--mute);font-size:13px}
+  .sw{width:22px;height:22px;border-radius:6px;border:1px solid var(--line);display:inline-block;vertical-align:middle}
+  .qr{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center;width:190px}
+  .qr img{width:100%;background:#fff;border-radius:6px;display:block}
+  .qr div{font-size:13px;font-weight:700;margin-top:6px}
+  .qr a{font-size:11px;color:var(--mute);word-break:break-all}
+  details summary{cursor:pointer;color:var(--mute);font-size:13px;margin-top:22px}
+</style>
+</head>
+<body class="off">
+<div id="top">
+  <div id="offline">PAD OFFLINE. Reconnecting. Nothing you tap is being sent.</div>
+  <header>
+    <b>MIRADORE</b><span class="t">Crowd Screens</span>
+    <div id="count"><span id="total">0</span><small>phones</small> <small id="peak"></small></div>
+    <button class="ghost" id="standby">Standby screen</button>
+    <div id="status">offline</div>
+  </header>
+  <div id="preview"></div>
+</div>
+<main>
+  <h2>Send to</h2>
+  <div class="row" id="zones"></div>
+
+  <h2>Brightness <span id="dimLbl">100%</span></h2>
+  <div class="row"><input type="range" id="dim" min="0" max="100" value="100"></div>
+
+  <h2>Colours</h2>
+  <div class="row" id="fades" style="margin-bottom:8px"></div>
+  <div class="grid" id="colors"></div>
+
+  <h2>Effects <span class="hint" style="text-transform:none;letter-spacing:0">using <span class="sw" id="sw1"></span> and <span class="sw" id="sw2"></span> (the last two colours tapped)</span></h2>
+  <div class="grid" id="fx"></div>
+
+  <h2>Hits and tempo</h2>
+  <div class="row">
+    <button class="pad hit" id="flashW" style="width:120px">FLASH</button>
+    <button class="pad hit" id="flashC" style="width:120px">FLASH COLOUR</button>
+    <button class="act" id="tap">TAP</button><div id="bpm">120 BPM</div>
+    <span class="hint">Tap along with the music. Beat effects follow.</span>
+  </div>
+
+  <h2>Text</h2>
+  <div class="row">
+    <input type="text" id="text" maxlength="24" placeholder="WELCOME" style="flex:1" autocomplete="off">
+    <button class="act" id="sendText">Send text</button>
+  </div>
+  <div class="row" id="quick" style="margin-top:8px"></div>
+
+  <h2>Countdown</h2>
+  <div class="row">
+    <input id="secs" type="number" min="1" max="600" value="10" style="width:90px">
+    <span class="hint">seconds, then</span>
+    <input type="text" id="endText" maxlength="12" value="GO" style="width:130px" autocomplete="off">
+    <button class="act" id="sendCount">Start countdown</button>
+  </div>
+
+  <details>
+    <summary>QR codes for the audience</summary>
+    <div class="row" id="qrs" style="margin-top:10px;align-items:flex-start"></div>
+  </details>
+</main>
+<script>/*__LOOKS__*/</script>
+<script>
+(function(){
+'use strict';
+var $=function(id){return document.getElementById(id)};
+var key=new URLSearchParams(location.search).get('key')||sessionStorage.getItem('padKey')||prompt('Operator key')||'';
+sessionStorage.setItem('padKey',key);
+try{history.replaceState(null,'','/pad')}catch(_){}   // keep the key out of the address bar
+
+var ORANGE=[255,107,53],GOLD=[201,168,76],TEAL=[0,188,176],DEEP=[0,95,88];
+var COLORS=[['Red',[255,0,0]],['Orange',ORANGE],['Gold',[255,190,40]],['Yellow',[255,235,0]],['Lime',[150,255,0]],
+  ['Green',[0,255,60]],['Teal',TEAL],['Cyan',[0,230,255]],['Blue',[0,60,255]],['Purple',[140,40,255]],
+  ['Magenta',[255,0,200]],['Pink',[255,110,170]],['Warm white',[255,214,170]],['White',[255,255,255]],['Blackout',[0,0,0]]];
+var FX=[
+  ['Rainbow wave',function(){return{type:'rainbow',period:6000}}],
+  ['Beat pulse',function(){retimed=performance.now();return{type:'pulse',c:color,bpm:bpm,t0:beat0}},true],
+  ['Two-colour beat',function(){retimed=performance.now();return{type:'alt',a:color,b:color2,bpm:bpm,t0:beat0}},true],
+  ['Breathe',function(){return{type:'breathe',c:color,period:4000}}],
+  ['Sparkle',function(){return{type:'sparkle',c:color}}],
+  ['Two-colour split',function(){return{type:'split',colors:[color,color2]}}],
+  ['Zone chase',function(){return{type:'chase',c:color,period:3000}}],
+  ['Miradore split',function(){return{type:'split',colors:[ORANGE,GOLD,TEAL]}}],
+  ['Miradore cycle',function(){return{type:'cycle',colors:[ORANGE,GOLD,TEAL,DEEP],period:8000}}],
+  ['Fire',function(){return{type:'shimmer',colors:[[255,30,0],[255,110,0],[255,200,40]],speed:260}}],
+  ['Ocean',function(){return{type:'shimmer',colors:[[0,30,160],[0,140,255],[0,220,200]],speed:1100}}],
+  ['Lighters',function(){return{type:'shimmer',colors:[[150,80,10],[255,170,60],[255,220,150]],speed:320}}]
+];
+var FADES=[['Snap',0],['1s fade',1000],['2s fade',2000]];
+var NAMES={idle:'Standby',color:'Colour',rainbow:'Rainbow wave',pulse:'Beat pulse',alt:'Two-colour beat',breathe:'Breathe',
+  sparkle:'Sparkle',chase:'Zone chase',cycle:'Cycle',split:'Split',shimmer:'Shimmer',text:'Text',countdown:'Countdown'};
+
+var ws,offset=0,zones=[],targets=[],color=ORANGE,color2=TEAL,fade=0,bpm=120,beat0=0,lastFx=null,liveEl=null,flashGap=334;
+function now(){return performance.now()+offset}
+function css(c){return'rgb('+Math.round(c[0])+','+Math.round(c[1])+','+Math.round(c[2])+')'}
+function contrast(c){return(c[0]*299+c[1]*587+c[2]*114)/1000>150?[0,0,0]:[255,255,255]}
+function cue(look){
+  if(!ws||ws.readyState!==1||document.body.classList.contains('off'))return false;
+  ws.send(JSON.stringify({t:'cue',zones:targets,look:look}));
+  return true;
+}
+function live(el){if(liveEl)liveEl.classList.remove('live');liveEl=el;if(el)el.classList.add('live')}
+function tapEvt(el,fn){el.addEventListener('pointerdown',function(e){if(e.button)return;e.preventDefault();fn(e)})}
+function swatches(){$('sw1').style.background=css(color);$('sw2').style.background=css(color2)}
+swatches();
+
+// colours
+COLORS.forEach(function(c){
+  var b=document.createElement('button');b.className='pad';b.textContent=c[0];
+  b.style.background=css(c[1]);
+  if(c[0]==='Blackout')b.style.borderColor='#263238';
+  else if(contrast(c[1])[0]===0){b.style.color='#000';b.style.textShadow='none'}
+  tapEvt(b,function(){
+    if(c[0]!=='Blackout'&&c[1]!==color){color2=color;color=c[1];swatches()}
+    if(cue({type:'color',c:c[1],fade:fade})){lastFx=null;live(b)}
+  });
+  $('colors').appendChild(b);
+});
+FADES.forEach(function(f,i){
+  var b=document.createElement('button');b.className='chip'+(i===0?' sel':'');b.textContent=f[0];
+  tapEvt(b,function(){fade=f[1];[].forEach.call($('fades').children,function(x){x.classList.remove('sel')});b.classList.add('sel')});
+  $('fades').appendChild(b);
+});
+FX.forEach(function(f){
+  var b=document.createElement('button');b.className='pad fx';b.textContent=f[0];
+  tapEvt(b,function(){if(cue(f[1]())){lastFx=f;live(b)}});
+  $('fx').appendChild(b);
+});
+
+// hits
+var lastHit=0;
+function hit(c){var t=performance.now();if(t-lastHit<flashGap)return;lastHit=t;cue({type:'flash',c:c,dur:700})}
+tapEvt($('flashW'),function(){hit([255,255,255])});
+tapEvt($('flashC'),function(){hit(color)});
+tapEvt($('standby'),function(){if(cue({type:'idle'})){lastFx=null;live(null)}});
+
+// tempo
+var taps=[],retime=null,retimed=-1e9;
+tapEvt($('tap'),function(){
+  var t=now();
+  if(taps.length&&t-taps[taps.length-1]>2500)taps=[];
+  taps.push(t);if(taps.length>8)taps.shift();
+  if(taps.length>=3){
+    bpm=Math.min(180,Math.max(30,Math.round(60000*(taps.length-1)/(t-taps[0]))));
+    beat0=t;$('bpm').textContent=bpm+' BPM';
+    // A running beat effect follows the new tempo, re-timed at most once every 2 seconds.
+    if(lastFx&&lastFx[2]&&!retime)retime=setTimeout(function(){retime=null;if(lastFx&&lastFx[2])cue(lastFx[1]())},
+      Math.max(0,2000-(performance.now()-retimed)));
+  }
+});
+
+// brightness
+var dimT=0,dimPending=null;
+function sendDim(){
+  dimPending=null;dimT=performance.now();
+  if(ws&&ws.readyState===1)ws.send(JSON.stringify({t:'master',v:$('dim').value/100}));
+}
+$('dim').addEventListener('input',function(){
+  $('dimLbl').textContent=$('dim').value+'%';
+  if(dimPending)return;
+  var wait=Math.max(0,200-(performance.now()-dimT));
+  dimPending=setTimeout(sendDim,wait);
+});
+
+// text and countdown
+function sendText(s){
+  s=String(s||'').trim();if(!s)return;
+  if(cue({type:'text',text:s.toUpperCase(),bg:color,fg:contrast(color)})){lastFx=null;live(null)}
+}
+tapEvt($('sendText'),function(){sendText($('text').value||$('text').placeholder)});
+$('text').addEventListener('keydown',function(e){if(e.key==='Enter')sendText($('text').value)});
+tapEvt($('sendCount'),function(){
+  if(cue({type:'countdown',secs:Number($('secs').value)||10,endText:$('endText').value||'GO',bg:color,fg:contrast(color)})){lastFx=null;live(null)}
+});
+
+// zones + live preview (a few sample phones per zone, drawn by the same engine the phones use)
+var zoneBtns={},prev=[],zoneLbl={};
+function drawZones(){
+  var z=$('zones');z.innerHTML='';zoneBtns={};
+  var all=document.createElement('button');all.className='chip';all.textContent='Everyone';
+  tapEvt(all,function(){targets=[];markZones()});z.appendChild(all);zoneBtns['']={b:all};
+  if(zones.length>1)zones.forEach(function(zn){
+    var b=document.createElement('button');b.className='chip';b.textContent=zn.name;
+    var s=document.createElement('small');s.textContent='0';b.appendChild(s);
+    tapEvt(b,function(){var i=targets.indexOf(zn.id);if(i>=0)targets.splice(i,1);else targets.push(zn.id);markZones()});
+    z.appendChild(b);zoneBtns[zn.id]={b:b,s:s};
+  });
+  targets=targets.filter(function(id){return zoneBtns[id]});
+  markZones();
+}
+function markZones(){
+  for(var id in zoneBtns)zoneBtns[id].b.classList.toggle('sel',id===''?targets.length===0:targets.indexOf(id)>=0);
+}
+function drawPreview(cues,master){
+  var p=$('preview');p.innerHTML='';prev=[];zoneLbl={};
+  zones.forEach(function(zn){
+    var d=document.createElement('div');d.className='pz';
+    var l=document.createElement('div');l.className='lbl';d.appendChild(l);
+    var row=document.createElement('div');row.className='ph';d.appendChild(row);
+    zoneLbl[zn.id]={el:l,name:zn.name,look:null,shown:''};
+    for(var i=0;i<8;i++){
+      var el=document.createElement('i');row.appendChild(el);
+      var eng=Looks.create({seed:(Math.random()*4294967296)>>>0,idx:zn.index,n:zones.length});
+      eng.setMaster(master,true);
+      if(cues[zn.id])eng.push(cues[zn.id]);
+      prev.push({zone:zn.id,eng:eng,el:el,bg:''});
+    }
+    if(cues[zn.id])zoneLbl[zn.id].look=cues[zn.id].look;
+    p.appendChild(d);
+  });
+}
+function frame(){
+  requestAnimationFrame(frame);
+  var t=now(),texts={};
+  for(var i=0;i<prev.length;i++){
+    var p=prev[i],f=p.eng.frame(t),bg=f.idle?'#11181b':css(f.c);
+    if(bg!==p.bg){p.bg=bg;p.el.style.background=bg}
+    texts[p.zone]=f.text;
+  }
+  for(var id in zoneLbl){
+    var z=zoneLbl[id],name=z.look?NAMES[z.look.type]||z.look.type:'Standby';
+    var s=z.name+'|'+name+'|'+(texts[id]||'');
+    if(s!==z.shown){
+      z.shown=s;z.el.textContent=z.name+' · ';
+      var b=document.createElement('b');b.textContent=name+(texts[id]?': '+texts[id]:'');z.el.appendChild(b);
+    }
+  }
+}
+requestAnimationFrame(frame);
+
+function drawQuick(list){
+  var q=$('quick');q.innerHTML='';
+  list.forEach(function(s){
+    var b=document.createElement('button');b.className='chip';b.textContent=s;
+    tapEvt(b,function(){sendText(s)});q.appendChild(b);
+  });
+}
+function drawQrs(){
+  var q=$('qrs');q.innerHTML='';
+  zones.forEach(function(zn){
+    var link=location.origin+'/'+(zones.length>1?'?z='+zn.id:'');
+    var d=document.createElement('div');d.className='qr';
+    var img=document.createElement('img');img.src='/qr?z='+zn.id;img.alt='QR code for '+zn.name;
+    var n=document.createElement('div');n.textContent=zn.name;
+    var a=document.createElement('a');a.href=link;a.textContent=link;a.target='_blank';a.rel='noopener';
+    d.appendChild(img);d.appendChild(n);d.appendChild(a);q.appendChild(d);
+  });
+}
+
+// connection
+var best=null,retryT=null;
+function setOnline(on,label){
+  document.body.classList.toggle('off',!on);
+  $('status').textContent=label||(on?'online':'offline');$('status').className=on?'on':'';
+}
+function syncBurst(s){
+  best=null;
+  for(var i=0;i<5;i++)setTimeout(function(){if(s===ws&&s.readyState===1)s.send(JSON.stringify({t:'sync',c:performance.now()}))},i*150);
+}
+function connect(){
+  clearTimeout(retryT);retryT=null;
+  var s=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws');
+  ws=s;
+  var giveUp=setTimeout(function(){if(s===ws&&s.readyState===0)s.onclose()},8000);
+  s.onopen=function(){clearTimeout(giveUp);s.send(JSON.stringify({t:'hello',role:'pad',key:key}));syncBurst(s)};
+  s.onmessage=function(e){
+    if(s!==ws)return;
+    var m;try{m=JSON.parse(e.data)}catch(_){return}
+    if(m.t==='welcome'){
+      zones=m.zones;flashGap=m.flashGap||334;lastStats=performance.now();setOnline(true);
+      drawZones();drawPreview(m.cues||{},m.master);drawQuick(m.quick||[]);drawQrs();
+      $('dim').value=Math.round(m.master*100);$('dimLbl').textContent=$('dim').value+'%';
+      if(!beat0)beat0=now();
+    }
+    else if(m.t==='cue'){
+      prev.forEach(function(p){if(m.zones.indexOf(p.zone)>=0)p.eng.push(m)});
+      if(m.look.type!=='flash')m.zones.forEach(function(id){if(zoneLbl[id])zoneLbl[id].look=m.look.type==='idle'?null:m.look});
+    }
+    else if(m.t==='master'){
+      prev.forEach(function(p){p.eng.setMaster(m.v)});
+      if(!dimPending&&document.activeElement!==$('dim')){$('dim').value=Math.round(m.v*100);$('dimLbl').textContent=$('dim').value+'%'}
+    }
+    else if(m.t==='stats'){
+      $('total').textContent=m.total.toLocaleString();$('peak').textContent='peak '+m.peak.toLocaleString();
+      for(var id in m.zones)if(zoneBtns[id]&&zoneBtns[id].s)zoneBtns[id].s.textContent=m.zones[id];
+      lastStats=performance.now();
+    }
+    else if(m.t==='sync'){var t=performance.now(),rtt=t-m.c;if(!best||rtt<best){best=rtt;offset=m.s-(m.c+rtt/2)}}
+    else if(m.t==='denied'){sessionStorage.removeItem('padKey');s.onclose=null;setOnline(false,'wrong key');
+      $('offline').textContent='Wrong operator key. Reload the page with the correct link.'}
+  };
+  s.onclose=s.onerror=function(){
+    if(s!==ws)return;
+    clearTimeout(giveUp);ws=null;s.onclose=s.onerror=s.onmessage=null;try{s.close()}catch(_){}
+    setOnline(false);if(!retryT)retryT=setTimeout(connect,800);
+  };
+}
+// The server sends stats every second; silence means the link is dead even if the socket has not noticed.
+var lastStats=performance.now();
+setInterval(function(){
+  if(ws&&ws.readyState===1&&performance.now()-lastStats>5000&&$('status').className==='on'){lastStats=performance.now();ws.onclose()}
+},1000);
+setInterval(function(){if(ws&&ws.readyState===1)syncBurst(ws)},60000);
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'&&(!ws||ws.readyState>1)){clearTimeout(retryT);retryT=null;connect()}});
+connect();
+})();
+</script>
+</body>
+</html>
