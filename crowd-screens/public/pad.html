@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0B1215">
+<title>Miradore Crowd Screens Pad</title>
+<style>
+  :root{--bg:#0B1215;--panel:#141d21;--line:#263238;--txt:#e8eef0;--mute:#8a989c;--orange:#FF6B35;--gold:#C9A84C;--teal:#00BCB0}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+  header{display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  header b{letter-spacing:.25em;color:var(--orange);font-size:15px}
+  header span.t{color:var(--mute);font-size:14px}
+  #status{margin-left:auto;font-size:13px;padding:4px 10px;border-radius:99px;background:#3a1a12;color:#ff9c7a}
+  #status.on{background:#0d3330;color:var(--teal)}
+  #count{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+  #count small{font-size:12px;color:var(--mute);font-weight:500;margin-left:4px}
+  main{padding:14px 16px 40px;max-width:1100px;margin:0 auto}
+  h2{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--mute);margin:18px 0 8px;font-weight:600}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .chip{padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--txt);font-size:14px;font-weight:600}
+  .chip.sel{border-color:var(--orange);background:#2a1811;color:#fff}
+  .chip small{color:var(--mute);font-weight:500;margin-left:6px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
+  .pad{height:72px;border-radius:12px;border:2px solid transparent;font-size:13px;font-weight:700;color:#fff;
+    text-shadow:0 1px 2px rgba(0,0,0,.6);display:flex;align-items:flex-end;padding:8px;background:var(--panel)}
+  .pad.fx{border-color:var(--line);align-items:center;justify-content:center;text-align:center;text-shadow:none}
+  .pad:active{transform:scale(.96)}
+  .pad.live{border-color:#fff;box-shadow:0 0 0 2px var(--orange)}
+  input{background:var(--panel);border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:12px;font-size:16px;
+    -webkit-user-select:text;user-select:text;min-width:0}
+  button.act{background:var(--orange);color:var(--bg);border:0;border-radius:10px;padding:12px 18px;font-weight:800;font-size:14px}
+  #tap{background:var(--teal)}
+  #bpm{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;min-width:90px}
+  .qr{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center;width:190px}
+  .qr img{width:100%;background:#fff;border-radius:6px;display:block}
+  .qr div{font-size:13px;font-weight:700;margin-top:6px}
+  .qr a{font-size:11px;color:var(--mute);word-break:break-all}
+  details summary{cursor:pointer;color:var(--mute);font-size:13px;margin-top:22px}
+</style>
+</head>
+<body>
+<header>
+  <b>MIRADORE</b><span class="t">Crowd Screens</span>
+  <div id="count">0<small>phones</small></div>
+  <div id="status">offline</div>
+</header>
+<main>
+  <h2>Send to</h2>
+  <div class="row" id="zones"></div>
+
+  <h2>Colours <span id="fadeLbl"></span></h2>
+  <div class="row" id="fades" style="margin-bottom:8px"></div>
+  <div class="grid" id="colors"></div>
+
+  <h2>Effects (use the last colour tapped)</h2>
+  <div class="grid" id="fx"></div>
+
+  <h2>Tempo</h2>
+  <div class="row">
+    <button class="act" id="tap">TAP</button><div id="bpm">120 BPM</div>
+    <span style="color:var(--mute);font-size:13px">Tap along with the music, then press Beat pulse.</span>
+  </div>
+
+  <h2>Text</h2>
+  <div class="row">
+    <input id="text" maxlength="24" placeholder="WELCOME" style="flex:1">
+    <button class="act" id="sendText">Send text</button>
+  </div>
+
+  <h2>Countdown</h2>
+  <div class="row">
+    <input id="secs" type="number" min="1" max="600" value="10" style="width:90px">
+    <span style="color:var(--mute);font-size:13px">seconds, then</span>
+    <input id="endText" maxlength="12" value="GO!" style="width:130px">
+    <button class="act" id="sendCount">Start countdown</button>
+  </div>
+
+  <details>
+    <summary>QR codes for the audience</summary>
+    <div class="row" id="qrs" style="margin-top:10px;align-items:flex-start"></div>
+  </details>
+</main>
+<script>
+(function(){
+'use strict';
+var $=function(id){return document.getElementById(id)};
+var qs=new URLSearchParams(location.search);
+var key=qs.get('key')||sessionStorage.getItem('padKey')||prompt('Operator key')||'';
+sessionStorage.setItem('padKey',key);
+
+var COLORS=[['Red',[255,0,0]],['Orange',[255,107,53]],['Gold',[255,190,40]],['Yellow',[255,235,0]],['Lime',[150,255,0]],
+  ['Green',[0,255,60]],['Teal',[0,188,176]],['Cyan',[0,230,255]],['Blue',[0,60,255]],['Purple',[140,40,255]],
+  ['Magenta',[255,0,200]],['Pink',[255,110,170]],['Warm white',[255,214,170]],['White',[255,255,255]],['Blackout',[0,0,0]]];
+var FX=[
+  ['Rainbow wave',function(){return{type:'rainbow',period:6000}}],
+  ['Beat pulse',function(){return{type:'pulse',c:color,bpm:bpm,t0:beat0}}],
+  ['Sparkle',function(){return{type:'sparkle',c:color}}],
+  ['Zone chase',function(){return{type:'chase',c:color,period:3000}}],
+  ['Miradore cycle',function(){return{type:'cycle',colors:[[255,107,53],[201,168,76],[0,188,176],[0,95,88]],period:8000}}]
+];
+var FADES=[['Snap',0],['1s fade',1000],['2s fade',2000]];
+
+var ws,offset=0,zones=[],targets=[],color=[255,107,53],fade=0,bpm=120,beat0=0,lastFx=null,liveEl=null;
+function now(){return performance.now()+offset}
+function contrast(c){return(c[0]*299+c[1]*587+c[2]*114)/1000>150?[0,0,0]:[255,255,255]}
+function cue(look){
+  if(!ws||ws.readyState!==1)return;
+  ws.send(JSON.stringify({t:'cue',zones:targets,look:look}));
+}
+function live(el){if(liveEl)liveEl.classList.remove('live');liveEl=el;if(el)el.classList.add('live')}
+function tapEvt(el,fn){el.addEventListener('pointerdown',function(e){e.preventDefault();fn(e)})}
+
+// colours
+COLORS.forEach(function(c){
+  var b=document.createElement('button');b.className='pad';b.textContent=c[0];
+  b.style.background='rgb('+c[1].join(',')+')';
+  if(c[0]==='Blackout'){b.style.background='#000';b.style.borderColor='#263238'}
+  if(contrast(c[1])[0]===0){b.style.color='#000';b.style.textShadow='none'}
+  tapEvt(b,function(){if(c[0]!=='Blackout')color=c[1];lastFx=null;live(b);cue({type:'color',c:c[1],fade:fade})});
+  $('colors').appendChild(b);
+});
+FADES.forEach(function(f,i){
+  var b=document.createElement('button');b.className='chip'+(i===0?' sel':'');b.textContent=f[0];
+  tapEvt(b,function(){fade=f[1];[].forEach.call($('fades').children,function(x){x.classList.remove('sel')});b.classList.add('sel')});
+  $('fades').appendChild(b);
+});
+FX.forEach(function(f){
+  var b=document.createElement('button');b.className='pad fx';b.textContent=f[0];
+  tapEvt(b,function(){lastFx=f;live(b);cue(f[1]())});
+  $('fx').appendChild(b);
+});
+
+// tempo
+var taps=[];
+tapEvt($('tap'),function(){
+  var t=now();
+  if(taps.length&&t-taps[taps.length-1]>2500)taps=[];
+  taps.push(t);if(taps.length>6)taps.shift();
+  if(taps.length>=3){
+    bpm=Math.min(180,Math.max(30,Math.round(60000*(taps.length-1)/(t-taps[0]))));
+    beat0=t;$('bpm').textContent=bpm+' BPM';
+    if(lastFx&&lastFx[0]==='Beat pulse')cue(lastFx[1]());
+  }
+});
+
+// text and countdown
+tapEvt($('sendText'),function(){
+  var s=$('text').value.trim()||$('text').placeholder;lastFx=null;live(null);
+  cue({type:'text',text:s.toUpperCase(),bg:color,fg:contrast(color)});
+});
+tapEvt($('sendCount'),function(){
+  lastFx=null;live(null);
+  cue({type:'countdown',secs:Number($('secs').value)||10,endText:$('endText').value||'GO!',bg:color,fg:contrast(color)});
+});
+
+// zones
+function drawZones(counts){
+  var z=$('zones');z.innerHTML='';
+  var all=document.createElement('button');all.className='chip'+(targets.length===0?' sel':'');all.textContent='Everyone';
+  tapEvt(all,function(){targets=[];drawZones(counts)});z.appendChild(all);
+  if(zones.length<2)return;
+  zones.forEach(function(zn){
+    var b=document.createElement('button');b.className='chip'+(targets.indexOf(zn.id)>=0?' sel':'');
+    b.innerHTML='';b.textContent=zn.name;
+    var s=document.createElement('small');s.textContent=counts?counts[zn.id]||0:0;b.appendChild(s);
+    tapEvt(b,function(){var i=targets.indexOf(zn.id);if(i>=0)targets.splice(i,1);else targets.push(zn.id);drawZones(counts)});
+    z.appendChild(b);
+  });
+}
+function drawQrs(){
+  var q=$('qrs');q.innerHTML='';
+  zones.forEach(function(zn){
+    var link=location.origin+'/?z='+zn.id;
+    var d=document.createElement('div');d.className='qr';
+    var img=document.createElement('img');img.src='/qr?z='+zn.id;img.alt='QR code for '+zn.name;
+    var n=document.createElement('div');n.textContent=zn.name;
+    var a=document.createElement('a');a.href=link;a.textContent=link;a.target='_blank';
+    d.appendChild(img);d.appendChild(n);d.appendChild(a);q.appendChild(d);
+  });
+}
+
+// connection
+var best=null,lastCounts=null;
+function connect(){
+  ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws');
+  ws.onopen=function(){
+    ws.send(JSON.stringify({t:'hello',role:'pad',key:key}));
+    best=null;for(var i=0;i<5;i++)setTimeout(function(){if(ws.readyState===1)ws.send(JSON.stringify({t:'sync',c:performance.now()}))},i*150);
+  };
+  ws.onmessage=function(e){
+    var m=JSON.parse(e.data);
+    if(m.t==='welcome'){zones=m.zones;$('status').textContent='online';$('status').className='on';drawZones(lastCounts);drawQrs();if(!beat0)beat0=now()}
+    else if(m.t==='stats'){lastCounts=m.zones;$('count').firstChild.nodeValue=m.total.toLocaleString();drawZones(m.zones)}
+    else if(m.t==='sync'){var t=performance.now(),rtt=t-m.c;if(!best||rtt<best){best=rtt;offset=m.s-(m.c+rtt/2)}}
+    else if(m.t==='denied'){sessionStorage.removeItem('padKey');$('status').textContent='wrong key';ws.onclose=null}
+  };
+  ws.onclose=function(){$('status').textContent='offline';$('status').className='';setTimeout(connect,1000)};
+}
+connect();
+})();
+</script>
+</body>
+</html>
