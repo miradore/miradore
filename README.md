@@ -7,7 +7,7 @@
 
 <p align="center">
   <a href="https://miradore.ae"><img src="https://img.shields.io/badge/miradore.ae-FF6B35?style=for-the-badge&logo=safari&logoColor=white" alt="Website" /></a>
-  <img src="https://img.shields.io/badge/20+%20Years-C9A84C?style=for-the-badge" alt="20+ Years" />
+  <img src="https://img.shields.io/badge/Since%202007-C9A84C?style=for-the-badge" alt="Since 2007" />
   <img src="https://img.shields.io/badge/500+%20Events-00BCB0?style=for-the-badge" alt="500+ Events" />
   <img src="https://img.shields.io/badge/3%20Countries-005F58?style=for-the-badge&logoColor=white" alt="3 Countries" />
 </p>
@@ -16,7 +16,7 @@
 
 ### Who We Are
 
-Miradore Productions doesn't decorate events or produce content — we design the conditions under which people **feel something**. From diplomatic protocol to 20,000 screaming fans, the work is the proof and the experience is the product.
+Miradore Productions doesn't decorate events or produce content. We design the conditions under which people **feel something**. From diplomatic protocol to 20,000 screaming fans, the work is the proof and the experience is the product.
 
 ---
 
@@ -28,7 +28,7 @@ Miradore Productions doesn't decorate events or produce content — we design th
 | 🎨 | **Creative Agency** | Branding, animation, social, web & cinematic content |
 | 💍 | **Weddings** | Premium wedding production |
 | 🔮 | **Labs Immersive** | Projection mapping, holographic 3D, SMD tunnels, drone shows |
-| 🎸 | **ROX** | Proprietary concert series |
+| 🎸 | **ROX** | Jazz's concert series, designed and produced by Miradore |
 
 ---
 
@@ -39,18 +39,18 @@ Miradore Productions doesn't decorate events or produce content — we design th
 | Sovereign & Diplomatic | 56 nations | OIC 48th Council of Foreign Ministers |
 | Global Institutional | PM-level | World Bank Summits |
 | Multi-year Corporate | 6+ years | S&P Global · Jazz/Veon |
-| Cultural & Experiential | 34,000 attendees | ROX Concert Series |
+| Cultural & Experiential | 40,000 attendees | ROX: 5 shows in 3 cities |
 
 ---
 
 ### Our Values
 
 ```
- ◈  Precision is beauty — Every detail is a decision
- ◈  Felt, not seen — The best design disappears into experience
- ◈  Range is rare — From diplomatic protocol to concert arenas
- ◈  Craft over trend — We build systems, not moments
- ◈  Silence speaks — Restraint is the hardest discipline
+ ◈  Precision is beauty: Every detail is a decision
+ ◈  Felt, not seen: The best design disappears into experience
+ ◈  Range is rare: From diplomatic protocol to concert arenas
+ ◈  Craft over trend: We build systems, not moments
+ ◈  Silence speaks: Restraint is the hardest discipline
 ```
 
 ---
@@ -71,7 +71,7 @@ Miradore Productions doesn't decorate events or produce content — we design th
 
 <p align="center">
   <em>“The work is the proof. The experience is the product.”</em><br/><br/>
-  <strong>Teepu Malik</strong> — CEO & Co-Founder<br/>
+  <strong>Teepu Malik</strong>, CEO & Co-Founder<br/>
   <a href="mailto:teepu@miradore.ae">teepu@miradore.ae</a> · <a href="https://miradore.ae">miradore.ae</a>
 </p>
 

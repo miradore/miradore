@@ -78,15 +78,15 @@ const OUT = process.argv[2];
   await pad.fill('#secs', '3'); await press('Start countdown'); await pad.waitForTimeout(1200);
   assert.deepStrictEqual([await txt(ph1), await txt(ph2)], ['3', '3']);
   await pad.waitForTimeout(3200);
-  assert.deepStrictEqual([await txt(ph1), await txt(ph2)], ['GO!', 'GO!']);
+  assert.deepStrictEqual([await txt(ph1), await txt(ph2)], ['GO', 'GO']);
 
   // A phone that joins late shows the live look straight away.
   const ph3 = await open(devices['iPhone 13'], '/?z=right'); await ph3.click('#go'); await ph3.waitForTimeout(1200);
-  assert.strictEqual(await txt(ph3), 'GO!');
+  assert.strictEqual(await txt(ph3), 'GO');
 
   // A second pad opens already showing the live state.
   const pad2 = await open({ viewport: { width: 900, height: 700 } }, '/pad?key=testkey'); await pad2.waitForTimeout(1200);
-  assert.ok((await pad2.textContent('#preview')).includes('Countdown: GO!'));
+  assert.ok((await pad2.textContent('#preview')).includes('Countdown: GO'));
 
   // Wrong key
   const bad = await open({}, '/pad?key=nope'); await bad.waitForTimeout(2000);

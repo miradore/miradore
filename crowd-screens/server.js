@@ -19,7 +19,7 @@ const MAX_CLIENTS = Number(process.env.MAX_CLIENTS) || 20000;
 const PUBLIC_URL = (process.env.PUBLIC_URL || '').replace(/\/$/, '');
 const OPERATOR_KEY = process.env.OPERATOR_KEY || crypto.randomBytes(6).toString('hex');
 const SHOW_NAME = (process.env.SHOW_NAME || '').slice(0, 40);
-const QUICK_TEXTS = (process.env.QUICK_TEXTS || 'MAKE SOME NOISE,HANDS UP,ONE MORE!,THANK YOU')
+const QUICK_TEXTS = (process.env.QUICK_TEXTS || 'MAKE SOME NOISE,HANDS UP,ONE MORE,THANK YOU')
   .split(',').map((s) => s.trim().slice(0, 24)).filter(Boolean).slice(0, 8);
 const STATE_FILE = process.env.STATE_FILE || path.join(os.tmpdir(), `crowd-screens-${PORT}.json`);
 const STATE_MAX_AGE_MS = 6 * 3600 * 1000;
@@ -75,7 +75,7 @@ function cleanLook(l, at) {
     case 'countdown':
       return {
         type: 'countdown', end: at + num(l.secs, 1, 600, 10) * 1000,
-        endText: str(l.endText, 12) || 'GO!', fg: rgb(l.fg, [0, 0, 0]), bg: rgb(l.bg),
+        endText: str(l.endText, 12) || 'GO', fg: rgb(l.fg, [0, 0, 0]), bg: rgb(l.bg),
       };
     default: return null;
   }

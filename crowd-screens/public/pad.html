@@ -101,7 +101,7 @@
   <div class="row">
     <input id="secs" type="number" min="1" max="600" value="10" style="width:90px">
     <span class="hint">seconds, then</span>
-    <input type="text" id="endText" maxlength="12" value="GO!" style="width:130px" autocomplete="off">
+    <input type="text" id="endText" maxlength="12" value="GO" style="width:130px" autocomplete="off">
     <button class="act" id="sendCount">Start countdown</button>
   </div>
 
@@ -221,7 +221,7 @@ function sendText(s){
 tapEvt($('sendText'),function(){sendText($('text').value||$('text').placeholder)});
 $('text').addEventListener('keydown',function(e){if(e.key==='Enter')sendText($('text').value)});
 tapEvt($('sendCount'),function(){
-  if(cue({type:'countdown',secs:Number($('secs').value)||10,endText:$('endText').value||'GO!',bg:color,fg:contrast(color)})){lastFx=null;live(null)}
+  if(cue({type:'countdown',secs:Number($('secs').value)||10,endText:$('endText').value||'GO',bg:color,fg:contrast(color)})){lastFx=null;live(null)}
 });
 
 // zones + live preview (a few sample phones per zone, drawn by the same engine the phones use)
